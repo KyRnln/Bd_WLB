@@ -54,6 +54,7 @@ Browser TEST/
 ## 调试提示
 - 弹窗：右键扩展图标 →「检查弹出内容」查看 `popup.js` 日志。
 - 浮窗：页面 DevTools Console 查看 `content.js` 日志，必要时重新加载扩展。
+## 测试commit
 
 ## 许可证
 MIT License
