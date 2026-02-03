@@ -1,0 +1,66 @@
+{
+  "manifest_version": 3,
+  "name": "商务WLB插件",
+  "version": "1.0.6.1",
+  "description": "工作是为了更好的生活",
+  "icons": {
+    "16": "icon16.png",
+    "32": "icon32.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "downloads"
+  ],
+  "host_permissions": [
+    "https://*/*",
+    "http://*/*",
+    "https://*.tiktok.com/*",
+    "https://ads.tiktok.com/*",
+    "https://seller.tiktokshopglobalselling.com/*",
+    "https://affiliate.tiktokshopglobalselling.com/*",
+    "*://*/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.tiktok.com/*",
+        "https://ads.tiktok.com/*",
+        "https://seller.tiktokshopglobalselling.com/*",
+        "https://affiliate.tiktokshopglobalselling.com/*",
+        "*://*/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "商务WLB插件",
+    "default_icon": {
+      "16": "icon16.png",
+      "32": "icon32.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["page_bridge.js"],
+      "matches": [
+        "https://*.tiktok.com/*",
+        "https://ads.tiktok.com/*",
+        "https://seller.tiktokshopglobalselling.com/*",
+        "https://affiliate.tiktokshopglobalselling.com/*",
+        "*://*/*"
+      ]
+    }
+  ]
+}
