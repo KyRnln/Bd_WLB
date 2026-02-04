@@ -461,12 +461,6 @@
 
       if (ids.has(norm)) {
         node.classList.add(CREATOR_HIT_CLASS);
-        const creator = getCreatorById(norm);
-        let title = `达人ID: ${norm}`;
-        if (creator && creator.remark) {
-          title += `\n备注: ${creator.remark}`;
-        }
-        node.title = title;
       }
     });
   }
@@ -593,6 +587,28 @@
     };
   }
 
+
+  function updateTooltipContent() {
+    // 查找所有arco tooltip内容元素
+    const tooltipContents = document.querySelectorAll('.arco-tooltip-content-inner');
+
+    tooltipContents.forEach(tooltipContent => {
+      const text = (tooltipContent.textContent || '').trim();
+      const norm = normalizeCreatorId(text);
+
+      // 检查这个tooltip是否包含已保存的达人ID
+      if (norm && getCreatorIdSet().has(norm)) {
+        const creator = getCreatorById(norm);
+        if (creator && creator.remark) {
+          // 只显示备注内容，不显示达人ID
+          if (tooltipContent.textContent !== creator.remark) {
+            tooltipContent.textContent = creator.remark;
+          }
+        }
+      }
+    });
+  }
+
   // 防抖版本的页面备注更新函数
   const debouncedUpdateCreatorRemarks = debounce(updateCreatorRemarksOnPage, 500);
 
@@ -641,24 +657,6 @@
     scheduleHighlightCreators();
   }
 
-  function updateTooltipContent() {
-    // 查找arco tooltip内容元素
-    const tooltipContents = document.querySelectorAll('.arco-tooltip-content-inner');
-    tooltipContents.forEach(tooltipContent => {
-      const text = (tooltipContent.textContent || '').trim();
-      const norm = normalizeCreatorId(text);
-      if (norm && getCreatorIdSet().has(norm)) {
-        const creator = getCreatorById(norm);
-        let displayText = norm;
-        if (creator && creator.remark) {
-          displayText += `\n备注: ${creator.remark}`;
-        }
-        if (tooltipContent.textContent !== displayText) {
-          tooltipContent.textContent = displayText;
-        }
-      }
-    });
-  }
 
   function updateCreatorRemarksOnPage() {
     try {
