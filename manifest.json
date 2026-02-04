@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "商务WLB插件",
-  "version": "1.0.7.1",
+  "version": "1.1",
   "description": "工作是为了更好的生活",
   "icons": {
     "16": "icon16.png",
