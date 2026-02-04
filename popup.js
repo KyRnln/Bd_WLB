@@ -39,6 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const creatorEditId = document.getElementById('creatorEditId');
   const creatorEditCid = document.getElementById('creatorEditCid');
   const creatorEditRegion = document.getElementById('creatorEditRegion');
+  const creatorEditRemark = document.getElementById('creatorEditRemark');
   const saveCreatorEditBtn = document.getElementById('saveCreatorEditBtn');
   const cancelCreatorEditBtn = document.getElementById('cancelCreatorEditBtn');
   const deleteCreatorBtn = document.getElementById('deleteCreatorBtn');
@@ -59,7 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let tags = [];
   let activeTagId = '__ALL__';
   let editingId = null;
-  let creators = []; // {id: string, cid?: string, region?: string}
+  let creators = []; // {id: string, cid?: string, region?: string, remark?: string}
   let searchResults = [];
   let editingCreatorIndex = -1;
   const DEFAULT_TAG_ID = 'default';
@@ -337,6 +338,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <div style="font-size:11px;color:#666;margin-top:2px;">
             ${creator.cid ? `CID: ${escapeHtml(creator.cid)}` : '无CID'}
             ${creator.region ? ` • REG: ${escapeHtml(creator.region)}` : ''}
+            ${creator.remark ? ` • 备注: ${escapeHtml(creator.remark)}` : ''}
           </div>
         </div>
         <div style="display:flex;gap:4px;">
@@ -370,11 +372,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const firstRow = parseCsvLine(lines[0]);
     const headerKeys = firstRow.map(normalizeHeaderKey);
-    const hasHeader = headerKeys.includes('creator_id') || headerKeys.includes('creator_cid') || headerKeys.includes('id') || headerKeys.includes('cid');
+    const hasHeader = headerKeys.includes('creator_id') || headerKeys.includes('creator_cid') || headerKeys.includes('id') || headerKeys.includes('cid') || headerKeys.includes('remark');
 
     let idIdx = 0;
     let cidIdx = 1;
     let regionIdx = 2;
+    let remarkIdx = 3;
     let start = 0;
     if (hasHeader) {
       start = 1;
@@ -389,6 +392,9 @@ document.addEventListener('DOMContentLoaded', () => {
        const idxRegion = headerKeys.indexOf('region_code');
        const idxRegion2 = headerKeys.indexOf('region');
        regionIdx = idxRegion >= 0 ? idxRegion : (idxRegion2 >= 0 ? idxRegion2 : 2);
+
+       const idxRemark = headerKeys.indexOf('remark');
+       remarkIdx = idxRemark >= 0 ? idxRemark : 3;
     }
 
     const out = [];
@@ -397,9 +403,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const id = (cols[idIdx] || '').trim();
       const cid = (cols[cidIdx] || '').trim();
       const region = (cols[regionIdx] || '').trim();
+      const remark = (cols[remarkIdx] || '').trim();
       if (!id) continue;
       const item = cid ? { id, cid } : { id };
       if (region) item.region = region;
+      if (remark) item.remark = remark;
       out.push(item);
     }
     return out;
@@ -415,9 +423,11 @@ document.addEventListener('DOMContentLoaded', () => {
       seen.add(key);
       const cid = c.cid ? String(c.cid).trim() : '';
       const region = c.region ? String(c.region).trim() : '';
+      const remark = c.remark ? String(c.remark).trim() : '';
       const item = { id: key };
       if (cid) item.cid = cid;
       if (region) item.region = region;
+      if (remark) item.remark = remark;
       res.push(item);
     }
     return res;
@@ -447,7 +457,8 @@ document.addEventListener('DOMContentLoaded', () => {
     searchResults = creators.filter(creator =>
       creator.id.toLowerCase().includes(lowerQuery) ||
       (creator.cid && creator.cid.toLowerCase().includes(lowerQuery)) ||
-      (creator.region && creator.region.toLowerCase().includes(lowerQuery))
+      (creator.region && creator.region.toLowerCase().includes(lowerQuery)) ||
+      (creator.remark && creator.remark.toLowerCase().includes(lowerQuery))
     );
   }
 
@@ -461,6 +472,7 @@ document.addEventListener('DOMContentLoaded', () => {
     creatorEditId.value = creator.id;
     creatorEditCid.value = creator.cid || '';
     creatorEditRegion.value = creator.region || '';
+    creatorEditRemark.value = creator.remark || '';
     creatorEditDialog && creatorEditDialog.classList.add('show');
   }
 
@@ -474,11 +486,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const cid = creatorEditCid.value.trim();
     const region = creatorEditRegion.value.trim();
+    const remark = creatorEditRemark.value.trim();
 
     creators[editingCreatorIndex] = {
       id: creators[editingCreatorIndex].id,
       cid: cid || undefined,
-      region: region || undefined
+      region: region || undefined,
+      remark: remark || undefined
     };
 
     await new Promise(resolve => storageAPI.set({ savedCreators: creators }, resolve));
@@ -755,7 +769,7 @@ document.addEventListener('DOMContentLoaded', () => {
     e.target.value = '';
   });
   downloadCreatorTemplateBtn && downloadCreatorTemplateBtn.addEventListener('click', () => {
-    const template = 'creator_id,creator_cid,region_code\\n';
+    const template = 'creator_id,creator_cid,region_code,remark\\n';
     downloadTextFile('creator_template.csv', template);
     showStatus('✅ 已下载模板', 'success');
   });

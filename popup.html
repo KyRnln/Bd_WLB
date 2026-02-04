@@ -231,7 +231,7 @@
         <div style="font-size:12px;color:#666;margin-bottom:6px;">搜索结果：</div>
         <div id="creatorSearchList" style="max-height:120px;overflow-y:auto;border:1px solid #eee;border-radius:6px;background:#fafafa;width:100%;box-sizing:border-box;"></div>
       </div>
-      <div class="muted">模板字段：creator_id（必填）、creator_cid（选填）、region_code（选填，例如：MY/TH/ID/SG/PH/VN）。</div>
+      <div class="muted">模板字段：creator_id（必填）、creator_cid（选填）、region_code（选填，例如：MY/TH/ID/SG/PH/VN）、remark（选填，备注信息）。</div>
     </div>
     <div style="margin-top:16px;padding:14px;border:1px solid #eee;border-radius:10px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.05);box-sizing:border-box;">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
@@ -293,6 +293,8 @@
       <input id="creatorEditCid" type="text" placeholder="输入达人CID" />
       <label for="creatorEditRegion">地区代码（选填）</label>
       <input id="creatorEditRegion" type="text" placeholder="例如：MY/TH/ID/SG/PH/VN" />
+      <label for="creatorEditRemark">备注信息（选填）</label>
+      <textarea id="creatorEditRemark" placeholder="输入达人的备注信息" style="min-height: 60px; resize: vertical;"></textarea>
       <div class="footer">
         <button id="cancelCreatorEditBtn" style="background:#777;">取消</button>
         <button id="saveCreatorEditBtn">保存</button>

@@ -423,6 +423,16 @@
     return ids;
   }
 
+  function getCreatorById(normalizedId) {
+    if (!Array.isArray(creators)) return null;
+    for (const c of creators) {
+      const raw = c && c.id ? String(c.id) : '';
+      const norm = normalizeCreatorId(raw);
+      if (norm === normalizedId) return c;
+    }
+    return null;
+  }
+
   function highlightCreators() {
     const ids = getCreatorIdSet();
     if (!ids.size) return;
@@ -451,7 +461,12 @@
 
       if (ids.has(norm)) {
         node.classList.add(CREATOR_HIT_CLASS);
-        node.title = '匹配达人ID';
+        const creator = getCreatorById(norm);
+        let title = `达人ID: ${norm}`;
+        if (creator && creator.remark) {
+          title += `\n备注: ${creator.remark}`;
+        }
+        node.title = title;
       }
     });
   }
@@ -565,16 +580,154 @@
     }
   }
 
+  // 防抖函数，避免过度频繁调用
+  function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+      const later = () => {
+        clearTimeout(timeout);
+        func(...args);
+      };
+      clearTimeout(timeout);
+      timeout = setTimeout(later, wait);
+    };
+  }
+
+  // 防抖版本的页面备注更新函数
+  const debouncedUpdateCreatorRemarks = debounce(updateCreatorRemarksOnPage, 500);
+
   function setupCreatorObserver() {
     if (creatorObserver) creatorObserver.disconnect();
     // document_start 时 body 可能还不存在；用 documentElement 保证能挂上 observer
     const root = document.documentElement || document.body;
     if (!root) return;
-    creatorObserver = new MutationObserver(() => {
+
+    // 统一的observer，只监听必要的DOM变化
+    creatorObserver = new MutationObserver((mutations) => {
+      let shouldUpdateRemarks = false;
+
+      // 检查是否有新增的达人ID元素或相关DOM变化
+      for (const mutation of mutations) {
+        if (mutation.type === 'childList') {
+          // 检查是否新增了包含达人信息的元素
+          const hasNewCreatorElements = Array.from(mutation.addedNodes).some(node => {
+            if (node.nodeType === Node.ELEMENT_NODE) {
+              return node.querySelector && (
+                node.querySelector('[data-e2e="8a94f9b6-1a48-fe57"]') ||
+                node.matches && node.matches('[data-e2e="8a94f9b6-1a48-fe57"]')
+              );
+            }
+            return false;
+          });
+
+          if (hasNewCreatorElements) {
+            shouldUpdateRemarks = true;
+            break;
+          }
+        }
+      }
+
+      // 总是更新高亮和tooltip
       scheduleHighlightCreators();
+      updateTooltipContent();
+
+      // 只在必要时更新页面备注
+      if (shouldUpdateRemarks) {
+        debouncedUpdateCreatorRemarks();
+      }
     });
+
     creatorObserver.observe(root, { childList: true, subtree: true });
     scheduleHighlightCreators();
+  }
+
+  function updateTooltipContent() {
+    // 查找arco tooltip内容元素
+    const tooltipContents = document.querySelectorAll('.arco-tooltip-content-inner');
+    tooltipContents.forEach(tooltipContent => {
+      const text = (tooltipContent.textContent || '').trim();
+      const norm = normalizeCreatorId(text);
+      if (norm && getCreatorIdSet().has(norm)) {
+        const creator = getCreatorById(norm);
+        let displayText = norm;
+        if (creator && creator.remark) {
+          displayText += `\n备注: ${creator.remark}`;
+        }
+        if (tooltipContent.textContent !== displayText) {
+          tooltipContent.textContent = displayText;
+        }
+      }
+    });
+  }
+
+  function updateCreatorRemarksOnPage() {
+    try {
+      // 查找包含达人ID的元素
+      const creatorIdElements = document.querySelectorAll('[data-e2e="8a94f9b6-1a48-fe57"]');
+
+      if (creatorIdElements.length === 0) {
+        return; // 没有找到相关元素，直接返回
+      }
+
+      creatorIdElements.forEach(element => {
+        const creatorId = (element.textContent || '').trim();
+        const norm = normalizeCreatorId(creatorId);
+
+        if (norm && getCreatorIdSet().has(norm)) {
+          const creator = getCreatorById(norm);
+
+          if (creator && creator.remark) {
+            // 检查是否已经添加了备注显示
+            let remarkElement = element.parentNode.querySelector('.creator-page-remark-display');
+
+            if (!remarkElement) {
+              // 创建备注显示元素
+              remarkElement = document.createElement('div');
+              remarkElement.className = 'creator-page-remark-display';
+              remarkElement.style.cssText = `
+                margin-top: 8px;
+                padding: 8px 12px;
+                background: #f0f7ff;
+                border: 1px solid #d1e9ff;
+                border-radius: 6px;
+                font-size: 12px;
+                color: #1d5fff;
+                font-weight: 500;
+                word-wrap: break-word;
+                white-space: pre-wrap;
+                text-align: center;
+                max-width: 300px;
+              `;
+
+              // 在达人ID元素之后插入备注元素
+              if (element.parentNode) {
+                element.parentNode.insertBefore(remarkElement, element.nextSibling);
+              }
+            }
+
+            // 只在内容不同时更新
+            const newContent = `📝 备注: ${creator.remark}`;
+            if (remarkElement && remarkElement.textContent !== newContent) {
+              remarkElement.textContent = newContent;
+            }
+          } else {
+            // 如果没有备注，移除已存在的备注显示
+            const remarkElement = element.parentNode?.querySelector('.creator-page-remark-display');
+            if (remarkElement) {
+              remarkElement.remove();
+            }
+          }
+        } else {
+          // 如果达人ID不匹配，移除已存在的备注显示
+          const remarkElement = element.parentNode?.querySelector('.creator-page-remark-display');
+          if (remarkElement) {
+            remarkElement.remove();
+          }
+        }
+      });
+    } catch (error) {
+      console.error('updateCreatorRemarksOnPage error:', error);
+    }
   }
 
   // 初始化
@@ -585,6 +738,8 @@
   // 页面完成构建后再触发一次，避免早期未命中
   document.addEventListener('DOMContentLoaded', () => {
     scheduleHighlightCreators();
+    // 延迟执行页面备注更新
+    setTimeout(() => updateCreatorRemarksOnPage(), 1000);
   }, { once: true });
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local') return;
@@ -600,6 +755,9 @@
     if (changes.savedCreators) {
       creators = Array.isArray(changes.savedCreators.newValue) ? changes.savedCreators.newValue : [];
       scheduleHighlightCreators();
+      updateTooltipContent();
+      // 延迟执行页面备注更新，避免阻塞
+      setTimeout(() => updateCreatorRemarksOnPage(), 100);
     }
     if (selector && needRerender) {
       // 保持当前关键字过滤逻辑：这里直接按新 base 重新渲染
@@ -609,6 +767,9 @@
     }
     if (changes.savedCreators && !selector) {
       scheduleHighlightCreators();
+      updateTooltipContent();
+      // 延迟执行页面备注更新，避免阻塞
+      setTimeout(() => updateCreatorRemarksOnPage(), 100);
     }
   });
 
