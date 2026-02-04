@@ -14,24 +14,6 @@
       color: #222;
       box-sizing: border-box;
     }
-    .header {
-      padding: 18px 20px 12px;
-      background: linear-gradient(135deg, #ff0050 0%, #ff4d7f 100%);
-      color: #fff;
-      border-bottom-left-radius: 12px;
-      border-bottom-right-radius: 12px;
-      box-shadow: 0 6px 16px rgba(255, 0, 80, 0.35);
-    }
-    .header h1 {
-      margin: 0;
-      font-size: 18px;
-      font-weight: 700;
-    }
-    .header p {
-      margin: 6px 0 0;
-      font-size: 12px;
-      opacity: 0.9;
-    }
     .main {
       padding: 16px 20px 24px;
     }
@@ -192,50 +174,46 @@
   </style>
 </head>
 <body>
-  <div class="header">
-    <h1>商务WLB插件</h1>
-    <p>工作是为了更好的生活</p>
-  </div>
-
   <div class="main">
     <div id="status" class="status info"></div>
 
-    <!-- 短语管理卡片 -->
-    <div style="margin-top:16px;padding:14px;border:1px solid #eee;border-radius:10px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.05);box-sizing:border-box;">
+    <!-- 达人管理卡片 -->
+    <div id="creatorCard" style="margin-top:16px;padding:14px;border:1px solid #e0e6ff;border-radius:10px;background:#f0f4ff;box-shadow:0 2px 8px rgba(0,0,0,0.05);box-sizing:border-box;">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-        <div style="font-weight:700;color:#222;">短语管理</div>
-        <span style="font-size:12px;color:#666;">快捷短语输入"/"触发</span>
-      </div>
-      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
-        <button id="addPhraseBtn" style="flex:none;background:#ff0050;padding:6px 12px;font-size:12px;">添加短语</button>
-        <button id="openPhraseManageBtn" style="flex:none;background:#555;padding:6px 12px;font-size:12px;">管理页</button>
-      </div>
-      <div id="tagBar" class="tagbar" style="margin-bottom:12px;"></div>
-      <div id="phraseList" style="display:none;"></div>
-    </div>
-    <div style="margin-top:16px;padding:14px;border:1px solid #eee;border-radius:10px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.05);box-sizing:border-box;">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-        <div style="font-weight:700;color:#222;">达人管理</div>
+        <div style="font-weight:700;color:#1a365d;">达人管理</div>
         <span style="font-size:12px;color:#666;">CSV 导入达人ID，页面自动匹配高亮</span>
       </div>
-      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-        <button id="importCreatorBtn" style="flex:none;background:#ff0050;">导入 CSV</button>
-        <button id="downloadCreatorTemplateBtn" style="flex:none;background:#007bff;">下载模板</button>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button id="importCreatorBtn" style="flex:none;background:#ff0050;padding:4px 8px;font-size:11px;border-radius:20px;">导入 CSV</button>
+        <button id="downloadCreatorTemplateBtn" style="flex:none;background:#007bff;padding:4px 8px;font-size:11px;border-radius:20px;">下载模板</button>
         <input id="creatorFileInput" type="file" accept=".csv" style="display:none;" />
       </div>
       <div style="margin-top:12px;">
         <input id="creatorSearchInput" type="text" placeholder="通过达人ID，CID，地区搜索..." style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:13px;box-sizing:border-box;" />
       </div>
-      <div id="creatorPreview" style="margin-top:8px;font-size:12px;color:#666;"></div>
+      <div id="creatorPreview"></div>
       <div id="creatorSearchResults" style="margin-top:8px;display:none;">
         <div style="font-size:12px;color:#666;margin-bottom:6px;">搜索结果：</div>
         <div id="creatorSearchList" style="max-height:120px;overflow-y:auto;border:1px solid #eee;border-radius:6px;background:#fafafa;width:100%;box-sizing:border-box;"></div>
       </div>
-      <div class="muted">模板字段：creator_id（必填）、creator_cid（选填）、region_code（选填，例如：MY/TH/ID/SG/PH/VN）、remark（选填，备注信息）。</div>
     </div>
-    <div style="margin-top:16px;padding:14px;border:1px solid #eee;border-radius:10px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.05);box-sizing:border-box;">
+
+    <!-- 短语管理卡片 -->
+    <div id="phraseCard" style="margin-top:16px;padding:14px;border:1px solid #e0e6ff;border-radius:10px;background:#f0f4ff;box-shadow:0 2px 8px rgba(0,0,0,0.05);box-sizing:border-box;">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-        <div style="font-weight:700;color:#222;">订单查询</div>
+        <div style="font-weight:700;color:#1a365d;">短语管理</div>
+        <span style="font-size:12px;color:#666;">快捷短语输入"/"触发</span>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
+        <button id="addPhraseBtn" style="flex:none;background:#ff0050;padding:4px 8px;font-size:11px;border-radius:20px;">添加短语</button>
+        <button id="openPhraseManageBtn" style="flex:none;background:#555;padding:4px 8px;font-size:11px;border-radius:20px;">管理页</button>
+      </div>
+      <div id="tagBar" class="tagbar" style="margin-bottom:12px;"></div>
+      <div id="phraseList" style="display:none;"></div>
+    </div>
+    <div id="orderCard" style="margin-top:16px;padding:14px;border:1px solid #e0e6ff;border-radius:10px;background:#f0f4ff;box-shadow:0 2px 8px rgba(0,0,0,0.05);box-sizing:border-box;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <div style="font-weight:700;color:#1a365d;">订单查询</div>
         <span style="font-size:12px;color:#666;">通过订单ID查询达人履约情况并导出CSV</span>
       </div>
       <div class="input-group" style="margin-bottom:12px;">
@@ -245,11 +223,17 @@
 581813278309582149
 581439468539577963" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:monospace;min-height:120px;resize:vertical;box-sizing:border-box;"></textarea>
       </div>
-      <button id="startOrderQueryBtn" style="width:100%;padding:10px;background:#28a745;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;">开始查询并下载</button>
+      <button id="startOrderQueryBtn" style="width:100%;padding:10px;background:#28a745;color:#fff;border:none;border-radius:20px;cursor:pointer;font-size:14px;">开始查询并下载</button>
     </div>
-    <div style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-      <button id="backupBtn" style="flex:1;background:#17a2b8;">备份数据</button>
-      <button id="clearAllDataBtn" style="flex:1;background:#dc3545;">清除全部数据</button>
+    <div id="dataCard" style="margin-top:16px;padding:14px;border:1px solid #e0e6ff;border-radius:10px;background:#f0f4ff;box-shadow:0 2px 8px rgba(0,0,0,0.05);box-sizing:border-box;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <div style="font-weight:700;color:#1a365d;">数据管理</div>
+        <span style="font-size:12px;color:#64748b;">备份与恢复数据</span>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <button id="backupBtn" style="flex:1;background:#0369a1;color:#fff;border:none;border-radius:20px;padding:8px 12px;cursor:pointer;font-size:13px;">备份数据</button>
+        <button id="clearAllDataBtn" style="flex:1;background:#dc2626;color:#fff;border:none;border-radius:20px;padding:8px 12px;cursor:pointer;font-size:13px;">清除全部数据</button>
+      </div>
     </div>
   </div>
 
@@ -259,8 +243,8 @@
       <h3>标签管理</h3>
       <div id="tagListManage"></div>
       <div class="footer">
-        <button id="closeTagManageBtn" style="background:#777;">关闭</button>
-        <button id="addTagBtn">添加标签</button>
+        <button id="closeTagManageBtn" style="background:#777;border-radius:20px;">关闭</button>
+        <button id="addTagBtn" style="border-radius:20px;">添加标签</button>
       </div>
       <p class="muted">提示：删除标签会将该标签下的短语自动转移到“默认”。</p>
     </div>
@@ -277,8 +261,8 @@
       <label for="phraseContent">内容</label>
       <textarea id="phraseContent" placeholder="输入要插入的文本"></textarea>
       <div class="footer">
-        <button id="cancelPhraseBtn" style="background:#777;">取消</button>
-        <button id="savePhraseBtn">保存</button>
+        <button id="cancelPhraseBtn" style="background:#777;border-radius:20px;">取消</button>
+        <button id="savePhraseBtn" style="border-radius:20px;">保存</button>
       </div>
     </div>
   </div>
@@ -296,9 +280,9 @@
       <label for="creatorEditRemark">备注信息（选填）</label>
       <textarea id="creatorEditRemark" placeholder="输入达人的备注信息" style="min-height: 60px; resize: vertical;"></textarea>
       <div class="footer">
-        <button id="cancelCreatorEditBtn" style="background:#777;">取消</button>
-        <button id="saveCreatorEditBtn">保存</button>
-        <button id="deleteCreatorBtn" style="background:#dc3545;">删除</button>
+        <button id="cancelCreatorEditBtn" style="background:#777;border-radius:20px;">取消</button>
+        <button id="saveCreatorEditBtn" style="border-radius:20px;">保存</button>
+        <button id="deleteCreatorBtn" style="background:#dc3545;border-radius:20px;">删除</button>
       </div>
     </div>
   </div>
@@ -310,16 +294,16 @@
       <div style="margin-bottom:16px;">
         <h4 style="margin:0 0 8px 0;color:#333;">导出数据</h4>
         <p style="font-size:12px;color:#666;margin:0 0 12px 0;">将所有数据导出为JSON文件，方便备份和迁移</p>
-        <button id="exportDataBtn" style="width:100%;padding:10px;background:#28a745;color:#fff;border:none;border-radius:6px;cursor:pointer;">导出数据</button>
+        <button id="exportDataBtn" style="width:100%;padding:10px;background:#28a745;color:#fff;border:none;border-radius:20px;cursor:pointer;">导出数据</button>
       </div>
       <div style="margin-bottom:16px;border-top:1px solid #eee;padding-top:16px;">
         <h4 style="margin:0 0 8px 0;color:#333;">导入数据</h4>
         <p style="font-size:12px;color:#666;margin:0 0 12px 0;">从JSON文件导入数据，会覆盖现有数据</p>
         <input id="importDataFile" type="file" accept=".json" style="width:100%;margin-bottom:8px;" />
-        <button id="importDataBtn" style="width:100%;padding:10px;background:#007bff;color:#fff;border:none;border-radius:6px;cursor:pointer;">导入数据</button>
+        <button id="importDataBtn" style="width:100%;padding:10px;background:#007bff;color:#fff;border:none;border-radius:20px;cursor:pointer;">导入数据</button>
       </div>
       <div class="footer">
-        <button id="closeBackupDialogBtn" style="background:#777;">关闭</button>
+        <button id="closeBackupDialogBtn" style="background:#777;border-radius:20px;">关闭</button>
       </div>
     </div>
   </div>

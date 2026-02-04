@@ -315,11 +315,59 @@ document.addEventListener('DOMContentLoaded', () => {
   
   function renderCreators() {
     if (creatorPreview) {
-      creatorPreview.textContent = creators.length
-        ? `${creators.length} 个达人已导入`
-        : '尚未导入达人，点击"导入 CSV"上传 creator_id/creator_cid/region_code';
+      if (creators.length) {
+        creatorPreview.textContent = `${creators.length} 个达人已导入`;
+        creatorPreview.style.cssText = `
+          margin-top: 8px;
+          font-size: 12px;
+          color: #1d5fff;
+          font-weight: 600;
+          text-align: center;
+          padding: 6px 10px;
+          background: #f0f7ff;
+          border-radius: 6px;
+        `;
+      } else {
+        creatorPreview.textContent = '尚未导入达人，点击"导入 CSV"上传 creator_id/creator_cid/region_code';
+        creatorPreview.style.cssText = `
+          margin-top: 8px;
+          font-size: 12px;
+          color: #666;
+          text-align: left;
+        `;
+      }
     }
     renderSearchResults();
+
+    // 控制卡片显示/隐藏
+    const query = creatorSearchInput ? creatorSearchInput.value.trim() : '';
+    const creatorCard = document.getElementById('creatorCard');
+    const phraseCard = document.getElementById('phraseCard');
+    const orderCard = document.getElementById('orderCard');
+    const dataCard = document.getElementById('dataCard');
+    const creatorSearchList = document.getElementById('creatorSearchList');
+
+    if (query) {
+      // 有搜索内容时，只显示达人管理卡片，并扩大搜索结果区域
+      if (creatorCard) creatorCard.style.display = 'block';
+      if (phraseCard) phraseCard.style.display = 'none';
+      if (orderCard) orderCard.style.display = 'none';
+      if (dataCard) dataCard.style.display = 'none';
+      // 扩大搜索结果高度以利用更多空间
+      if (creatorSearchList) {
+        creatorSearchList.style.maxHeight = '400px';
+      }
+    } else {
+      // 无搜索内容时，显示所有卡片，恢复原始高度
+      if (creatorCard) creatorCard.style.display = 'block';
+      if (phraseCard) phraseCard.style.display = 'block';
+      if (orderCard) orderCard.style.display = 'block';
+      if (dataCard) dataCard.style.display = 'block';
+      // 恢复原始高度
+      if (creatorSearchList) {
+        creatorSearchList.style.maxHeight = '120px';
+      }
+    }
   }
 
   function renderSearchResults() {
@@ -332,19 +380,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     creatorSearchResults.style.display = 'block';
     creatorSearchList.innerHTML = searchResults.map((creator, index) => `
-      <div class="creator-item" style="display:flex;align-items:center;padding:8px;border-bottom:1px solid #eee;background:#fff;">
-        <div style="flex:1;overflow:hidden;">
-          <div style="font-weight:600;font-size:12px;color:#333;">${escapeHtml(creator.id)}</div>
-          <div style="font-size:11px;color:#666;margin-top:2px;">
-            ${creator.cid ? `CID: ${escapeHtml(creator.cid)}` : '无CID'}
-            ${creator.region ? ` • REG: ${escapeHtml(creator.region)}` : ''}
-            ${creator.remark ? ` • 备注: ${escapeHtml(creator.remark)}` : ''}
+      <div class="creator-item" style="display:flex;flex-direction:column;padding:8px;margin-bottom:6px;border-radius:6px;background:#fef2f2;border:1px solid #fecaca;">
+        <div style="display:flex;align-items:center;margin-bottom:4px;">
+          <div style="flex:1;overflow:hidden;">
+            <div style="font-weight:600;font-size:12px;color:#333;">${escapeHtml(creator.id)}</div>
+            <div style="font-size:11px;color:#666;margin-top:1px;">
+              ${creator.cid ? `CID: ${escapeHtml(creator.cid)}` : '无CID'}
+              ${creator.region ? ` • REG: ${escapeHtml(creator.region)}` : ''}
+            </div>
+          </div>
+          <div style="display:flex;gap:3px;">
+            <button type="button" class="jump-creator ${creator.cid && creator.region ? '' : 'disabled'}" data-index="${index}" style="background:${creator.cid && creator.region ? '#dc2626' : '#ccc'};color:#fff;border:none;border-radius:12px;padding:3px 8px;cursor:${creator.cid && creator.region ? 'pointer' : 'not-allowed'};font-size:10px;">跳转</button>
+            <button type="button" class="edit-creator" data-index="${index}" style="background:#0369a1;color:#fff;border:none;border-radius:12px;padding:3px 8px;cursor:pointer;font-size:10px;">编辑</button>
           </div>
         </div>
-        <div style="display:flex;gap:4px;">
-          <button type="button" class="jump-creator ${creator.cid && creator.region ? '' : 'disabled'}" data-index="${index}" style="background:${creator.cid && creator.region ? '#28a745' : '#ccc'};color:#fff;border:none;border-radius:4px;padding:4px 8px;cursor:${creator.cid && creator.region ? 'pointer' : 'not-allowed'};font-size:11px;">跳转</button>
-          <button type="button" class="edit-creator" data-index="${index}" style="background:#007bff;color:#fff;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:11px;">编辑</button>
-        </div>
+        ${creator.remark ? `<div style="font-size:10px;color:#7f1d1d;background:#fee2e2;padding:3px 6px;border-radius:3px;border-left:2px solid #dc2626;">备注: ${escapeHtml(creator.remark)}</div>` : ''}
       </div>
     `).join('');
 
@@ -779,6 +829,35 @@ document.addEventListener('DOMContentLoaded', () => {
     const query = creatorSearchInput.value;
     searchCreators(query);
     renderCreators();
+
+    // 控制卡片显示/隐藏
+    const creatorCard = document.getElementById('creatorCard');
+    const phraseCard = document.getElementById('phraseCard');
+    const orderCard = document.getElementById('orderCard');
+    const dataCard = document.getElementById('dataCard');
+    const creatorSearchList = document.getElementById('creatorSearchList');
+
+    if (query.trim()) {
+      // 有搜索内容时，只显示达人管理卡片，并扩大搜索结果区域
+      if (creatorCard) creatorCard.style.display = 'block';
+      if (phraseCard) phraseCard.style.display = 'none';
+      if (orderCard) orderCard.style.display = 'none';
+      if (dataCard) dataCard.style.display = 'none';
+      // 扩大搜索结果高度以利用更多空间
+      if (creatorSearchList) {
+        creatorSearchList.style.maxHeight = '400px';
+      }
+    } else {
+      // 无搜索内容时，显示所有卡片，恢复原始高度
+      if (creatorCard) creatorCard.style.display = 'block';
+      if (phraseCard) phraseCard.style.display = 'block';
+      if (orderCard) orderCard.style.display = 'block';
+      if (dataCard) dataCard.style.display = 'block';
+      // 恢复原始高度
+      if (creatorSearchList) {
+        creatorSearchList.style.maxHeight = '120px';
+      }
+    }
   });
 
   // 达人编辑
