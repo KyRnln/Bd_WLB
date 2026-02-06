@@ -1,6 +1,6 @@
 # 商务WLB插件（Chrome 扩展）
 
-一款专为TikTok广告投放人员设计的Chrome扩展工具，集成了快捷短语输入、达人管理、订单查询、WebDAV云备份等核心功能，帮助提升工作效率。
+一款专为TikTok广告投放人员设计的Chrome扩展工具，集成了快捷短语输入、达人管理、订单查询等核心功能，帮助提升工作效率。
 
 当前版本：**v1.1**
 
@@ -10,19 +10,68 @@
 - **快捷短语**：输入 `/` 唤出浮动选择框，实时筛选预设短语，支持键盘/鼠标操作
 - **达人管理**：CSV导入达人信息，支持搜索、编辑和备注管理
 - **订单查询**：通过订单ID查询达人履约情况，支持批量查询和CSV导出
-- **云端备份**：WebDAV云同步，支持自动备份和恢复数据
+- **云端同步**：支持将达人信息和短语配置同步到阿里云ECS数据库，实现多设备数据共享
 
 ### ✨ 特色功能
 - **智能备注**：页面自动显示达人备注，支持tooltip显示
 - **实时高亮**：页面上自动高亮匹配的达人ID
 - **专注搜索**：搜索时自动切换到全屏达人管理界面
 - **现代化UI**：统一的蓝色主题和胶囊按钮设计
-- **云端同步**：WebDAV备份，智能清理和安全同步
 
 ## 安装与加载
 1) 打开 `chrome://extensions/`，开启右上角「开发者模式」。
 2) 点击「加载已解压的扩展程序」，选择本项目根目录（含 `manifest.json`）。
 3) 右上角扩展图标可打开弹窗进行各项功能管理。
+
+## 云数据库设置（可选）
+
+### 服务器端设置
+
+#### 检查MariaDB安装状态
+```bash
+# 在ECS上执行
+bash scripts/check_mariadb.sh
+```
+
+#### 配置MariaDB（如果尚未配置）
+```bash
+# 在ECS上执行
+bash scripts/configure_mariadb.sh
+```
+
+#### 快速安装（如果尚未安装）
+```bash
+# 在ECS上执行
+bash scripts/quick_setup.sh
+```
+
+#### 安装API服务器
+```bash
+# 上传API服务器文件到ECS
+scp db_api_server.js package.json root@kyrnln.cloud:/opt/wlb-api/
+
+# 在ECS上安装和启动API服务器
+bash scripts/setup_api_server.sh
+```
+
+#### 或使用完整部署脚本
+```bash
+# 在ECS上执行（包含所有步骤）
+bash scripts/deploy_cloud_service.sh
+```
+
+### 扩展配置
+- 数据库已预配置为连接到 `kyrnln.cloud`
+- 在扩展弹窗中点击「云端同步」按钮即可同步数据
+- 支持达人信息和短语配置的双向同步
+
+### 数据库信息
+- **数据库类型**: MariaDB
+- **服务器地址**: kyrnln.cloud:3306
+- **数据库名**: wlb_extension
+- **用户名**: root
+- **密码**: fgs13990845071..
+- **API地址**: http://kyrnln.cloud:3001
 
 ## 使用说明
 
@@ -44,12 +93,6 @@
 - **进度显示**：实时显示查询和导出进度
 - **CSV导出**：自动生成包含查询结果的CSV文件
 
-### WebDAV云备份
-- **服务器配置**：支持坚果云、Nextcloud等WebDAV服务
-- **自动备份**：一键备份所有数据到云端，支持时间戳命名
-- **智能恢复**：自动下载最新备份，清理旧版本文件
-- **错误诊断**：详细的错误提示，帮助快速定位问题
-- **数据安全**：先下载后上传，避免数据丢失
 
 ## 达人导入模板（CSV）
 
@@ -67,40 +110,30 @@ aeman_ruby,1234567890,MY,美妆达人，粉丝量不错
 test_creator,9876543210,TH,测试账号
 ```
 
-## WebDAV配置指南
-
-### 支持的服务
-- **坚果云**：推荐使用，稳定可靠
-- **Nextcloud**：自建私有云服务
-- **其他WebDAV**：任何支持WebDAV协议的服务
-
-### 配置步骤
-1. **获取服务器信息**
-   - 坚果云：服务器地址 `https://dav.jianguoyun.com/dav/`
-   - 其他服务：请参考服务商文档
-
-2. **设置同步路径**
-   - 建议使用专用文件夹，如 `wlb-backup/`
-   - 确保账户有读写权限
-
-3. **账户信息**
-   - 用户名：WebDAV账户用户名
-   - 密码：WebDAV账户密码或应用密码
-
-### 备份策略
-- **时间戳命名**：每次备份自动生成唯一文件名
-- **智能清理**：只保留最新备份，自动删除旧文件
-- **安全同步**：下载→上传→验证的三步流程
 
 ## 文件结构
 ```bash
 ├── manifest.json          # 扩展清单（MV3）
 ├── popup.html             # 弹窗 UI
-├── popup.js               # 弹窗逻辑（功能管理、WebDAV客户端）
+├── popup.js               # 弹窗逻辑（功能管理）
+├── db_sync.js             # 数据库同步模块
 ├── content.js             # 内容脚本（页面交互、备注显示）
 ├── background.js          # 后台脚本（预留）
 ├── page_bridge.js         # 页面桥接脚本
 ├── migrate.js             # 数据迁移脚本
+├── db_api_server.js      # 云数据库API服务器
+├── package.json           # API服务器依赖配置
+├── scripts/                 # 部署脚本目录
+│   ├── quick_setup.sh         # MariaDB快速安装脚本
+│   ├── setup_api_server.sh   # API服务器安装脚本
+│   ├── mariadb_setup.sh       # MariaDB详细安装脚本
+│   ├── check_mariadb.sh       # MariaDB状态检查脚本
+│   ├── configure_mariadb.sh   # MariaDB配置脚本
+│   ├── check_nodejs.sh        # Node.js环境检查脚本
+│   ├── setup_wlb_database.sh  # WLB数据库创建脚本
+│   ├── deploy_cloud_service.sh # 完整云服务部署脚本
+│   ├── fix_mariadb_config.sh  # MariaDB配置修复脚本
+│   └── check_bind_address.sh  # bind-address检查脚本
 ├── icon16/32/48/128.png   # 扩展图标
 └── README.md              # 说明文档
 ```
@@ -108,15 +141,19 @@ test_creator,9876543210,TH,测试账号
 ## 调试提示
 - **弹窗调试**：右键扩展图标 →「检查弹出内容」查看 `popup.js` 日志。
 - **页面交互**：页面 DevTools Console 查看 `content.js` 日志，必要时重新加载扩展。
-- **WebDAV调试**：备份时查看控制台输出，包含详细的请求和响应信息。
 - **达人搜索**：搜索不到达人时检查控制台输出，可能需要调整页面元素定位逻辑。
 - **性能监控**：如遇卡顿，请检查MutationObserver和防抖机制的日志输出。
 
 ## 更新日志
 
+### v1.2
+- ☁️ **云数据库支持**：新增阿里云ECS MariaDB云存储功能
+- 🔄 **数据同步**：支持达人信息和短语配置的云端双向同步
+- 🌐 **多设备共享**：通过云数据库实现多设备间数据共享
+- 🛠️ **API服务器**：内置RESTful API服务器用于数据管理
+
 ### v1.1
 - 🎉 **版本升级**：主版本号升级至1.1，标志着产品功能的重大完善
-- ☁️ **WebDAV云备份功能**：新增完整的云端数据同步解决方案
 - 🔧 **错误处理优化**：大幅改进错误诊断和用户体验
 - 📱 **现代化UI设计**：统一的蓝色主题和胶囊按钮样式
 - 🚀 **性能优化**：防抖机制和智能缓存，提升使用流畅度
@@ -134,6 +171,50 @@ test_creator,9876543210,TH,测试账号
 - 📊 订单查询功能
 - 👥 基础达人管理功能
 - 💬 快捷短语功能
+
+## 故障排除
+
+### 502 Bad Gateway 错误
+如果遇到 `502 Bad Gateway` 错误，说明API服务器未运行：
+
+1. **检查ECS上服务状态**：
+   ```bash
+   pm2 status
+   ```
+
+2. **查看API日志**：
+   ```bash
+   pm2 logs wlb-api
+   ```
+
+3. **重启API服务**：
+   ```bash
+   pm2 restart wlb-api
+   ```
+
+4. **检查端口占用**：
+   ```bash
+   netstat -tlnp | grep 3001
+   ```
+
+### 数据库连接失败
+1. **检查MariaDB服务**：
+   ```bash
+   systemctl status mariadb
+   ```
+
+2. **测试数据库连接**：
+   ```bash
+   mysql -h localhost -u root -p
+   ```
+
+### DNS解析问题
+1. **测试域名解析**：
+   ```bash
+   nslookup kyrnln.cloud
+   ```
+
+2. **检查DNS配置**：确保域名正确指向ECS IP地址
 
 ## 许可证
 MIT License

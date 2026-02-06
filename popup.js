@@ -45,19 +45,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const deleteCreatorBtn = document.getElementById('deleteCreatorBtn');
   const clearAllDataBtn = document.getElementById('clearAllDataBtn');
   const backupBtn = document.getElementById('backupBtn');
+  const syncCloudBtn = document.getElementById('syncCloudBtn');
+  const syncStatus = document.getElementById('syncStatus');
   const backupDialog = document.getElementById('backupDialog');
   const exportDataBtn = document.getElementById('exportDataBtn');
   const importDataFile = document.getElementById('importDataFile');
   const importDataBtn = document.getElementById('importDataBtn');
   const closeBackupDialogBtn = document.getElementById('closeBackupDialogBtn');
-  const webdavSyncBtn = document.getElementById('webdavSyncBtn');
-  const webdavDialog = document.getElementById('webdavDialog');
-  const webdavUrl = document.getElementById('webdavUrl');
-  const webdavUsername = document.getElementById('webdavUsername');
-  const webdavPassword = document.getElementById('webdavPassword');
-  const webdavPath = document.getElementById('webdavPath');
-  const backupWebdavBtn = document.getElementById('backupWebdavBtn');
-  const webdavStatus = document.getElementById('webdavStatus');
   const openPhraseManageBtn = document.getElementById('openPhraseManageBtn');
 
   // 订单查询相关元素
@@ -192,7 +186,7 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
       return;
     }
-    
+
     phraseList.innerHTML = list.map(p => `
       <div class="phrase-item" style="display:flex;align-items:center;padding:12px;border:1px solid #eee;border-radius:6px;margin-bottom:8px;background:#fafafa;">
         <div style="flex:1;overflow:hidden;">
@@ -213,13 +207,13 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.addEventListener('click', () => deletePhrase(btn.dataset.id));
     });
   }
-  
+
   function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
   }
-  
+
   function getVisiblePhrases() {
     if (activeTagId === '__ALL__') return phrases.slice();
     return phrases.filter(p => p.tagId === activeTagId);
@@ -301,12 +295,12 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.addEventListener('click', async () => {
         const id = btn.dataset.id;
         if (id === DEFAULT_TAG_ID) {
-          alert('“默认”标签不可删除');
+          alert('"默认"标签不可删除');
           return;
         }
         const tag = tags.find(x => x.id === id);
         if (!tag) return;
-        if (!confirm(`确定删除标签“${tag.name}”吗？`)) return;
+        if (!confirm(`确定删除标签"${tag.name}"吗？`)) return;
 
         // 删除标签，短语转移到默认
         tags = tags.filter(t => t.id !== id);
@@ -318,9 +312,9 @@ document.addEventListener('DOMContentLoaded', () => {
         renderAll();
         renderTagManageList();
       });
-  });
+    });
   }
-  
+
   function renderCreators() {
     if (creatorPreview) {
       if (creators.length) {
@@ -594,7 +588,10 @@ document.addEventListener('DOMContentLoaded', () => {
       };
 
       const jsonString = JSON.stringify(data, null, 2);
-      const blob = new Blob([jsonString], { type: 'application/json;charset=utf-8' });
+      // 添加UTF-8 BOM确保中文字符正确显示
+      const BOM = '\uFEFF';
+      const jsonWithBOM = BOM + jsonString;
+      const blob = new Blob([jsonWithBOM], { type: 'application/json;charset=utf-8' });
       const url = URL.createObjectURL(blob);
 
       const a = document.createElement('a');
@@ -679,7 +676,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function downloadTextFile(filename, text) {
-    const blob = new Blob([text], { type: 'text/csv;charset=utf-8' });
+    // 添加UTF-8 BOM确保中文字符正确显示
+    const BOM = '\uFEFF';
+    const textWithBOM = BOM + text;
+    const blob = new Blob([textWithBOM], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -689,7 +689,7 @@ document.addEventListener('DOMContentLoaded', () => {
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 500);
   }
-  
+
   function openCreate() {
     editingId = null;
     phraseEditTitle && (phraseEditTitle.textContent = '添加短语');
@@ -725,7 +725,7 @@ document.addEventListener('DOMContentLoaded', () => {
   async function deletePhrase(id) {
     const phrase = phrases.find(p => p.id === id);
     if (!phrase) return;
-    if (!confirm(`确定删除短语“${phrase.title}”吗？`)) return;
+    if (!confirm(`确定删除短语"${phrase.title}"吗？`)) return;
     phrases = phrases.filter(p => p.id !== id);
     await savePhrases();
     renderPhraseList();
@@ -737,7 +737,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const tagId = (phraseTag && phraseTag.value) || '';
     const title = (phraseTitle && phraseTitle.value.trim()) || '';
     const content = (phraseContent && phraseContent.value.trim()) || '';
-    
+
     if (!tagId || !tags.some(t => t.id === tagId)) {
       alert('请选择标签');
       phraseTag && phraseTag.focus();
@@ -769,7 +769,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updatedAt: Date.now()
       });
     }
-    
+
     await savePhrases();
     phraseEditDialog && phraseEditDialog.classList.remove('show');
     renderAll();
@@ -788,7 +788,7 @@ document.addEventListener('DOMContentLoaded', () => {
       editingId = null;
     }
   });
-  
+
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       if (phraseEditDialog && phraseEditDialog.classList.contains('show')) {
@@ -799,7 +799,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
   });
-  
+
   // 标签管理事件
   closeTagManageBtn && closeTagManageBtn.addEventListener('click', closeTagManage);
   tagManageDialog && tagManageDialog.addEventListener('click', (e) => {
@@ -906,547 +906,6 @@ document.addEventListener('DOMContentLoaded', () => {
     renderAll();
     showStatus('✅ 已清除全部数据', 'success');
   });
-
-  // ===== WebDAV同步功能 =====
-
-  // WebDAV客户端类
-  class WebDAVClient {
-    constructor(baseUrl, username, password) {
-      this.baseUrl = baseUrl.replace(/\/$/, ''); // 移除末尾的斜杠
-      this.username = username;
-      this.password = password;
-      this.authHeader = 'Basic ' + btoa(username + ':' + password);
-    }
-
-    // 发送HTTP请求的辅助方法
-    async request(method, path, options = {}) {
-      const url = this.baseUrl + (path.startsWith('/') ? path : '/' + path);
-
-      const defaultOptions = {
-        method: method,
-        headers: {
-          'Authorization': this.authHeader,
-          'Content-Type': 'application/json'
-        },
-        // 防止浏览器弹出认证对话框
-        credentials: 'omit'
-      };
-
-      const finalOptions = { ...defaultOptions, ...options };
-
-      try {
-        const response = await fetch(url, finalOptions);
-
-        // 处理认证失败的情况
-        if (response.status === 401) {
-          throw new Error('认证失败：用户名或密码错误，请检查您的WebDAV账户信息');
-        }
-
-        if (response.status === 403) {
-          throw new Error('访问被拒绝：权限不足，请检查账户权限或路径设置');
-        }
-
-        if (response.status === 404) {
-          throw new Error('路径不存在：请检查同步路径是否正确');
-        }
-
-        if (response.status === 405) {
-          throw new Error('方法不支持：服务器不支持此WebDAV操作');
-        }
-
-        if (!response.ok && response.status !== 404) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        return response;
-      } catch (error) {
-        console.error('WebDAV request failed:', error);
-        throw error;
-      }
-    }
-
-    // 创建目录
-    async createDirectory(path) {
-      try {
-        const response = await this.request('MKCOL', path);
-        if (response.status === 201 || response.status === 405) {
-          return true;
-        } else {
-          throw new Error(`创建目录失败: HTTP ${response.status}`);
-        }
-      } catch (error) {
-        console.error('Failed to create directory:', path, error);
-        throw error; // 重新抛出异常
-      }
-    }
-
-    // 上传文件
-    async uploadFile(path, content) {
-      try {
-        const response = await this.request('PUT', path, {
-          body: typeof content === 'string' ? content : JSON.stringify(content),
-          headers: {
-            'Authorization': this.authHeader,
-            'Content-Type': 'application/json'
-          }
-        });
-        if (response.status === 201 || response.status === 204) {
-          return true;
-        } else {
-          throw new Error(`文件上传失败: HTTP ${response.status}`);
-        }
-      } catch (error) {
-        console.error('Failed to upload file:', path, error);
-        throw error; // 重新抛出异常
-      }
-    }
-
-    // 下载文件
-    async downloadFile(path) {
-      try {
-        const response = await this.request('GET', path);
-        if (response.status === 200) {
-          return await response.text();
-        } else if (response.status === 404) {
-          return null; // 文件不存在
-        } else {
-          throw new Error(`文件下载失败: HTTP ${response.status}`);
-        }
-      } catch (error) {
-        console.error('Failed to download file:', path, error);
-        throw error; // 重新抛出异常
-      }
-    }
-
-    // 检查文件是否存在
-    async fileExists(path) {
-      try {
-        const response = await this.request('HEAD', path);
-        return response.status === 200;
-      } catch (error) {
-        return false;
-      }
-    }
-
-    // 删除文件
-    async deleteFile(path) {
-      try {
-        const response = await this.request('DELETE', path);
-        if (response.status === 204 || response.status === 200) {
-          return true;
-        } else {
-          throw new Error(`文件删除失败: HTTP ${response.status}`);
-        }
-      } catch (error) {
-        console.error('Failed to delete file:', path, error);
-        throw error; // 重新抛出异常
-      }
-    }
-
-    // 获取目录列表 (改进实现)
-    async listDirectory(path = '') {
-      try {
-        console.log('List directory:', path);
-        const response = await this.request('PROPFIND', path, {
-          headers: {
-            'Authorization': this.authHeader,
-            'Content-Type': 'application/xml',
-            'Depth': '1'
-          },
-          body: `<?xml version="1.0" encoding="utf-8"?>
-            <propfind xmlns="DAV:">
-              <prop>
-                <resourcetype/>
-                <getcontentlength/>
-                <getlastmodified/>
-              </prop>
-            </propfind>`
-        });
-
-        console.log('PROPFIND response status:', response.status);
-
-        if (response.status === 207) { // Multi-Status
-          const text = await response.text();
-          console.log('PROPFIND response text:', text);
-
-          // 简单解析XML，提取文件名
-          const files = [];
-          // 支持不同命名空间前缀的href标签
-          const hrefMatches = text.match(/<[^:]+:href>(.*?)<\/[^:]+:href>/g);
-          console.log('Found href matches:', hrefMatches);
-
-          if (hrefMatches) {
-            hrefMatches.forEach(match => {
-              // 提取href内容，支持不同命名空间
-              const hrefMatch = match.match(/<[^:]+:href>(.*?)<\/[^:]+:href>/);
-              if (hrefMatch && hrefMatch[1]) {
-                const href = hrefMatch[1];
-                console.log('Processing href:', href);
-                const fileName = decodeURIComponent(href.split('/').pop());
-                console.log('Extracted filename:', fileName);
-
-                if (fileName && fileName !== '' && !fileName.includes('..')) {
-                  files.push(fileName);
-                }
-              }
-            });
-          }
-
-          console.log('Final files list:', files);
-          return files;
-        }
-
-        // 如果PROPFIND不支持，尝试其他方法
-        console.log('PROPFIND not supported, trying alternative method');
-        return await this.listDirectoryAlternative(path);
-
-      } catch (error) {
-        console.error('Failed to list directory:', path, error);
-        return [];
-      }
-    }
-
-    // 备用的目录列表方法
-    async listDirectoryAlternative(path = '') {
-      try {
-        console.log('Trying alternative directory listing');
-
-        // 尝试直接检查一些常见的备份文件名
-        // 注意：由于现在使用完整时间戳，文件名会动态变化，这里只检查最近的可能文件名
-        const possibleFiles = [
-          `wlb-backup-${new Date().toISOString().replace(/[:.]/g, '-')}.json`
-        ];
-
-        const existingFiles = [];
-        for (const fileName of possibleFiles) {
-          const exists = await this.fileExists(path + fileName);
-          console.log(`Checking file ${fileName}:`, exists);
-          if (exists) {
-            existingFiles.push(fileName);
-          }
-        }
-
-        // 由于现在使用完整时间戳，备用方法主要用于查找可能的文件
-        // 这里简化处理，主要依赖PROPFIND方法
-        console.log('Alternative method found files:', existingFiles);
-
-        return existingFiles;
-      } catch (error) {
-        console.error('Alternative directory listing failed:', error);
-        return [];
-      }
-    }
-  }
-
-  // WebDAV同步按钮：检查配置并执行同步或打开配置
-  webdavSyncBtn && webdavSyncBtn.addEventListener('click', () => {
-    console.log('WebDAV同步按钮被点击');
-
-    // 简化逻辑：直接打开配置弹窗
-    loadWebdavConfig();
-    hideWebdavStatus();
-    if (webdavDialog) {
-      console.log('显示WebDAV配置弹窗');
-      webdavDialog.classList.add('show');
-    } else {
-      console.error('webdavDialog元素不存在');
-    }
-  });
-
-
-
-  // 备份到WebDAV（下载→上传→下载）
-  backupWebdavBtn && backupWebdavBtn.addEventListener('click', async () => {
-    showWebdavStatus('🔄 开始备份到WebDAV...', 'info');
-
-    try {
-      // 自动保存当前配置
-      console.log('备份时自动保存WebDAV配置...');
-      const url = webdavUrl?.value?.trim();
-      const username = webdavUsername?.value?.trim();
-      const password = webdavPassword?.value;
-      const path = webdavPath?.value?.trim() || 'wlb-backup/';
-
-      if (url && username) {
-        const config = {
-          webdavUrl: url,
-          webdavUsername: username,
-          webdavPassword: password,
-          webdavPath: path
-        };
-        await new Promise(resolve => storageAPI.set(config, resolve));
-        console.log('WebDAV配置已自动保存');
-      }
-
-      // 第一步：先下载远程数据（防止覆盖远程数据）
-      showWebdavStatus('📥 下载远程数据...', 'info');
-      const downloadSuccess = await downloadDataFromWebdav();
-
-      // 第二步：上传当前本地数据
-      showWebdavStatus('📤 上传本地数据...', 'info');
-      const uploadSuccess = await uploadDataToWebdav();
-
-      if (uploadSuccess) {
-        // 第三步：再次下载以确认同步完成
-        showWebdavStatus('📥 确认同步结果...', 'info');
-        await downloadDataFromWebdav();
-      } else {
-        // 上传失败的错误信息已经在uploadDataToWebdav函数中显示了
-        // 这里不需要额外显示错误信息
-        return;
-      }
-    } catch (error) {
-      console.error('备份过程出错:', error);
-      // 显示具体的错误信息
-      const errorMessage = error.message || '备份失败，请检查配置';
-      showWebdavStatus(`❌ ${errorMessage}`, 'error');
-    }
-  });
-
-
-  // 点击弹窗背景关闭
-  webdavDialog && webdavDialog.addEventListener('click', (e) => {
-    if (e.target === webdavDialog) {
-      closeWebdavDialog();
-    }
-  });
-
-  // 加载WebDAV配置
-  // 加载WebDAV配置
-  async function loadWebdavConfig() {
-    try {
-      console.log('正在加载WebDAV配置...');
-      const result = await new Promise(resolve => storageAPI.get([
-        'webdavUrl', 'webdavUsername', 'webdavPassword', 'webdavPath'
-      ], resolve));
-      console.log('WebDAV配置加载结果:', result);
-
-      if (webdavUrl) webdavUrl.value = result.webdavUrl || 'https://dav.jianguoyun.com/dav/';
-      if (webdavUsername) webdavUsername.value = result.webdavUsername || '';
-      if (webdavPassword) webdavPassword.value = result.webdavPassword || '';
-      if (webdavPath) webdavPath.value = result.webdavPath || 'wlb-backup/';
-
-      console.log('WebDAV配置已应用到界面');
-    } catch (error) {
-      console.error('加载WebDAV配置失败:', error);
-      console.error('错误详情:', error.message);
-      console.error('错误堆栈:', error.stack);
-    }
-  }
-
-
-
-  // 上传数据到WebDAV
-  async function uploadDataToWebdav() {
-    const url = webdavUrl?.value?.trim();
-    const username = webdavUsername?.value?.trim();
-    const password = webdavPassword?.value;
-    const path = webdavPath?.value?.trim() || 'wlb-backup/';
-
-    if (!url || !username) {
-      showWebdavStatus('⚠️ 请先配置WebDAV连接', 'error');
-      return false;
-    }
-
-    showWebdavStatus('🔄 正在上传数据到WebDAV...', 'info');
-
-    try {
-      const client = new WebDAVClient(url, username, password);
-
-      // 准备上传的数据
-      const data = {
-        version: '1.0',
-        exportTime: new Date().toISOString(),
-        phrases: phrases,
-        tags: tags,
-        activeTagId: activeTagId,
-        creators: creators
-      };
-
-      // 确保目录存在
-      await client.createDirectory(path);
-
-      // 上传数据文件（包含完整时间戳）
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const fileName = `wlb-backup-${timestamp}.json`;
-      const success = await client.uploadFile(path + fileName, data);
-
-      if (!success) {
-        throw new Error('文件上传失败：可能是权限不足或存储空间不足');
-      }
-
-      showWebdavStatus(`✅ 数据已上传到WebDAV: ${fileName}`, 'success');
-      return true;
-    } catch (error) {
-      console.error('WebDAV上传失败:', error);
-      // 显示具体的错误信息
-      const errorMessage = error.message || '数据上传失败，请检查配置';
-      showWebdavStatus(`❌ ${errorMessage}`, 'error');
-      return false;
-    }
-  }
-
-  // 从WebDAV下载数据
-  async function downloadDataFromWebdav() {
-    const url = webdavUrl?.value?.trim();
-    const username = webdavUsername?.value?.trim();
-    const password = webdavPassword?.value;
-    const path = webdavPath?.value?.trim() || 'wlb-backup/';
-
-    console.log('Download from WebDAV:', { url, username, path });
-
-    if (!url || !username) {
-      showWebdavStatus('⚠️ 请先配置WebDAV连接', 'error');
-      return false;
-    }
-
-    showWebdavStatus('🔄 正在从WebDAV下载数据...', 'info');
-
-    try {
-      const client = new WebDAVClient(url, username, password);
-
-      // 获取目录中的文件列表
-      console.log('Getting directory listing for path:', path);
-      const files = await client.listDirectory(path);
-      console.log('Directory files:', files);
-
-      const backupFiles = files.filter(file => file.startsWith('wlb-backup-') && file.endsWith('.json'));
-      console.log('Backup files found:', backupFiles);
-
-      if (backupFiles.length === 0) {
-        showWebdavStatus('⚠️ 未找到备份文件，请检查路径和文件名', 'warning');
-        console.log('No backup files found. Available files:', files);
-        return false;
-      }
-
-      // 按时间戳排序，选择最新的备份文件
-      const latestFile = backupFiles.sort((a, b) => {
-        // 提取时间戳部分：wlb-backup-2026-02-04T15-30-45-123Z.json -> 2026-02-04T15-30-45-123Z
-        const getTimestamp = (filename) => {
-          const match = filename.match(/wlb-backup-(.+)\.json/);
-          return match ? match[1] : '';
-        };
-
-        const timestampA = getTimestamp(a);
-        const timestampB = getTimestamp(b);
-
-        // 如果时间戳相同，按文件名排序
-        if (timestampA === timestampB) {
-          return a.localeCompare(b);
-        }
-
-        // 按时间戳降序排序（最新的在前面）
-        return timestampB.localeCompare(timestampA);
-      })[0]; // 取第一个（最新的）
-
-      console.log('Selected latest backup file:', latestFile);
-      console.log('Downloading latest file:', latestFile);
-
-      const dataStr = await client.downloadFile(path + latestFile);
-      console.log('Downloaded data length:', dataStr ? dataStr.length : 'null');
-
-      if (!dataStr) {
-        throw new Error('数据下载失败：文件内容为空');
-      }
-
-      try {
-        const data = JSON.parse(dataStr);
-        console.log('Parsed data:', data);
-
-        // 恢复数据
-        phrases = data.phrases || [];
-        tags = data.tags || [];
-        activeTagId = data.activeTagId || '__ALL__';
-        creators = data.creators || [];
-
-        // 保存到本地存储
-        await new Promise(resolve => storageAPI.set({
-          savedPhrases: phrases,
-          savedTags: tags,
-          activeTagId: activeTagId,
-          savedCreators: creators
-        }, resolve));
-
-        // 重新渲染界面
-        await ensureTagsAndMigrate();
-        renderAll();
-
-        // 删除旧的备份文件，只保留最新的
-        console.log('Cleaning up old backup files...');
-        const filesToDelete = backupFiles.filter(file => file !== latestFile);
-        let deletedCount = 0;
-
-        for (const oldFile of filesToDelete) {
-          const deleted = await client.deleteFile(path + oldFile);
-          if (deleted) {
-            deletedCount++;
-            console.log('Deleted old backup file:', oldFile);
-          } else {
-            console.warn('Failed to delete old backup file:', oldFile);
-          }
-        }
-
-        const successMessage = deletedCount > 0
-          ? `✅ 数据已从WebDAV恢复: ${latestFile} (已清理 ${deletedCount} 个旧文件)`
-          : `✅ 数据已从WebDAV恢复: ${latestFile}`;
-
-        showWebdavStatus(successMessage, 'success');
-        return true;
-      } catch (parseError) {
-        console.error('JSON parse error:', parseError);
-        throw new Error('备份文件格式错误：文件可能已损坏');
-      }
-    } catch (error) {
-      console.error('WebDAV下载失败:', error);
-      // 显示具体的错误信息
-      const errorMessage = error.message || '数据下载失败，请检查配置';
-      showWebdavStatus(`❌ ${errorMessage}`, 'error');
-      return false;
-    }
-  }
-
-  // 在WebDAV弹窗中显示状态信息
-  function showWebdavStatus(message, type = 'info') {
-    if (!webdavStatus) return;
-
-    webdavStatus.textContent = message;
-    webdavStatus.style.display = 'block';
-
-    const colors = {
-      'info': '#e0f2fe',
-      'success': '#d1fae5',
-      'error': '#fee2e2',
-      'warning': '#fef3c7'
-    };
-
-    const textColors = {
-      'info': '#0369a1',
-      'success': '#166534',
-      'error': '#dc2626',
-      'warning': '#92400e'
-    };
-
-    webdavStatus.style.backgroundColor = colors[type] || colors.info;
-    webdavStatus.style.color = textColors[type] || textColors.info;
-    webdavStatus.style.border = `1px solid ${colors[type] ? colors[type].replace('f', 'd') : '#cbd5e1'}`;
-  }
-
-  // 隐藏WebDAV状态信息
-  function hideWebdavStatus() {
-    if (webdavStatus) {
-      webdavStatus.style.display = 'none';
-    }
-  }
-
-
-
-
-
-  // 关闭WebDAV配置弹窗
-  function closeWebdavDialog() {
-    webdavDialog && webdavDialog.classList.remove('show');
-    hideWebdavStatus();
-  }
 
   openPhraseManageBtn && openPhraseManageBtn.addEventListener('click', () => {
     const url = chrome.runtime.getURL('phrase_manage.html');
@@ -1581,11 +1040,11 @@ document.addEventListener('DOMContentLoaded', () => {
           `"${order.timestamp || ''}"`
         ].join(',');
       })
-    ].join('\n');
+    ].join('\\n');
 
     if (progressCallback) progressCallback(80, '正在添加编码标识...');
 
-    const BOM = '\uFEFF';
+    const BOM = '\\uFEFF';
     const csvWithBOM = BOM + csvContent;
 
     console.log('CSV内容长度:', csvWithBOM.length);
@@ -1619,7 +1078,7 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('尝试备用下载方法...');
         if (progressCallback) progressCallback(95, `正在使用${browserType === 'edge' ? 'Edge专用' : '备用'}下载方法...`);
 
-        const blob = new Blob([csvWithBOM], { type: 'text/csv;charset=utf-8;' });
+        const blob = new Blob([csvWithBOM], { type: 'text/csv;charset=utf-8' });
 
         // 根据浏览器类型选择不同的下载方法
         if (browserType === 'edge') {
@@ -1652,7 +1111,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // 最后的尝试：直接在新标签页打开
         try {
           console.log('尝试在新标签页打开文件...');
-          const blob = new Blob([csvWithBOM], { type: 'text/csv;charset=utf-8;' });
+          const blob = new Blob([csvWithBOM], { type: 'text/csv;charset=utf-8' });
           const url = URL.createObjectURL(blob);
 
           // 在新标签页打开，让用户手动保存
@@ -1747,7 +1206,7 @@ document.addEventListener('DOMContentLoaded', () => {
       color: #333;
       white-space: pre-line;
     `;
-    progressDiv.textContent = '正在准备查询...\n请稍候...';
+    progressDiv.textContent = '正在准备查询...\\n请稍候...';
 
     // 替换textarea
     inputGroup.replaceChild(progressDiv, orderIdInput);
@@ -1782,7 +1241,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const orderIds = [...new Set(
-      inputText.split('\n')
+      inputText.split('\\n')
         .map(id => id.trim())
         .filter(id => id.length > 0)
     )];
@@ -1792,7 +1251,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const inputLines = inputText.split('\n').filter(line => line.trim().length > 0).length;
+    const inputLines = inputText.split('\\n').filter(line => line.trim().length > 0).length;
     console.log(`用户输入了 ${inputLines} 行，去重后得到 ${orderIds.length} 个订单ID`);
     console.log('去重前的订单ID:', inputLines);
     console.log('去重后的订单ID:', orderIds);
@@ -1802,7 +1261,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 切换到进度显示模式
     switchToProgressMode();
-    updateProgressDisplay(`准备查询 ${orderIds.length} 个订单...\n请稍候...`);
+    updateProgressDisplay(`准备查询 ${orderIds.length} 个订单...\\n请稍候...`);
 
     let allOrders = [];
 
@@ -1812,7 +1271,7 @@ document.addEventListener('DOMContentLoaded', () => {
       let contentScriptReady = await checkContentScript(tab.id);
 
       if (!contentScriptReady) {
-        updateProgressDisplay('正在初始化扩展...\n请稍候...');
+        updateProgressDisplay('正在初始化扩展...\\n请稍候...');
         contentScriptReady = await injectContentScript(tab.id);
 
         if (!contentScriptReady) {
@@ -1828,7 +1287,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const orderId = orderIds[i];
         const progressPercent = Math.round(((i + 1) / orderIds.length) * 100);
 
-        updateProgressDisplay(`查询进度: ${progressPercent}% (${i + 1}/${orderIds.length})\n当前处理: ${orderId}\n请稍候...`);
+        updateProgressDisplay(`查询进度: ${progressPercent}% (${i + 1}/${orderIds.length})\\n当前处理: ${orderId}\\n请稍候...`);
         showStatus(`查询进度: ${progressPercent}% (${i + 1}/${orderIds.length}) - 处理: ${orderId}`, 'info');
 
         try {
@@ -1860,23 +1319,23 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (totalProcessed > 0) {
-        updateProgressDisplay('正在生成并下载CSV文件...\n请稍候...');
+        updateProgressDisplay('正在生成并下载CSV文件...\\n请稍候...');
         const downloadResult = await downloadOrderCSV(allOrders, (progress, message) => {
-          updateProgressDisplay(`导出进度: ${progress}%\n${message}`);
+          updateProgressDisplay(`导出进度: ${progress}%\\n${message}`);
           showStatus(`导出进度: ${progress}% - ${message}`, 'info');
         });
 
         if (downloadResult.success) {
           console.log('CSV下载成功:', downloadResult);
-          updateProgressDisplay('CSV文件已下载，正在清理数据...\n请稍候...');
+          updateProgressDisplay('CSV文件已下载，正在清理数据...\\n请稍候...');
 
           try {
             await clearOrderData(tab.id);
-            updateProgressDisplay('操作完成！\n✅ 已导出CSV\n✅ 已清理数据');
+            updateProgressDisplay('操作完成！\\n✅ 已导出CSV\\n✅ 已清理数据');
             showStatus('操作完成！已导出CSV并清理数据', 'success');
           } catch (clearError) {
             console.error('数据清理失败:', clearError);
-            updateProgressDisplay('CSV已下载，但数据清理失败\n请手动清理临时数据');
+            updateProgressDisplay('CSV已下载，但数据清理失败\\n请手动清理临时数据');
             showStatus('CSV已下载，但数据清理失败，请手动清理', 'info');
           }
 
@@ -1887,14 +1346,14 @@ document.addEventListener('DOMContentLoaded', () => {
       } else {
         let resultMessage = `查询完成，但未获取到有效数据`;
         if (failedOrders.length > 0) {
-          resultMessage += `\n失败详情: ${failedOrders.join('; ')}`;
+          resultMessage += `\\n失败详情: ${failedOrders.join('; ')}`;
         }
-        updateProgressDisplay(`查询完成\n${resultMessage}`);
+        updateProgressDisplay(`查询完成\\n${resultMessage}`);
         showStatus(resultMessage, 'error');
       }
 
     } catch (error) {
-      updateProgressDisplay(`查询失败\n${error.message}`);
+      updateProgressDisplay(`查询失败\\n${error.message}`);
       showStatus('查询失败：' + error.message, 'error');
     } finally {
       startOrderQueryBtn.disabled = false;
@@ -1905,6 +1364,72 @@ document.addEventListener('DOMContentLoaded', () => {
       }, 5000);
     }
   });
+
+  // ===== 云端同步功能 =====
+
+  // 显示同步状态
+  function showSyncStatus(message, type = 'info') {
+    if (!syncStatus) return;
+    syncStatus.textContent = message;
+    syncStatus.className = `sync-status ${type}`;
+    syncStatus.style.display = 'block';
+    setTimeout(() => {
+      syncStatus.style.display = 'none';
+    }, 5000);
+  }
+
+  // 云端同步
+  async function syncToCloud() {
+    try {
+      syncCloudBtn.disabled = true;
+      syncCloudBtn.textContent = '同步中...';
+
+      // 检查连接
+      const connectionCheck = await dbSync.checkConnection();
+      if (!connectionCheck.success) {
+        showSyncStatus('❌ 无法连接到云端服务器', 'error');
+        return;
+      }
+
+      showSyncStatus('🔄 正在同步到云端...', 'info');
+
+      // 执行双向同步
+      const syncResult = await dbSync.fullSync(creators, phrases);
+
+      if (syncResult.success) {
+        // 更新本地数据
+        if (syncResult.data) {
+          creators = syncResult.data.creators || creators;
+          phrases = syncResult.data.phrases || phrases;
+
+          // 保存到本地存储
+          await new Promise(resolve => storageAPI.set({
+            savedCreators: creators,
+            savedPhrases: phrases
+          }, resolve));
+
+          // 重新渲染
+          renderAll();
+        }
+
+        showSyncStatus(`✅ ${syncResult.message}`, 'success');
+      } else {
+        showSyncStatus(`❌ 同步失败: ${syncResult.error}`, 'error');
+      }
+
+    } catch (error) {
+      console.error('云端同步出错:', error);
+      showSyncStatus('❌ 同步出错，请稍后重试', 'error');
+    } finally {
+      syncCloudBtn.disabled = false;
+      syncCloudBtn.textContent = '云端同步';
+    }
+  }
+
+  // 绑定云同步按钮事件
+  if (syncCloudBtn) {
+    syncCloudBtn.addEventListener('click', syncToCloud);
+  }
 
   loadData();
 });

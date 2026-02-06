@@ -232,8 +232,10 @@
       </div>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
         <button id="backupBtn" style="flex:1;background:#0369a1;color:#fff;border:none;border-radius:20px;padding:8px 12px;cursor:pointer;font-size:13px;">备份数据</button>
-        <button id="clearAllDataBtn" style="flex:1;background:#dc2626;color:#fff;border:none;border-radius:20px;padding:8px 12px;cursor:pointer;font-size:13px;">清除全部数据</button>
+        <button id="syncCloudBtn" style="flex:1;background:#059669;color:#fff;border:none;border-radius:20px;padding:8px 12px;cursor:pointer;font-size:13px;">云端同步</button>
+        <button id="clearAllDataBtn" style="background:#dc2626;color:#fff;border:none;border-radius:20px;padding:8px 12px;cursor:pointer;font-size:13px;">清除全部数据</button>
       </div>
+      <div id="syncStatus" style="margin-top:8px;font-size:11px;color:#666;text-align:center;display:none;"></div>
     </div>
   </div>
 
@@ -302,44 +304,14 @@
         <input id="importDataFile" type="file" accept=".json" style="width:100%;margin-bottom:8px;" />
         <button id="importDataBtn" style="width:100%;padding:10px;background:#007bff;color:#fff;border:none;border-radius:20px;cursor:pointer;">导入数据</button>
       </div>
-      <div style="margin-bottom:16px;border-top:1px solid #eee;padding-top:16px;">
-        <h4 style="margin:0 0 8px 0;color:#333;">WebDAV同步</h4>
-        <p style="font-size:12px;color:#666;margin:0 0 12px 0;">通过WebDAV服务器同步数据，支持多设备间的数据共享</p>
-        <button id="webdavSyncBtn" style="width:100%;padding:10px;background:#6366f1;color:#fff;border:none;border-radius:20px;cursor:pointer;">WebDAV同步</button>
-      </div>
       <div class="footer">
         <button id="closeBackupDialogBtn" style="background:#777;border-radius:20px;">关闭</button>
       </div>
     </div>
   </div>
 
-  <!-- WebDAV配置弹窗 -->
-  <div id="webdavDialog" class="dialog-mask">
-    <div class="dialog">
-      <h3>WebDAV配置</h3>
-      <div style="margin-bottom:16px;">
-        <label for="webdavUrl" style="display:block;margin-bottom:6px;font-size:12px;color:#666;">服务器地址</label>
-        <input id="webdavUrl" type="text" placeholder="https://example.com/dav/" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:13px;" />
-      </div>
-      <div style="margin-bottom:16px;">
-        <label for="webdavUsername" style="display:block;margin-bottom:6px;font-size:12px;color:#666;">用户名</label>
-        <input id="webdavUsername" type="text" placeholder="用户名" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:13px;" />
-      </div>
-      <div style="margin-bottom:16px;">
-        <label for="webdavPassword" style="display:block;margin-bottom:6px;font-size:12px;color:#666;">密码</label>
-        <input id="webdavPassword" type="password" placeholder="密码" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:13px;" />
-      </div>
-      <div style="margin-bottom:16px;">
-        <label for="webdavPath" style="display:block;margin-bottom:6px;font-size:12px;color:#666;">同步路径</label>
-        <input id="webdavPath" type="text" placeholder="wlb-backup/" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:13px;" />
-      </div>
-      <div id="webdavStatus" style="margin-bottom:16px;display:none;padding:8px;border-radius:6px;font-size:12px;text-align:center;"></div>
-      <div class="footer">
-        <button id="backupWebdavBtn" style="width:100%;background:#10b981;color:#fff;border:none;border-radius:20px;padding:10px;cursor:pointer;font-size:14px;">备份到WebDAV</button>
-      </div>
-    </div>
-  </div>
 
+  <script src="db_sync.js"></script>
   <script src="popup.js"></script>
 
   <div style="text-align:center;margin-top:16px;padding:8px;color:#999;font-size:11px;">
