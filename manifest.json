@@ -13,7 +13,8 @@
     "activeTab",
     "scripting",
     "storage",
-    "downloads"
+    "downloads",
+    "tabs"
   ],
   "host_permissions": [
     "https://*/*",
@@ -33,7 +34,9 @@
         "https://affiliate.tiktokshopglobalselling.com/*",
         "*://*/*"
       ],
-      "js": ["content.js"],
+      "js": [
+        "content.js"
+      ],
       "run_at": "document_start",
       "all_frames": true
     }
@@ -53,7 +56,9 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["page_bridge.js"],
+      "resources": [
+        "page_bridge.js"
+      ],
       "matches": [
         "https://*.tiktok.com/*",
         "https://ads.tiktok.com/*",

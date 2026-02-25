@@ -879,7 +879,7 @@ const ORDER_SELECTORS = {
 
 // XPath选择器已移除，只使用CSS选择器
 
-  // 自动化操作类
+// 自动化操作类
 class OrderAutomation {
   constructor() {
     this.db = new OrderDatabase();
@@ -1061,8 +1061,8 @@ class OrderAutomation {
           .filter(input => {
             const rect = input.getBoundingClientRect();
             return input.offsetParent !== null &&
-                   rect.width > 150 && rect.height > 20 &&
-                   !input.disabled && !input.readOnly;
+              rect.width > 150 && rect.height > 20 &&
+              !input.disabled && !input.readOnly;
           })
           .sort((a, b) => {
             const aInForm = a.closest('form') !== null;
@@ -1154,8 +1154,8 @@ class OrderAutomation {
           .filter(input => {
             const rect = input.getBoundingClientRect();
             return input.offsetParent !== null && // 可见
-                   rect.width > 150 && rect.height > 20 && // 足够大
-                   !input.disabled && !input.readOnly; // 可编辑
+              rect.width > 150 && rect.height > 20 && // 足够大
+              !input.disabled && !input.readOnly; // 可编辑
           })
           .sort((a, b) => {
             // 优先选择在表单中的输入框
@@ -1587,3 +1587,254 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 });
+
+// ===== 批量获取CID功能（TikTokShopCidExtractor）=====
+
+class TikTokShopCidExtractor {
+  constructor() {
+    this.pending = null;
+    this.init();
+    console.log('[CID] content script 已加载');
+  }
+
+  init() {
+    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+      if (request.action === 'searchCreator') {
+        this.searchCreator(request.creatorId)
+          .then((res) => sendResponse(res))
+          .catch((err) => sendResponse({ success: false, error: err?.message || String(err) }));
+        return true;
+      }
+      if (request.action === 'showBatchProgress') {
+        this.showBatchProgress(request);
+        sendResponse({ success: true });
+        return false;
+      }
+    });
+
+    window.addEventListener('message', (event) => {
+      if (event.source !== window) return;
+      const data = event.data;
+      if (!data || data.source !== 'tt-cid-hook') return;
+      if (data.type !== 'candidates') return;
+      chrome.runtime.sendMessage({
+        action: 'hookCandidates',
+        url: data.url,
+        candidates: data.candidates
+      }).catch(() => { });
+    });
+  }
+
+  async searchCreator(creatorIdRaw) {
+    const creatorId = String(creatorIdRaw || '').trim();
+    if (!creatorId) throw new Error('请输入达人ID');
+
+    // 1) 安装网络 hook
+    const hookRes = await chrome.runtime.sendMessage({ action: 'installNetworkHook' });
+    console.log('[CID] installNetworkHook 返回:', hookRes);
+
+    // 2) 查找搜索输入框
+    const input = await this.findInputElement();
+    if (!input) throw new Error('找不到搜索输入框，请确保页面已正确加载');
+
+    // 3) 先让后台开始等待 cid，再触发搜索
+    const waitCidPromise = chrome.runtime.sendMessage({
+      action: 'startWaitingForCid',
+      query: creatorId,
+      timeoutMs: 20000
+    });
+
+    // 清空输入框
+    this.setNativeInputValue(input, '');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    await this.delay(100);
+
+    // 设置新的搜索值
+    this.setNativeInputValue(input, creatorId);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    await this.delay(100);
+
+    // 触发 Enter
+    const keyInit = { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true };
+    input.dispatchEvent(new KeyboardEvent('keydown', keyInit));
+    input.dispatchEvent(new KeyboardEvent('keypress', keyInit));
+    input.dispatchEvent(new KeyboardEvent('keyup', keyInit));
+
+    try {
+      if (input.form?.requestSubmit) input.form.requestSubmit();
+    } catch (_) { }
+
+    const waitRes = await waitCidPromise;
+    if (!waitRes?.success || !waitRes.cid) {
+      throw new Error(waitRes?.error || '等待CID失败');
+    }
+    const cid = String(waitRes.cid);
+    console.log('[CID] 已获取CID:', cid, 'sourceUrl:', waitRes.sourceUrl);
+
+    const url = this.buildDetailUrl(cid);
+
+    // 等待搜索结果DOM渲染，抓取头像
+    await this.delay(1500);
+    const avatarBase64 = await this.getAvatarBase64();
+    console.log('[CID] 头像抓取:', avatarBase64 ? '成功' : '未获取到');
+
+    await chrome.runtime.sendMessage({ action: 'storeResult', data: { id: creatorId, cid, url, avatarBase64 } });
+    const openRes = await chrome.runtime.sendMessage({ action: 'openTab', url });
+    if (openRes?.success && openRes?.tabId) {
+      await chrome.runtime.sendMessage({ action: 'closeTab', tabId: openRes.tabId });
+    }
+
+    return { success: true, cid, url, avatarBase64 };
+  }
+
+  async getAvatarBase64() {
+    const XPATH = '/html/body/div[1]/div/div[2]/main/div/div/div/div/div/div[2]/div[4]/div[4]/div/div/div[1]/div/div/div[3]/table/tbody/tr/td[1]/div/div/div/div/div/div[1]/span/img';
+    const CSS_FALLBACKS = [
+      'table tbody tr:first-child td:first-child span img',
+      'table tbody tr:first-child td:first-child img',
+      '.arco-table-body tr:first-child td:first-child img'
+    ];
+    for (let attempt = 0; attempt < 5; attempt++) {
+      if (attempt > 0) await this.delay(500);
+      let imgSrc = '';
+      try {
+        const node = document.evaluate(XPATH, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+        if (node && node.src && node.src.startsWith('http')) imgSrc = node.src;
+      } catch (_) { }
+      if (!imgSrc) {
+        for (const sel of CSS_FALLBACKS) {
+          const img = document.querySelector(sel);
+          if (img && img.src && img.src.startsWith('http')) { imgSrc = img.src; break; }
+        }
+      }
+      if (imgSrc) {
+        const b64 = await this.fetchImageAsBase64(imgSrc);
+        if (b64) return b64;
+      }
+    }
+    return '';
+  }
+
+  async fetchImageAsBase64(url) {
+    try {
+      const resp = await fetch(url);
+      if (!resp.ok) return '';
+      const buf = await resp.arrayBuffer();
+      const bytes = new Uint8Array(buf);
+      let bin = '';
+      for (let i = 0; i < bytes.length; i += 8192) {
+        bin += String.fromCharCode(...bytes.subarray(i, i + 8192));
+      }
+      const mime = resp.headers.get('content-type') || 'image/jpeg';
+      return `data:${mime};base64,${btoa(bin)}`;
+    } catch (e) {
+      console.warn('[CID] 头像fetch失败:', e.message);
+      return '';
+    }
+  }
+
+  buildDetailUrl(cid) {
+    const base = 'https://affiliate.tiktokshopglobalselling.com/connection/creator/detail';
+    const params = new URLSearchParams(window.location.search);
+    const shopRegion = params.get('shop_region') || 'MY';
+    const enterFrom = params.get('enter_from') || 'affiliate_crm';
+    return `${base}?cid=${encodeURIComponent(cid)}&enter_from=${encodeURIComponent(enterFrom)}&shop_region=${encodeURIComponent(shopRegion)}`;
+  }
+
+  setNativeInputValue(input, value) {
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    if (setter) setter.call(input, value);
+    else input.value = value;
+  }
+
+  async findInputElement() {
+    const selectors = [
+      '#keyword_input',
+      'input[placeholder*="搜索达人"]',
+      'input[placeholder*="搜索"]',
+      'input[data-tid="m4b_input_search"]'
+    ];
+    for (const sel of selectors) {
+      const el = document.querySelector(sel);
+      if (el) return el;
+    }
+    for (let i = 0; i < 10; i++) {
+      await this.delay(500);
+      for (const sel of selectors) {
+        const el = document.querySelector(sel);
+        if (el) return el;
+      }
+    }
+    return null;
+  }
+
+  delay(ms) {
+    return new Promise((r) => setTimeout(r, ms));
+  }
+
+  showBatchProgress(data) {
+    let container = document.getElementById('tt-cid-batch-progress');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'tt-cid-batch-progress';
+      container.style.cssText = `
+        position: fixed;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.3);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        color: white;
+        padding: 16px 24px;
+        border-radius: 8px;
+        z-index: 2147483647;
+        font-size: 14px;
+        font-family: sans-serif;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        pointer-events: none;
+        min-width: 320px;
+      `;
+      document.body.appendChild(container);
+    }
+
+    if (data.status === 'running') {
+      const pct = data.total > 0 ? Math.round((data.currentIndex / data.total) * 100) : 0;
+      container.innerHTML = `
+        <div style="font-weight: bold; font-size: 16px; color: #ff0050; margin-bottom: 4px;">⚠️ 正在批量获取CID，请勿操作浏览器！</div>
+        <div style="font-size: 15px;">进度: ${data.currentIndex} / ${data.total} (${pct}%)</div>
+        <div style="font-size: 13px; color: #ccc;">正在处理: ${data.currentCreatorId || ''}</div>
+        <div style="display: flex; gap: 16px; font-size: 13px; margin-top: 4px;">
+          <span style="color: #4ade80;">✅ 成功: ${data.successCount}</span>
+          <span style="color: #f87171;">❌ 失败: ${data.failCount}</span>
+        </div>
+        <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.2); border-radius: 3px; margin-top: 6px; overflow: hidden;">
+          <div style="width: ${pct}%; height: 100%; background: #ff0050; transition: width 0.3s ease-out;"></div>
+        </div>
+      `;
+    } else if (data.status === 'completed') {
+      container.innerHTML = `
+        <div style="font-weight: bold; font-size: 18px; color: #4ade80;">✅ 批量获取CID完成</div>
+        <div style="display: flex; gap: 16px; font-size: 14px; margin-top: 8px;">
+          <span style="color: #4ade80;">成功: ${data.successCount}</span>
+          <span style="color: #f87171;">失败: ${data.failCount}</span>
+        </div>
+        <div style="font-size: 12px; color: #ccc; margin-top: 8px;">此提示将在 5 秒后消失...</div>
+      `;
+      setTimeout(() => {
+        if (container && container.parentNode) {
+          container.parentNode.removeChild(container);
+        }
+      }, 5000);
+    }
+  }
+}
+
+// 初始化 CID 抓取器
+new TikTokShopCidExtractor();

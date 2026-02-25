@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -14,14 +15,17 @@
       color: #222;
       box-sizing: border-box;
     }
+
     .main {
       padding: 16px 20px 24px;
     }
+
     .actions {
       display: flex;
       gap: 10px;
       margin-bottom: 14px;
     }
+
     .tagbar {
       display: flex;
       gap: 8px;
@@ -30,8 +34,16 @@
       overflow-x: auto;
       padding-bottom: 2px;
     }
-    .tagbar::-webkit-scrollbar { height: 6px; }
-    .tagbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 99px; }
+
+    .tagbar::-webkit-scrollbar {
+      height: 6px;
+    }
+
+    .tagbar::-webkit-scrollbar-thumb {
+      background: rgba(0, 0, 0, 0.12);
+      border-radius: 99px;
+    }
+
     .tag-chip {
       flex: none;
       display: inline-flex;
@@ -47,12 +59,14 @@
       user-select: none;
       white-space: nowrap;
     }
+
     .tag-chip.active {
       border-color: rgba(255, 0, 80, 0.55);
       box-shadow: 0 2px 10px rgba(255, 0, 80, 0.10);
       color: #ff0050;
       font-weight: 700;
     }
+
     .tag-chip.manage {
       margin-left: auto;
       background: #fff7fa;
@@ -60,6 +74,7 @@
       color: #ff0050;
       font-weight: 700;
     }
+
     button {
       flex: 1;
       padding: 10px 12px;
@@ -72,27 +87,37 @@
       transition: transform 0.15s ease, box-shadow 0.15s ease;
       box-shadow: 0 4px 10px rgba(255, 0, 80, 0.28);
     }
-    button:hover { transform: translateY(-1px); }
-    button:active { transform: translateY(0); }
+
+    button:hover {
+      transform: translateY(-1px);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
     #phraseList {
       margin-top: 6px;
     }
+
     .phrase-item {
       background: #fff;
       border-radius: 10px;
       padding: 12px 12px;
       margin-bottom: 10px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
       display: flex;
       align-items: center;
       gap: 10px;
     }
+
     .phrase-item .title {
       font-size: 14px;
       font-weight: 600;
       margin-bottom: 4px;
       color: #222;
     }
+
     .phrase-item .content {
       font-size: 12px;
       color: #555;
@@ -100,16 +125,19 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
+
     .phrase-actions {
       display: flex;
       gap: 6px;
     }
+
     .phrase-actions button {
       flex: none;
       padding: 6px 10px;
       font-size: 12px;
       box-shadow: none;
     }
+
     .status {
       display: none;
       margin-top: 10px;
@@ -117,39 +145,63 @@
       border-radius: 6px;
       font-size: 12px;
     }
-    .status.success { display:block; background:#e7f8ec; color:#117a42; }
-    .status.info { display:block; background:#eef4ff; color:#2b4acb; }
-    .status.error { display:block; background:#fdecea; color:#c0392b; }
+
+    .status.success {
+      display: block;
+      background: #e7f8ec;
+      color: #117a42;
+    }
+
+    .status.info {
+      display: block;
+      background: #eef4ff;
+      color: #2b4acb;
+    }
+
+    .status.error {
+      display: block;
+      background: #fdecea;
+      color: #c0392b;
+    }
 
     .dialog-mask {
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.4);
+      background: rgba(0, 0, 0, 0.4);
       display: none;
       align-items: center;
       justify-content: center;
       z-index: 999;
     }
-    .dialog-mask.show { display: flex; }
+
+    .dialog-mask.show {
+      display: flex;
+    }
+
     .dialog {
       background: #fff;
       border-radius: 12px;
       padding: 18px 20px;
       width: 360px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
     }
+
     .dialog h3 {
       margin: 0 0 12px;
       font-size: 16px;
       color: #222;
     }
+
     .dialog label {
       font-size: 12px;
       color: #555;
       display: block;
       margin-bottom: 6px;
     }
-    .dialog input, .dialog textarea, .dialog select {
+
+    .dialog input,
+    .dialog textarea,
+    .dialog select {
       width: 100%;
       box-sizing: border-box;
       padding: 10px;
@@ -159,13 +211,22 @@
       margin-bottom: 12px;
       font-family: inherit;
     }
-    .dialog textarea { min-height: 120px; resize: vertical; }
+
+    .dialog textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
+
     .dialog .footer {
       display: flex;
       gap: 10px;
       margin-top: 6px;
     }
-    .dialog .footer button { flex:1; }
+
+    .dialog .footer button {
+      flex: 1;
+    }
+
     .muted {
       color: #666;
       font-size: 12px;
@@ -173,66 +234,117 @@
     }
   </style>
 </head>
+
 <body>
   <div class="main">
     <div id="status" class="status info"></div>
 
     <!-- 达人管理卡片 -->
-    <div id="creatorCard" style="margin-top:16px;padding:14px;border:1px solid #e0e6ff;border-radius:10px;background:#f0f4ff;box-shadow:0 2px 8px rgba(0,0,0,0.05);box-sizing:border-box;">
+    <div id="creatorCard"
+      style="margin-top:16px;padding:14px;border:1px solid #e0e6ff;border-radius:10px;background:#f0f4ff;box-shadow:0 2px 8px rgba(0,0,0,0.05);box-sizing:border-box;">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
         <div style="font-weight:700;color:#1a365d;">达人管理</div>
         <span style="font-size:12px;color:#666;">CSV 导入达人ID，页面自动匹配高亮</span>
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-        <button id="importCreatorBtn" style="flex:none;background:#ff0050;padding:4px 8px;font-size:11px;border-radius:20px;">导入 CSV</button>
-        <button id="downloadCreatorTemplateBtn" style="flex:none;background:#007bff;padding:4px 8px;font-size:11px;border-radius:20px;">下载模板</button>
+        <button id="importCreatorBtn"
+          style="flex:none;background:#ff0050;padding:4px 8px;font-size:11px;border-radius:20px;">导入 CSV</button>
+        <button id="downloadCreatorTemplateBtn"
+          style="flex:none;background:#007bff;padding:4px 8px;font-size:11px;border-radius:20px;">下载模板</button>
         <input id="creatorFileInput" type="file" accept=".csv" style="display:none;" />
       </div>
       <div style="margin-top:12px;">
-        <input id="creatorSearchInput" type="text" placeholder="通过达人ID，CID，地区搜索..." style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:13px;box-sizing:border-box;" />
+        <input id="creatorSearchInput" type="text" placeholder="通过达人ID，CID，地区搜索..."
+          style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:13px;box-sizing:border-box;" />
       </div>
       <div id="creatorPreview"></div>
       <div id="creatorSearchResults" style="margin-top:8px;display:none;">
         <div style="font-size:12px;color:#666;margin-bottom:6px;">搜索结果：</div>
-        <div id="creatorSearchList" style="max-height:120px;overflow-y:auto;border:1px solid #eee;border-radius:6px;background:#fafafa;width:100%;box-sizing:border-box;"></div>
+        <div id="creatorSearchList"
+          style="max-height:120px;overflow-y:auto;border:1px solid #eee;border-radius:6px;background:#fafafa;width:100%;box-sizing:border-box;">
+        </div>
       </div>
     </div>
 
     <!-- 短语管理卡片 -->
-    <div id="phraseCard" style="margin-top:16px;padding:14px;border:1px solid #e0e6ff;border-radius:10px;background:#f0f4ff;box-shadow:0 2px 8px rgba(0,0,0,0.05);box-sizing:border-box;">
+    <div id="phraseCard"
+      style="margin-top:16px;padding:14px;border:1px solid #e0e6ff;border-radius:10px;background:#f0f4ff;box-shadow:0 2px 8px rgba(0,0,0,0.05);box-sizing:border-box;">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
         <div style="font-weight:700;color:#1a365d;">短语管理</div>
         <span style="font-size:12px;color:#666;">快捷短语输入"/"触发</span>
       </div>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
-        <button id="addPhraseBtn" style="flex:none;background:#ff0050;padding:4px 8px;font-size:11px;border-radius:20px;">添加短语</button>
-        <button id="openPhraseManageBtn" style="flex:none;background:#555;padding:4px 8px;font-size:11px;border-radius:20px;">管理页</button>
+        <button id="addPhraseBtn"
+          style="flex:none;background:#ff0050;padding:4px 8px;font-size:11px;border-radius:20px;">添加短语</button>
+        <button id="openPhraseManageBtn"
+          style="flex:none;background:#555;padding:4px 8px;font-size:11px;border-radius:20px;">管理页</button>
       </div>
       <div id="tagBar" class="tagbar" style="margin-bottom:12px;"></div>
       <div id="phraseList" style="display:none;"></div>
     </div>
-    <div id="orderCard" style="margin-top:16px;padding:14px;border:1px solid #e0e6ff;border-radius:10px;background:#f0f4ff;box-shadow:0 2px 8px rgba(0,0,0,0.05);box-sizing:border-box;">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-        <div style="font-weight:700;color:#1a365d;">订单查询</div>
-        <span style="font-size:12px;color:#666;">通过订单ID查询达人履约情况并导出CSV</span>
+    <!-- 综合工具卡片 (订单 & CID) -->
+    <div id="toolsCard"
+      style="margin-top:16px;border:1px solid #e0e6ff;border-radius:10px;background:#f0f4ff;box-shadow:0 2px 8px rgba(0,0,0,0.05);box-sizing:border-box;overflow:hidden;">
+      <div style="display:flex;border-bottom:1px solid #e0e6ff;background:#eef2ff;">
+        <div id="tabOrder"
+          style="flex:1;text-align:center;padding:10px;font-size:13px;font-weight:bold;color:#1a365d;cursor:pointer;background:#fff;border-bottom:2px solid #ff0050;">
+          订单查询</div>
+        <div id="tabCid"
+          style="flex:1;text-align:center;padding:10px;font-size:13px;font-weight:bold;color:#666;cursor:pointer;border-bottom:2px solid transparent;">
+          获取达人头像cid</div>
       </div>
-      <div class="input-group" style="margin-bottom:12px;">
-        <textarea id="orderId" placeholder="请输入订单号，每行一个
-例如：
-581439468539577962
-581813278309582149
-581439468539577963" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:monospace;min-height:120px;resize:vertical;box-sizing:border-box;"></textarea>
+
+      <!-- 订单查询面板 -->
+      <div id="panelOrder" style="padding:14px;display:block;">
+        <div style="font-size:12px;color:#666;margin-bottom:8px;">通过订单ID查询达人履约情况并导出CSV</div>
+        <div class="input-group" style="margin-bottom:12px;">
+          <textarea id="orderId" placeholder="请输入订单号，每行一个&#10;例如：&#10;581439468539577962&#10;581813278309582149"
+            style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:monospace;min-height:120px;resize:vertical;box-sizing:border-box;"></textarea>
+        </div>
+        <div style="display:flex;justify-content:center;gap:8px;margin-bottom:8px;">
+          <button id="startOrderQueryBtn"
+            style="flex:none;padding:7px 14px;background:#28a745;color:#fff;border:none;border-radius:20px;cursor:pointer;font-size:12px;">开始查询并下载</button>
+        </div>
       </div>
-      <button id="startOrderQueryBtn" style="width:100%;padding:10px;background:#28a745;color:#fff;border:none;border-radius:20px;cursor:pointer;font-size:14px;">开始查询并下载</button>
+
+      <!-- 批量获取CID面板 -->
+      <div id="panelCid" style="padding:14px;display:none;">
+        <div style="font-size:12px;color:#666;margin-bottom:8px;">输入达人ID批量获取头像以及CID，需在达人管理页使用</div>
+        <div style="margin-bottom:10px;">
+          <textarea id="cidCreatorInput" placeholder="输入达人昵称或ID，每行一个&#10;例如：&#10;creator1&#10;creator2" rows="5"
+            style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:monospace;min-height:120px;resize:vertical;box-sizing:border-box;"></textarea>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:8px;">
+          <button id="cidSearchBtn"
+            style="flex:none;background:#28a745;color:#fff;border:none;border-radius:20px;padding:7px 14px;cursor:pointer;font-size:12px;">开始获取</button>
+          <button id="cidExportBtn"
+            style="flex:none;background:#0369a1;color:#fff;border:none;border-radius:20px;padding:7px 14px;cursor:pointer;font-size:12px;">导出Excel</button>
+          <button id="cidClearBtn"
+            style="flex:none;background:#dc2626;color:#fff;border:none;border-radius:20px;padding:7px 14px;cursor:pointer;font-size:12px;">清除暂存数据</button>
+        </div>
+        <div id="cidStatus" style="display:none;padding:8px 10px;border-radius:6px;font-size:12px;margin-bottom:6px;">
+        </div>
+        <div id="cidProgressBar"
+          style="display:none;width:100%;height:6px;background:rgba(0,0,0,0.08);border-radius:3px;margin-bottom:6px;overflow:hidden;">
+          <div id="cidProgressFill" style="height:100%;background:#ff0050;width:0%;transition:width 0.3s ease;"></div>
+        </div>
+        <div id="cidResults"
+          style="display:none;max-height:130px;overflow-y:auto;border:1px solid #e0e6ff;border-radius:6px;background:#fff;">
+        </div>
+      </div>
     </div>
-    <div id="dataCard" style="margin-top:16px;padding:14px;border:1px solid #e0e6ff;border-radius:10px;background:#f0f4ff;box-shadow:0 2px 8px rgba(0,0,0,0.05);box-sizing:border-box;">
+
+    <div id="dataCard"
+      style="margin-top:16px;padding:14px;border:1px solid #e0e6ff;border-radius:10px;background:#f0f4ff;box-shadow:0 2px 8px rgba(0,0,0,0.05);box-sizing:border-box;">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
         <div style="font-weight:700;color:#1a365d;">数据管理</div>
         <span style="font-size:12px;color:#64748b;">备份与恢复数据</span>
       </div>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-        <button id="backupBtn" style="flex:1;background:#0369a1;color:#fff;border:none;border-radius:20px;padding:8px 12px;cursor:pointer;font-size:13px;">备份数据</button>
-        <button id="clearAllDataBtn" style="background:#dc2626;color:#fff;border:none;border-radius:20px;padding:8px 12px;cursor:pointer;font-size:13px;">清除全部数据</button>
+        <button id="backupBtn"
+          style="flex:1;background:#0369a1;color:#fff;border:none;border-radius:20px;padding:8px 12px;cursor:pointer;font-size:13px;">备份数据</button>
+        <button id="clearAllDataBtn"
+          style="background:#dc2626;color:#fff;border:none;border-radius:20px;padding:8px 12px;cursor:pointer;font-size:13px;">清除全部数据</button>
       </div>
     </div>
   </div>
@@ -294,13 +406,15 @@
       <div style="margin-bottom:16px;">
         <h4 style="margin:0 0 8px 0;color:#333;">导出数据</h4>
         <p style="font-size:12px;color:#666;margin:0 0 12px 0;">将所有数据导出为JSON文件，方便备份和迁移</p>
-        <button id="exportDataBtn" style="width:100%;padding:10px;background:#28a745;color:#fff;border:none;border-radius:20px;cursor:pointer;">导出数据</button>
+        <button id="exportDataBtn"
+          style="width:100%;padding:10px;background:#28a745;color:#fff;border:none;border-radius:20px;cursor:pointer;">导出数据</button>
       </div>
       <div style="margin-bottom:16px;border-top:1px solid #eee;padding-top:16px;">
         <h4 style="margin:0 0 8px 0;color:#333;">导入数据</h4>
         <p style="font-size:12px;color:#666;margin:0 0 12px 0;">从JSON文件导入数据，会覆盖现有数据</p>
         <input id="importDataFile" type="file" accept=".json" style="width:100%;margin-bottom:8px;" />
-        <button id="importDataBtn" style="width:100%;padding:10px;background:#007bff;color:#fff;border:none;border-radius:20px;cursor:pointer;">导入数据</button>
+        <button id="importDataBtn"
+          style="width:100%;padding:10px;background:#007bff;color:#fff;border:none;border-radius:20px;cursor:pointer;">导入数据</button>
       </div>
       <div class="footer">
         <button id="closeBackupDialogBtn" style="background:#777;border-radius:20px;">关闭</button>
@@ -315,4 +429,5 @@
     Powered by "电子恐龙" with AI
   </div>
 </body>
+
 </html>

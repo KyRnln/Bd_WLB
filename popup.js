@@ -56,6 +56,42 @@ document.addEventListener('DOMContentLoaded', () => {
   const orderIdInput = document.getElementById('orderId');
   const startOrderQueryBtn = document.getElementById('startOrderQueryBtn');
 
+  // ===== 工具卡片选项卡切换 =====
+  const tabOrder = document.getElementById('tabOrder');
+  const tabCid = document.getElementById('tabCid');
+  const panelOrder = document.getElementById('panelOrder');
+  const panelCid = document.getElementById('panelCid');
+
+  if (tabOrder && tabCid && panelOrder && panelCid) {
+    tabOrder.addEventListener('click', () => {
+      tabOrder.style.color = '#1a365d';
+      tabOrder.style.borderBottom = '2px solid #ff0050';
+      tabOrder.style.background = '#fff';
+
+      tabCid.style.color = '#666';
+      tabCid.style.borderBottom = '2px solid transparent';
+      tabCid.style.background = 'transparent';
+
+      panelOrder.style.display = 'block';
+      panelCid.style.display = 'none';
+
+      // 切换时不影响 localStorage 的记忆（如果有的话），简单处理仅做 DOM 显示切换
+    });
+
+    tabCid.addEventListener('click', () => {
+      tabCid.style.color = '#1a365d';
+      tabCid.style.borderBottom = '2px solid #ff0050';
+      tabCid.style.background = '#fff';
+
+      tabOrder.style.color = '#666';
+      tabOrder.style.borderBottom = '2px solid transparent';
+      tabOrder.style.background = 'transparent';
+
+      panelCid.style.display = 'block';
+      panelOrder.style.display = 'none';
+    });
+  }
+
   let phrases = [];
   let tags = [];
   let activeTagId = '__ALL__';
@@ -1363,7 +1399,181 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // ===== 云端同步功能 =====
+  // ===== 批量获取CID功能 =====
 
   loadData();
 });
+
+// ===== 批量获取CID卡片交互 =====
+(function () {
+  document.addEventListener('DOMContentLoaded', () => {
+    const cidCreatorInput = document.getElementById('cidCreatorInput');
+    const cidSearchBtn = document.getElementById('cidSearchBtn');
+    const cidExportBtn = document.getElementById('cidExportBtn');
+    const cidClearBtn = document.getElementById('cidClearBtn');
+    const cidStatusDiv = document.getElementById('cidStatus');
+    const cidResultsDiv = document.getElementById('cidResults');
+    const cidProgressBar = document.getElementById('cidProgressBar');
+    const cidProgressFill = document.getElementById('cidProgressFill');
+
+    if (!cidSearchBtn) return; // 元素不存在则退出
+
+    function updateCidStatus(message, type = 'info') {
+      if (!cidStatusDiv) return;
+      cidStatusDiv.textContent = message;
+      const colors = {
+        info: { bg: '#eef4ff', color: '#2b4acb' },
+        success: { bg: '#e7f8ec', color: '#117a42' },
+        error: { bg: '#fdecea', color: '#c0392b' },
+      };
+      const c = colors[type] || colors.info;
+      cidStatusDiv.style.background = c.bg;
+      cidStatusDiv.style.color = c.color;
+      cidStatusDiv.style.display = 'block';
+    }
+
+    function displayCidResults(results) {
+      if (!cidResultsDiv || !results || results.length === 0) {
+        if (cidResultsDiv) cidResultsDiv.style.display = 'none';
+        return;
+      }
+      cidResultsDiv.innerHTML = results.map(r => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;border-bottom:1px solid #eef0ff;font-size:11px;font-family:monospace;">
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#333;">${r.id || ''}</span>
+          <span style="flex:1;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:${r.cid ? '#1d5fff' : '#e53e3e'};">${r.cid || (r.error || '获取失败')}</span>
+        </div>
+      `).join('');
+      cidResultsDiv.style.display = 'block';
+    }
+
+    // 状态轮询
+    let pollInterval = null;
+
+    function startPolling() {
+      if (pollInterval) return;
+      pollInterval = setInterval(async () => {
+        try {
+          const resp = await chrome.runtime.sendMessage({ action: 'getBatchSearchStatus' });
+          if (resp.success && resp.status) updateBatchUI(resp.status);
+        } catch (e) { }
+      }, 500);
+    }
+
+    function stopPolling() {
+      if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+    }
+
+    function updateBatchUI(status) {
+      if (!status) return;
+      const { status: s, currentIndex, total, successCount, failCount, currentCreatorId, results } = status;
+
+      if (s === 'running') {
+        const pct = total > 0 ? Math.round((currentIndex / total) * 100) : 0;
+        if (cidProgressFill) cidProgressFill.style.width = `${pct}%`;
+        if (cidProgressBar) cidProgressBar.style.display = 'block';
+        updateCidStatus(`正在处理 ${currentIndex}/${total}：${currentCreatorId || ''}  ✅${successCount} ❌${failCount}`, 'info');
+        if (cidSearchBtn) { cidSearchBtn.disabled = true; cidSearchBtn.textContent = '搜索中...'; }
+      } else if (s === 'completed') {
+        if (cidProgressFill) cidProgressFill.style.width = '100%';
+        updateCidStatus(`完成！共 ${total} 个 · 成功 ${successCount} · 失败 ${failCount}`, successCount > 0 ? 'success' : 'error');
+        if (cidSearchBtn) { cidSearchBtn.disabled = false; cidSearchBtn.textContent = '开始获取'; }
+        stopPolling();
+        if (Array.isArray(results)) displayCidResults(results);
+        setTimeout(() => { if (cidProgressBar) cidProgressBar.style.display = 'none'; }, 3000);
+      } else if (s === 'error') {
+        updateCidStatus(`出错: ${status.error || '未知错误'}`, 'error');
+        if (cidSearchBtn) { cidSearchBtn.disabled = false; cidSearchBtn.textContent = '开始获取'; }
+        if (cidProgressBar) cidProgressBar.style.display = 'none';
+        stopPolling();
+      }
+    }
+
+    // 批量获取CID
+    cidSearchBtn.addEventListener('click', async () => {
+      const inputText = (cidCreatorInput.value || '').trim();
+      if (!inputText) { updateCidStatus('请输入达人ID（每行一个）', 'error'); return; }
+
+      const creatorIds = inputText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+      if (creatorIds.length === 0) { updateCidStatus('请输入至少一个达人ID', 'error'); return; }
+
+      try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (!tab || !tab.url || !tab.url.includes('affiliate.tiktokshopglobalselling.com')) {
+          updateCidStatus('⚠️ 请先打开 TikTok Shop 达人管理页面，再使用此功能', 'error');
+          return;
+        }
+
+        await chrome.runtime.sendMessage({ action: 'clearBatchSearchStatus' });
+
+        const resp = await chrome.runtime.sendMessage({
+          action: 'startBatchSearch',
+          creatorIds,
+          tabId: tab.id
+        });
+
+        if (resp.success) {
+          startPolling();
+          updateCidStatus('批量搜索已启动，关闭弹窗后仍会继续执行...', 'info');
+          if (cidProgressBar) { cidProgressBar.style.display = 'block'; }
+          if (cidProgressFill) cidProgressFill.style.width = '0%';
+        } else {
+          updateCidStatus(resp.error || '启动失败', 'error');
+        }
+      } catch (err) {
+        updateCidStatus('启动失败，请检查页面是否正确加载', 'error');
+      }
+    });
+
+    // 导出CSV
+    cidExportBtn.addEventListener('click', async () => {
+      try {
+        updateCidStatus('正在导出...', 'info');
+        const resp = await chrome.runtime.sendMessage({ action: 'exportCsv' });
+        if (resp.success) {
+          updateCidStatus('✅ CSV导出成功', 'success');
+        } else {
+          updateCidStatus(resp.error || '❌ 导出失败', 'error');
+        }
+      } catch (e) {
+        updateCidStatus('❌ 导出失败', 'error');
+      }
+    });
+
+    // 清除数据
+    cidClearBtn.addEventListener('click', async () => {
+      if (!confirm('确定清除所有已获取的CID数据吗？此操作不可恢复！')) return;
+      try {
+        updateCidStatus('正在清除...', 'info');
+        const resp = await chrome.runtime.sendMessage({ action: 'clearData' });
+        if (resp.success) {
+          updateCidStatus('✅ 数据已清除', 'success');
+          if (cidResultsDiv) { cidResultsDiv.innerHTML = ''; cidResultsDiv.style.display = 'none'; }
+        } else {
+          updateCidStatus(resp.error || '❌ 清除失败', 'error');
+        }
+      } catch (e) {
+        updateCidStatus('❌ 清除失败', 'error');
+      }
+    });
+
+    // 初始化：加载已有结果 + 检查是否有进行中的搜索
+    (async () => {
+      try {
+        const [storedResp, statusResp] = await Promise.all([
+          chrome.runtime.sendMessage({ action: 'getStoredResults' }),
+          chrome.runtime.sendMessage({ action: 'getBatchSearchStatus' })
+        ]);
+        if (storedResp.success && storedResp.results && storedResp.results.length > 0) {
+          displayCidResults(storedResp.results);
+        }
+        if (statusResp.success && statusResp.status && statusResp.status.status === 'running') {
+          startPolling();
+          updateBatchUI(statusResp.status);
+        }
+      } catch (e) { }
+    })();
+
+    // popup关闭时停止轮询
+    window.addEventListener('beforeunload', stopPolling);
+  });
+})();
