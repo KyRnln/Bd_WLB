@@ -5,7 +5,7 @@ function getStorage() {
     return chrome.storage.local;
   }
   console.error('存储不可用，无法使用快捷短语');
-    return null;
+  return null;
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -45,8 +45,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const deleteCreatorBtn = document.getElementById('deleteCreatorBtn');
   const clearAllDataBtn = document.getElementById('clearAllDataBtn');
   const backupBtn = document.getElementById('backupBtn');
-  const syncCloudBtn = document.getElementById('syncCloudBtn');
-  const syncStatus = document.getElementById('syncStatus');
   const backupDialog = document.getElementById('backupDialog');
   const exportDataBtn = document.getElementById('exportDataBtn');
   const importDataFile = document.getElementById('importDataFile');
@@ -95,7 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
       searchResults = [];
       await ensureTagsAndMigrate();
       renderAll();
-          } catch (e) {
+    } catch (e) {
       console.error('加载短语失败', e);
       phrases = [];
       tags = [];
@@ -441,12 +439,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const idxCid = headerKeys.indexOf('cid');
       cidIdx = idxCreatorCid >= 0 ? idxCreatorCid : (idxCid >= 0 ? idxCid : 1);
 
-       const idxRegion = headerKeys.indexOf('region_code');
-       const idxRegion2 = headerKeys.indexOf('region');
-       regionIdx = idxRegion >= 0 ? idxRegion : (idxRegion2 >= 0 ? idxRegion2 : 2);
+      const idxRegion = headerKeys.indexOf('region_code');
+      const idxRegion2 = headerKeys.indexOf('region');
+      regionIdx = idxRegion >= 0 ? idxRegion : (idxRegion2 >= 0 ? idxRegion2 : 2);
 
-       const idxRemark = headerKeys.indexOf('remark');
-       remarkIdx = idxRemark >= 0 ? idxRemark : 3;
+      const idxRemark = headerKeys.indexOf('remark');
+      remarkIdx = idxRemark >= 0 ? idxRemark : 3;
     }
 
     const out = [];
@@ -1233,7 +1231,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // 开始订单查询
-  startOrderQueryBtn && startOrderQueryBtn.addEventListener('click', async function() {
+  startOrderQueryBtn && startOrderQueryBtn.addEventListener('click', async function () {
     const inputText = orderIdInput.value.trim();
     if (!inputText) {
       showStatus('请输入订单号', 'error');
@@ -1366,70 +1364,6 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // ===== 云端同步功能 =====
-
-  // 显示同步状态
-  function showSyncStatus(message, type = 'info') {
-    if (!syncStatus) return;
-    syncStatus.textContent = message;
-    syncStatus.className = `sync-status ${type}`;
-    syncStatus.style.display = 'block';
-    setTimeout(() => {
-      syncStatus.style.display = 'none';
-    }, 5000);
-  }
-
-  // 云端同步
-  async function syncToCloud() {
-    try {
-      syncCloudBtn.disabled = true;
-      syncCloudBtn.textContent = '同步中...';
-
-      // 检查连接
-      const connectionCheck = await dbSync.checkConnection();
-      if (!connectionCheck.success) {
-        showSyncStatus('❌ 无法连接到云端服务器', 'error');
-        return;
-      }
-
-      showSyncStatus('🔄 正在同步到云端...', 'info');
-
-      // 执行双向同步
-      const syncResult = await dbSync.fullSync(creators, phrases);
-
-      if (syncResult.success) {
-        // 更新本地数据
-        if (syncResult.data) {
-          creators = syncResult.data.creators || creators;
-          phrases = syncResult.data.phrases || phrases;
-
-          // 保存到本地存储
-          await new Promise(resolve => storageAPI.set({
-            savedCreators: creators,
-            savedPhrases: phrases
-          }, resolve));
-
-          // 重新渲染
-          renderAll();
-        }
-
-        showSyncStatus(`✅ ${syncResult.message}`, 'success');
-      } else {
-        showSyncStatus(`❌ 同步失败: ${syncResult.error}`, 'error');
-      }
-
-    } catch (error) {
-      console.error('云端同步出错:', error);
-      showSyncStatus('❌ 同步出错，请稍后重试', 'error');
-    } finally {
-      syncCloudBtn.disabled = false;
-      syncCloudBtn.textContent = '云端同步';
-    }
-  }
-
-  // 绑定云同步按钮事件
-  if (syncCloudBtn) {
-    syncCloudBtn.addEventListener('click', syncToCloud);
-  }
 
   loadData();
 });
