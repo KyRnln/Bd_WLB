@@ -102,13 +102,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const DEFAULT_TAG_ID = 'default';
 
   // 状态提示
-  function showStatus(message, type = 'info') {
-    let statusDiv = document.getElementById('status');
+  function showStatus(message, type = 'info', elementId = 'status') {
+    let statusDiv = document.getElementById(elementId);
     if (!statusDiv) {
-      statusDiv = document.createElement('div');
-      statusDiv.id = 'status';
-      statusDiv.className = 'status';
-      document.body.appendChild(statusDiv);
+      console.error(`找不到状态提示元素: ${elementId}`);
+      return;
     }
     statusDiv.textContent = message;
     statusDiv.className = 'status ' + type;
@@ -270,7 +268,7 @@ document.addEventListener('DOMContentLoaded', () => {
         activeTagId = id;
         await saveActiveTagId();
         renderAll();
-        showStatus(`✅ 已切换到：${tagName}`, 'success');
+        showStatus(`✅ 已切换到：${tagName}`, 'success', 'phraseCardStatus');
       });
     });
     const manageBtn = tagBar.querySelector('.tag-chip.manage');
@@ -552,9 +550,9 @@ document.addEventListener('DOMContentLoaded', () => {
     renderCreators();
 
     if (addedCount > 0 || updatedCount > 0) {
-      showStatus(`✅ 成功导入: 新增 ${addedCount} 个，更新 ${updatedCount} 个`, 'success');
+      showStatus(`✅ 成功导入: 新增 ${addedCount} 个，更新 ${updatedCount} 个`, 'success', 'creatorCardStatus');
     } else {
-      showStatus(`✅ 无新数据导入，均已存在`, 'info');
+      showStatus(`✅ 无新数据导入，均已存在`, 'info', 'creatorCardStatus');
     }
   }
 
@@ -609,7 +607,7 @@ document.addEventListener('DOMContentLoaded', () => {
     await new Promise(resolve => storageAPI.set({ savedCreators: creators }, resolve));
     searchCreators(creatorSearchInput.value);
     renderCreators();
-    showStatus('✅ 已更新达人信息', 'success');
+    showStatus('✅ 已更新达人信息', 'success', 'creatorCardStatus');
     closeEditCreator();
   }
 
@@ -622,7 +620,7 @@ document.addEventListener('DOMContentLoaded', () => {
     await new Promise(resolve => storageAPI.set({ savedCreators: creators }, resolve));
     searchCreators(creatorSearchInput.value);
     renderCreators();
-    showStatus('✅ 已删除达人', 'success');
+    showStatus('✅ 已删除达人', 'success', 'creatorCardStatus');
     closeEditCreator();
   }
 
@@ -661,18 +659,18 @@ document.addEventListener('DOMContentLoaded', () => {
       document.body.removeChild(a);
 
       setTimeout(() => URL.revokeObjectURL(url), 500);
-      showStatus('✅ 数据已导出', 'success');
+      showStatus('✅ 数据已导出', 'success', 'dataCardStatus');
       closeBackupDialog();
     } catch (error) {
       console.error('导出数据失败:', error);
-      showStatus('❌ 导出数据失败', 'error');
+      showStatus('❌ 导出数据失败', 'error', 'dataCardStatus');
     }
   }
 
   async function importData() {
     const file = importDataFile.files[0];
     if (!file) {
-      showStatus('⚠️ 请选择要导入的文件', 'error');
+      showStatus('⚠️ 请选择要导入的文件', 'error', 'dataCardStatus');
       return;
     }
 
@@ -714,7 +712,7 @@ document.addEventListener('DOMContentLoaded', () => {
       importDataFile.value = '';
     } catch (error) {
       console.error('导入数据失败:', error);
-      showStatus('❌ 导入数据失败，请检查文件格式', 'error');
+      showStatus('❌ 导入数据失败，请检查文件格式', 'error', 'dataCardStatus');
     }
   }
 
@@ -724,7 +722,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const creator = searchResults[index];
 
     if (!creator.cid || !creator.region) {
-      showStatus('⚠️ 缺少CID或地区代码，无法跳转', 'error');
+      showStatus('⚠️ 缺少CID或地区代码，无法跳转', 'error', 'creatorCardStatus');
       return;
     }
 
@@ -788,7 +786,7 @@ document.addEventListener('DOMContentLoaded', () => {
     phrases = phrases.filter(p => p.id !== id);
     await savePhrases();
     renderPhraseList();
-    showStatus('✅ 已删除', 'success');
+    showStatus('✅ 已删除', 'success', 'phraseCardStatus');
   }
 
   // 保存
@@ -832,7 +830,7 @@ document.addEventListener('DOMContentLoaded', () => {
     await savePhrases();
     phraseEditDialog && phraseEditDialog.classList.remove('show');
     renderAll();
-    showStatus(editingId ? '✅ 已更新' : '✅ 已添加', 'success');
+    showStatus(editingId ? '✅ 已更新' : '✅ 已添加', 'success', 'phraseCardStatus');
     editingId = null;
   });
 
@@ -963,7 +961,7 @@ document.addEventListener('DOMContentLoaded', () => {
     searchResults = [];
     await ensureTagsAndMigrate();
     renderAll();
-    showStatus('✅ 已清除全部数据', 'success');
+    showStatus('✅ 已清除全部数据', 'success', 'dataCardStatus');
   });
 
   openPhraseManageBtn && openPhraseManageBtn.addEventListener('click', () => {
@@ -1347,7 +1345,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const progressPercent = Math.round(((i + 1) / orderIds.length) * 100);
 
         updateProgressDisplay(`查询进度: ${progressPercent}% (${i + 1}/${orderIds.length})\\n当前处理: ${orderId}\\n请稍候...`);
-        showStatus(`查询进度: ${progressPercent}% (${i + 1}/${orderIds.length}) - 处理: ${orderId}`, 'info');
+        showStatus(`查询进度: ${progressPercent}% (${i + 1}/${orderIds.length}) - 处理: ${orderId}`, 'info', 'orderPanelStatus');
 
         try {
           const response = await chrome.tabs.sendMessage(tab.id, {
@@ -1381,7 +1379,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateProgressDisplay('正在生成并下载CSV文件...\\n请稍候...');
         const downloadResult = await downloadOrderCSV(allOrders, (progress, message) => {
           updateProgressDisplay(`导出进度: ${progress}%\\n${message}`);
-          showStatus(`导出进度: ${progress}% - ${message}`, 'info');
+          showStatus(`导出进度: ${progress}% - ${message}`, 'info', 'orderPanelStatus');
         });
 
         if (downloadResult.success) {
@@ -1391,11 +1389,11 @@ document.addEventListener('DOMContentLoaded', () => {
           try {
             await clearOrderData(tab.id);
             updateProgressDisplay('操作完成！\\n✅ 已导出CSV\\n✅ 已清理数据');
-            showStatus('操作完成！已导出CSV并清理数据', 'success');
+            showStatus('操作完成！已导出CSV并清理数据', 'success', 'orderPanelStatus');
           } catch (clearError) {
             console.error('数据清理失败:', clearError);
             updateProgressDisplay('CSV已下载，但数据清理失败\\n请手动清理临时数据');
-            showStatus('CSV已下载，但数据清理失败，请手动清理', 'info');
+            showStatus('CSV已下载，但数据清理失败，请手动清理', 'info', 'orderPanelStatus');
           }
 
         } else {
@@ -1408,12 +1406,12 @@ document.addEventListener('DOMContentLoaded', () => {
           resultMessage += `\\n失败详情: ${failedOrders.join('; ')}`;
         }
         updateProgressDisplay(`查询完成\\n${resultMessage}`);
-        showStatus(resultMessage, 'error');
+        showStatus(resultMessage, 'error', 'orderPanelStatus');
       }
 
     } catch (error) {
       updateProgressDisplay(`查询失败\\n${error.message}`);
-      showStatus('查询失败：' + error.message, 'error');
+      showStatus('查询失败：' + error.message, 'error', 'orderPanelStatus');
     } finally {
       startOrderQueryBtn.disabled = false;
       startOrderQueryBtn.textContent = '开始查询并下载';
@@ -1437,7 +1435,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const cidStopBtn = document.getElementById('cidStopBtn');
     const cidExportBtn = document.getElementById('cidExportBtn');
     const cidClearBtn = document.getElementById('cidClearBtn');
-    const cidStatusDiv = document.getElementById('cidStatus');
     const cidResultsDiv = document.getElementById('cidResults');
     const cidProgressBar = document.getElementById('cidProgressBar');
     const cidProgressFill = document.getElementById('cidProgressFill');
@@ -1445,7 +1442,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!cidSearchBtn) return; // 元素不存在则退出
 
     function updateCidStatus(message, type = 'info') {
-      if (!cidStatusDiv) return;
+      const cidStatusDiv = document.getElementById('cidPanelStatus');
+      if (!cidStatusDiv) {
+        console.error('找不到CID状态提示元素');
+        return;
+      }
       cidStatusDiv.textContent = message;
       const colors = {
         info: { bg: '#eef4ff', color: '#2b4acb' },

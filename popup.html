@@ -237,11 +237,10 @@
 
 <body>
   <div class="main">
-    <div id="status" class="status info"></div>
-
     <!-- 达人管理卡片 -->
     <div id="creatorCard"
       style="margin-top:16px;padding:14px;border:1px solid #e0e6ff;border-radius:10px;background:#f0f4ff;box-shadow:0 2px 8px rgba(0,0,0,0.05);box-sizing:border-box;">
+      <div id="creatorCardStatus" class="status info" style="display:none;margin-bottom:8px;"></div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
         <div style="font-weight:700;color:#1a365d;">达人管理</div>
         <span style="font-size:12px;color:#666;">CSV 导入达人ID，页面自动匹配高亮</span>
@@ -269,6 +268,7 @@
     <!-- 综合工具卡片 (订单 & CID) -->
     <div id="toolsCard"
       style="margin-top:16px;border:1px solid #e0e6ff;border-radius:10px;background:#f0f4ff;box-shadow:0 2px 8px rgba(0,0,0,0.05);box-sizing:border-box;overflow:hidden;">
+      <div id="toolsCardStatus" class="status info" style="display:none;margin-bottom:8px;"></div>
       <div style="display:flex;border-bottom:1px solid #e0e6ff;background:#eef2ff;">
         <div id="tabOrder"
           style="flex:1;text-align:center;padding:10px;font-size:13px;font-weight:bold;color:#1a365d;cursor:pointer;background:#fff;border-bottom:2px solid #ff0050;">
@@ -280,6 +280,7 @@
 
       <!-- 订单查询面板 -->
       <div id="panelOrder" style="padding:14px;display:block;">
+        <div id="orderPanelStatus" class="status info" style="display:none;margin-bottom:8px;"></div>
         <div style="font-size:12px;color:#666;margin-bottom:8px;">通过订单ID查询达人履约情况并导出CSV</div>
         <div class="input-group" style="margin-bottom:12px;">
           <textarea id="orderId" placeholder="请输入订单号，每行一个&#10;例如：&#10;581439468539577962&#10;581813278309582149"
@@ -293,6 +294,7 @@
 
       <!-- 批量获取CID面板 -->
       <div id="panelCid" style="padding:14px;display:none;">
+        <div id="cidPanelStatus" class="status info" style="display:none;margin-bottom:8px;"></div>
         <div style="font-size:12px;color:#666;margin-bottom:8px;">输入达人ID批量获取头像以及CID，需在达人管理页使用</div>
         <div style="margin-bottom:10px;">
           <textarea id="cidCreatorInput" placeholder="输入达人昵称或ID，每行一个&#10;例如：&#10;creator1&#10;creator2" rows="5"
@@ -322,6 +324,7 @@
     <!-- 短语管理卡片 -->
     <div id="phraseCard"
       style="margin-top:16px;padding:14px;border:1px solid #e0e6ff;border-radius:10px;background:#f0f4ff;box-shadow:0 2px 8px rgba(0,0,0,0.05);box-sizing:border-box;">
+      <div id="phraseCardStatus" class="status info" style="display:none;margin-bottom:8px;"></div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
         <div style="font-weight:700;color:#1a365d;">短语管理</div>
         <span style="font-size:12px;color:#666;">快捷短语输入"/"触发</span>
@@ -338,6 +341,7 @@
 
     <div id="dataCard"
       style="margin-top:16px;padding:14px;border:1px solid #e0e6ff;border-radius:10px;background:#f0f4ff;box-shadow:0 2px 8px rgba(0,0,0,0.05);box-sizing:border-box;">
+      <div id="dataCardStatus" class="status info" style="display:none;margin-bottom:8px;"></div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
         <div style="font-weight:700;color:#1a365d;">数据管理</div>
         <span style="font-size:12px;color:#64748b;">备份与恢复数据</span>
