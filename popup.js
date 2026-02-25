@@ -527,10 +527,35 @@ document.addEventListener('DOMContentLoaded', () => {
       alert('未解析到有效的达人ID');
       return;
     }
-    creators = dedupeCreators(parsed);
+
+    // 增量更新逻辑
+    let addedCount = 0;
+    let updatedCount = 0;
+    const newCreators = dedupeCreators(parsed);
+
+    for (const newCreator of newCreators) {
+      const existingIndex = creators.findIndex(c => c.id === newCreator.id);
+      if (existingIndex >= 0) {
+        // 更新存在的达人信息 (如果 CSV 中有新字段则覆盖)
+        if (newCreator.cid) creators[existingIndex].cid = newCreator.cid;
+        if (newCreator.region) creators[existingIndex].region = newCreator.region;
+        if (newCreator.remark) creators[existingIndex].remark = newCreator.remark;
+        updatedCount++;
+      } else {
+        // 追加新达人
+        creators.push(newCreator);
+        addedCount++;
+      }
+    }
+
     await new Promise(resolve => storageAPI.set({ savedCreators: creators }, resolve));
     renderCreators();
-    showStatus(`✅ 已导入达人 ${creators.length} 个`, 'success');
+
+    if (addedCount > 0 || updatedCount > 0) {
+      showStatus(`✅ 成功导入: 新增 ${addedCount} 个，更新 ${updatedCount} 个`, 'success');
+    } else {
+      showStatus(`✅ 无新数据导入，均已存在`, 'info');
+    }
   }
 
   function searchCreators(query) {
