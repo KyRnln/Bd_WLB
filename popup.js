@@ -1409,6 +1409,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('DOMContentLoaded', () => {
     const cidCreatorInput = document.getElementById('cidCreatorInput');
     const cidSearchBtn = document.getElementById('cidSearchBtn');
+    const cidStopBtn = document.getElementById('cidStopBtn');
     const cidExportBtn = document.getElementById('cidExportBtn');
     const cidClearBtn = document.getElementById('cidClearBtn');
     const cidStatusDiv = document.getElementById('cidStatus');
@@ -1472,17 +1473,20 @@ document.addEventListener('DOMContentLoaded', () => {
         if (cidProgressFill) cidProgressFill.style.width = `${pct}%`;
         if (cidProgressBar) cidProgressBar.style.display = 'block';
         updateCidStatus(`正在处理 ${currentIndex}/${total}：${currentCreatorId || ''}  ✅${successCount} ❌${failCount}`, 'info');
-        if (cidSearchBtn) { cidSearchBtn.disabled = true; cidSearchBtn.textContent = '搜索中...'; }
+        if (cidSearchBtn) { cidSearchBtn.style.display = 'none'; }
+        if (cidStopBtn) { cidStopBtn.style.display = ''; cidStopBtn.disabled = false; cidStopBtn.textContent = '停止搜索'; }
       } else if (s === 'completed') {
         if (cidProgressFill) cidProgressFill.style.width = '100%';
         updateCidStatus(`完成！共 ${total} 个 · 成功 ${successCount} · 失败 ${failCount}`, successCount > 0 ? 'success' : 'error');
-        if (cidSearchBtn) { cidSearchBtn.disabled = false; cidSearchBtn.textContent = '开始获取'; }
+        if (cidSearchBtn) { cidSearchBtn.style.display = ''; cidSearchBtn.disabled = false; cidSearchBtn.textContent = '开始获取'; }
+        if (cidStopBtn) { cidStopBtn.style.display = 'none'; }
         stopPolling();
         if (Array.isArray(results)) displayCidResults(results);
         setTimeout(() => { if (cidProgressBar) cidProgressBar.style.display = 'none'; }, 3000);
       } else if (s === 'error') {
         updateCidStatus(`出错: ${status.error || '未知错误'}`, 'error');
-        if (cidSearchBtn) { cidSearchBtn.disabled = false; cidSearchBtn.textContent = '开始获取'; }
+        if (cidSearchBtn) { cidSearchBtn.style.display = ''; cidSearchBtn.disabled = false; cidSearchBtn.textContent = '开始获取'; }
+        if (cidStopBtn) { cidStopBtn.style.display = 'none'; }
         if (cidProgressBar) cidProgressBar.style.display = 'none';
         stopPolling();
       }
@@ -1523,6 +1527,14 @@ document.addEventListener('DOMContentLoaded', () => {
         updateCidStatus('启动失败，请检查页面是否正确加载', 'error');
       }
     });
+
+    if (cidStopBtn) {
+      cidStopBtn.addEventListener('click', async () => {
+        cidStopBtn.disabled = true;
+        cidStopBtn.textContent = '正在停止...';
+        await chrome.runtime.sendMessage({ action: 'stopBatchSearch' });
+      });
+    }
 
     // 导出CSV
     cidExportBtn.addEventListener('click', async () => {

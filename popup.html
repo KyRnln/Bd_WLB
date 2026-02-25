@@ -266,22 +266,6 @@
       </div>
     </div>
 
-    <!-- 短语管理卡片 -->
-    <div id="phraseCard"
-      style="margin-top:16px;padding:14px;border:1px solid #e0e6ff;border-radius:10px;background:#f0f4ff;box-shadow:0 2px 8px rgba(0,0,0,0.05);box-sizing:border-box;">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-        <div style="font-weight:700;color:#1a365d;">短语管理</div>
-        <span style="font-size:12px;color:#666;">快捷短语输入"/"触发</span>
-      </div>
-      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
-        <button id="addPhraseBtn"
-          style="flex:none;background:#ff0050;padding:4px 8px;font-size:11px;border-radius:20px;">添加短语</button>
-        <button id="openPhraseManageBtn"
-          style="flex:none;background:#555;padding:4px 8px;font-size:11px;border-radius:20px;">管理页</button>
-      </div>
-      <div id="tagBar" class="tagbar" style="margin-bottom:12px;"></div>
-      <div id="phraseList" style="display:none;"></div>
-    </div>
     <!-- 综合工具卡片 (订单 & CID) -->
     <div id="toolsCard"
       style="margin-top:16px;border:1px solid #e0e6ff;border-radius:10px;background:#f0f4ff;box-shadow:0 2px 8px rgba(0,0,0,0.05);box-sizing:border-box;overflow:hidden;">
@@ -317,6 +301,8 @@
         <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:8px;">
           <button id="cidSearchBtn"
             style="flex:none;background:#28a745;color:#fff;border:none;border-radius:20px;padding:7px 14px;cursor:pointer;font-size:12px;">开始获取</button>
+          <button id="cidStopBtn"
+            style="display:none;flex:none;background:#f59e0b;color:#fff;border:none;border-radius:20px;padding:7px 14px;cursor:pointer;font-size:12px;">停止搜索</button>
           <button id="cidExportBtn"
             style="flex:none;background:#0369a1;color:#fff;border:none;border-radius:20px;padding:7px 14px;cursor:pointer;font-size:12px;">导出Excel</button>
           <button id="cidClearBtn"
@@ -332,6 +318,22 @@
           style="display:none;max-height:130px;overflow-y:auto;border:1px solid #e0e6ff;border-radius:6px;background:#fff;">
         </div>
       </div>
+    </div>
+    <!-- 短语管理卡片 -->
+    <div id="phraseCard"
+      style="margin-top:16px;padding:14px;border:1px solid #e0e6ff;border-radius:10px;background:#f0f4ff;box-shadow:0 2px 8px rgba(0,0,0,0.05);box-sizing:border-box;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <div style="font-weight:700;color:#1a365d;">短语管理</div>
+        <span style="font-size:12px;color:#666;">快捷短语输入"/"触发</span>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
+        <button id="addPhraseBtn"
+          style="flex:none;background:#ff0050;padding:4px 8px;font-size:11px;border-radius:20px;">添加短语</button>
+        <button id="openPhraseManageBtn"
+          style="flex:none;background:#555;padding:4px 8px;font-size:11px;border-radius:20px;">管理页</button>
+      </div>
+      <div id="tagBar" class="tagbar" style="margin-bottom:12px;"></div>
+      <div id="phraseList" style="display:none;"></div>
     </div>
 
     <div id="dataCard"

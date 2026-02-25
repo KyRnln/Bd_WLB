@@ -80,6 +80,7 @@ const cidDb = new CreatorDatabase();
 
 // tabId -> { query, resolve, timeoutId }
 const pendingCidWaitByTab = new Map();
+let isBatchSearchStopped = false;
 
 // ===== 消息处理 =====
 
@@ -138,6 +139,9 @@ async function executeBatchSearch(tabId, creatorIds) {
   });
 
   for (let i = 0; i < creatorIds.length; i++) {
+    if (isBatchSearchStopped) {
+      break;
+    }
     const creatorId = creatorIds[i];
     const currentIndex = i + 1;
 
@@ -248,6 +252,7 @@ async function handleMessage(request, sender) {
       }
     }
     case 'startBatchSearch': {
+      isBatchSearchStopped = false;
       let tabId = request.tabId || sender?.tab?.id;
       if (!tabId) {
         try {
@@ -273,6 +278,10 @@ async function handleMessage(request, sender) {
     case 'getBatchSearchStatus': {
       const status = await chrome.storage.local.get('batchSearchStatus');
       return { success: true, status: status.batchSearchStatus || null };
+    }
+    case 'stopBatchSearch': {
+      isBatchSearchStopped = true;
+      return { success: true };
     }
     case 'clearBatchSearchStatus': {
       await chrome.storage.local.remove('batchSearchStatus');
