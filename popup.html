@@ -276,6 +276,9 @@
         <div id="tabCid"
           style="flex:1;text-align:center;padding:10px;font-size:13px;font-weight:bold;color:#666;cursor:pointer;border-bottom:2px solid transparent;">
           获取达人头像cid</div>
+        <div id="tabCover"
+          style="flex:1;text-align:center;padding:10px;font-size:13px;font-weight:bold;color:#666;cursor:pointer;border-bottom:2px solid transparent;">
+          获取视频封面</div>
       </div>
 
       <!-- 订单查询面板 -->
@@ -318,6 +321,50 @@
         </div>
         <div id="cidResults"
           style="display:none;max-height:130px;overflow-y:auto;border:1px solid #e0e6ff;border-radius:6px;background:#fff;">
+        </div>
+      </div>
+
+      <!-- 视频封面面板 -->
+      <div id="panelCover" style="padding:14px;display:none;">
+        <div id="coverPanelStatus" class="status info" style="display:none;margin-bottom:8px;"></div>
+        <div style="font-size:12px;color:#666;margin-bottom:8px;">粘贴TikTok视频链接（每行一个）获取封面并导出Excel</div>
+
+        <div style="margin-bottom:10px;">
+          <textarea id="coverUrlInput"
+            placeholder="https://www.tiktok.com/@user/video/123456...&#10;https://www.tiktok.com/@user/video/789012..."
+            rows="5"
+            style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:monospace;min-height:120px;resize:vertical;box-sizing:border-box;"></textarea>
+        </div>
+
+        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:10px;">
+          <button id="coverFetchBtn"
+            style="flex:1;background:#ff0050;color:#fff;border:none;border-radius:20px;padding:7px 14px;cursor:pointer;font-size:13px;font-weight:600;">获取封面</button>
+          <button id="coverClearBtn"
+            style="flex:none;background:#fff;color:#555;border:1px solid #ddd;border-radius:20px;padding:7px 14px;cursor:pointer;font-size:12px;box-shadow:none;">清空</button>
+          <button id="coverExportBtn"
+            style="display:none;flex:none;background:#28a745;color:#fff;border:none;border-radius:20px;padding:7px 14px;cursor:pointer;font-size:12px;">导出Excel</button>
+        </div>
+
+        <div id="coverProgressBar" class="hidden"
+          style="display:none; align-items:center; gap:8px; margin-bottom:10px; padding:0 4px;">
+          <div style="flex:1; height:6px; background:rgba(0,0,0,0.08); border-radius:3px; overflow:hidden;">
+            <div id="coverProgressFill"
+              style="height:100%; background:linear-gradient(90deg, #ff0050, #ff6b9d); width:0%; transition:width 0.3s ease;">
+            </div>
+          </div>
+          <span id="coverProgressText" style="font-size:11px; color:#666; min-width:30px; text-align:right;">0/0</span>
+        </div>
+
+        <div id="coverStatsRow" style="display:none; align-items:center; gap:6px; margin-bottom:10px; font-size:11px;">
+          <div id="coverStatTotal" style="background:#eef2ff; color:#1a365d; padding:3px 8px; border-radius:10px;">总计: 0
+          </div>
+          <div id="coverStatSuccess" style="background:#e7f8ec; color:#117a42; padding:3px 8px; border-radius:10px;">成功:
+            0</div>
+          <div id="coverStatError" style="background:#fdecea; color:#c0392b; padding:3px 8px; border-radius:10px;">失败: 0
+          </div>
+        </div>
+
+        <div id="coverResults" style="max-height:180px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;">
         </div>
       </div>
     </div>
@@ -429,6 +476,7 @@
   </div>
 
 
+  <script src="libs/exceljs.min.js"></script>
   <script src="popup.js"></script>
 
   <div style="text-align:center;margin-top:16px;padding:8px;color:#999;font-size:11px;">

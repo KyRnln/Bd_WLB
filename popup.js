@@ -59,8 +59,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // ===== 工具卡片选项卡切换 =====
   const tabOrder = document.getElementById('tabOrder');
   const tabCid = document.getElementById('tabCid');
+  const tabCover = document.getElementById('tabCover');
   const panelOrder = document.getElementById('panelOrder');
   const panelCid = document.getElementById('panelCid');
+  const panelCover = document.getElementById('panelCover');
 
   if (tabOrder && tabCid && panelOrder && panelCid) {
     tabOrder.addEventListener('click', () => {
@@ -74,8 +76,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
       panelOrder.style.display = 'block';
       panelCid.style.display = 'none';
-
-      // 切换时不影响 localStorage 的记忆（如果有的话），简单处理仅做 DOM 显示切换
+      if (panelCover) panelCover.style.display = 'none';
+      if (tabCover) {
+        tabCover.style.color = '#666';
+        tabCover.style.borderBottom = '2px solid transparent';
+      }
     });
 
     tabCid.addEventListener('click', () => {
@@ -89,7 +94,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
       panelCid.style.display = 'block';
       panelOrder.style.display = 'none';
+      if (panelCover) panelCover.style.display = 'none';
+      if (tabCover) {
+        tabCover.style.color = '#666';
+        tabCover.style.borderBottom = '2px solid transparent';
+      }
     });
+
+    if (tabCover && panelCover) {
+      tabCover.addEventListener('click', () => {
+        tabCover.style.color = '#1a365d';
+        tabCover.style.borderBottom = '2px solid #ff0050';
+        tabCover.style.background = '#fff';
+
+        tabOrder.style.color = '#666';
+        tabOrder.style.borderBottom = '2px solid transparent';
+        tabOrder.style.background = 'transparent';
+
+        tabCid.style.color = '#666';
+        tabCid.style.borderBottom = '2px solid transparent';
+        tabCid.style.background = 'transparent';
+
+        panelCover.style.display = 'block';
+        panelOrder.style.display = 'none';
+        panelCid.style.display = 'none';
+      });
+    }
   }
 
   let phrases = [];
@@ -1612,6 +1642,307 @@ document.addEventListener('DOMContentLoaded', () => {
     })();
 
     // popup关闭时停止轮询
+    // popup关闭时停止轮询
     window.addEventListener('beforeunload', stopPolling);
+  });
+
+  // ============================================================
+  // 获取 TikTok 视频封面功能区
+  // ============================================================
+  document.addEventListener('DOMContentLoaded', () => {
+    const coverUrlInput = document.getElementById('coverUrlInput');
+    const coverFetchBtn = document.getElementById('coverFetchBtn');
+    const coverClearBtn = document.getElementById('coverClearBtn');
+    const coverExportBtn = document.getElementById('coverExportBtn');
+    const coverProgressBar = document.getElementById('coverProgressBar');
+    const coverProgressFill = document.getElementById('coverProgressFill');
+    const coverProgressText = document.getElementById('coverProgressText');
+    const coverStatsRow = document.getElementById('coverStatsRow');
+    const coverStatTotal = document.getElementById('coverStatTotal');
+    const coverStatSuccess = document.getElementById('coverStatSuccess');
+    const coverStatError = document.getElementById('coverStatError');
+    const coverResults = document.getElementById('coverResults');
+
+    let coverDataList = [];
+    const CONCURRENT_REQUESTS = 3;
+
+    function isValidTikTokUrl(url) {
+      try {
+        const u = new URL(url);
+        return u.hostname.includes('tiktok.com');
+      } catch {
+        return false;
+      }
+    }
+
+    function parseCoverUrls(text) {
+      return text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+    }
+
+    async function fetchTikTokCover(videoUrl) {
+      if (!isValidTikTokUrl(videoUrl)) {
+        return { url: videoUrl, thumbnailUrl: '', title: '', status: 'error', error: '无效格式' };
+      }
+      const apiUrl = `https://www.tiktok.com/oembed?url=${encodeURIComponent(videoUrl)}`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+      try {
+        const response = await fetch(apiUrl, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        return {
+          url: videoUrl,
+          thumbnailUrl: data.thumbnail_url || '',
+          title: data.title || '(无标题)',
+          author: data.author_name || '',
+          status: 'success'
+        };
+      } catch (err) {
+        clearTimeout(timeoutId);
+        const message = err.name === 'AbortError' ? '超时' : err.message;
+        return { url: videoUrl, thumbnailUrl: '', title: '', status: 'error', error: message };
+      }
+    }
+
+    function updateCoverProgress(current, total) {
+      const pct = total === 0 ? 0 : Math.round((current / total) * 100);
+      if (coverProgressFill) coverProgressFill.style.width = `${pct}%`;
+      if (coverProgressText) coverProgressText.textContent = `${current}/${total}`;
+    }
+
+    function renderCoverCard(item, index) {
+      if (!coverResults) return;
+      const card = document.createElement('div');
+      const isError = item.status === 'error';
+      const bgColor = isError ? '#fdecea' : '#fff';
+      const borderColor = isError ? '#f5c6cb' : '#e0e6ff';
+
+      card.style.cssText = `display:flex; padding:8px; border:1px solid ${borderColor}; border-radius:6px; background:${bgColor}; gap:10px;`;
+
+      const thumbHtml = (item.status === 'success' && item.thumbnailUrl)
+        ? `<img src="${item.thumbnailUrl}" style="width:40px;height:71px;object-fit:cover;border-radius:4px;cursor:pointer;" onclick="window.open('${item.thumbnailUrl}', '_blank')" title="点击查看大图" />`
+        : `<div style="width:40px;height:71px;background:#f0f0f0;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:16px;">${isError ? '⚠️' : '🖼️'}</div>`;
+
+      const btnStyle = "background:#f0f4ff; color:#0369a1; border:1px solid #bae6fd; padding:3px 8px; border-radius:12px; font-size:10px; cursor:pointer;";
+      const actionsHtml = item.status === 'success'
+        ? `<div style="display:flex;gap:4px;margin-top:4px;">
+             <button class="copy-cv" data-txt="${item.thumbnailUrl}" style="${btnStyle}">复制封面链</button>
+             <button class="copy-cv" data-txt="${item.url}" style="${btnStyle}">复制视频链</button>
+           </div>`
+        : '';
+
+      const titleColor = isError ? '#c0392b' : '#333';
+      const titleText = isError ? `错误: ${item.error}` : item.title;
+
+      card.innerHTML = `
+        <div style="flex:none">${thumbHtml}</div>
+        <div style="flex:1; overflow:hidden; display:flex; flex-direction:column; justify-content:center;">
+          <div style="font-size:10px;color:#888;margin-bottom:2px;">#${index + 1}</div>
+          <div style="font-size:12px;font-weight:600;color:${titleColor};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${item.title}">${titleText}</div>
+          <div style="font-size:10px;color:#666;font-family:monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${item.url}</div>
+          ${actionsHtml}
+        </div>
+      `;
+
+      card.querySelectorAll('.copy-cv').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText(btn.dataset.txt);
+            const oldTxt = btn.textContent;
+            btn.textContent = '已复制';
+            btn.style.background = '#dcfce7';
+            btn.style.color = '#15803d';
+            setTimeout(() => { btn.textContent = oldTxt; btn.style.background = '#f0f4ff'; btn.style.color = '#0369a1'; }, 1500);
+          } catch (e) { }
+        });
+      });
+
+      coverResults.appendChild(card);
+    }
+
+    function updateCoverStats() {
+      if (!coverStatsRow) return;
+      const total = coverDataList.length;
+      const successCount = coverDataList.filter(r => r.status === 'success').length;
+      const errorCount = total - successCount;
+      if (coverStatTotal) coverStatTotal.textContent = `总计: ${total}`;
+      if (coverStatSuccess) coverStatSuccess.textContent = `成功: ${successCount}`;
+      if (coverStatError) coverStatError.textContent = `失败: ${errorCount}`;
+      if (coverExportBtn) {
+        coverExportBtn.style.display = successCount > 0 ? 'inline-block' : 'none';
+      }
+    }
+
+    async function startFetchCover() {
+      if (!coverUrlInput) return;
+      const rawText = coverUrlInput.value.trim();
+      if (!rawText) return;
+
+      const urls = parseCoverUrls(rawText);
+      if (!urls.length) return;
+
+      coverDataList = [];
+      if (coverResults) coverResults.innerHTML = '';
+      if (coverFetchBtn) {
+        coverFetchBtn.disabled = true;
+        coverFetchBtn.textContent = '正在获取...';
+        coverFetchBtn.style.opacity = '0.7';
+      }
+      if (coverProgressBar) coverProgressBar.style.display = 'flex';
+      if (coverStatsRow) coverStatsRow.style.display = 'flex';
+      if (coverExportBtn) coverExportBtn.style.display = 'none';
+      updateCoverProgress(0, urls.length);
+
+      let completed = 0;
+      for (let i = 0; i < urls.length; i += CONCURRENT_REQUESTS) {
+        const batch = urls.slice(i, i + CONCURRENT_REQUESTS);
+        const batchResults = await Promise.all(batch.map(url => fetchTikTokCover(url)));
+
+        batchResults.forEach((res, j) => {
+          coverDataList.push(res);
+          completed++;
+          updateCoverProgress(completed, urls.length);
+          renderCoverCard(res, coverDataList.length - 1);
+          updateCoverStats();
+        });
+      }
+
+      if (coverFetchBtn) {
+        coverFetchBtn.disabled = false;
+        coverFetchBtn.textContent = '再次获取';
+        coverFetchBtn.style.opacity = '1';
+      }
+    }
+
+    // ==== ExcelJS ====
+    async function fetchImageAsBuffer(url) {
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      return resp.arrayBuffer();
+    }
+
+    function guessImageExtension(url) {
+      const lower = url.toLowerCase().split('?')[0];
+      if (lower.endsWith('.png')) return 'png';
+      if (lower.endsWith('.gif')) return 'gif';
+      return 'jpeg';
+    }
+
+    async function exportCoverExcel() {
+      if (!coverDataList.length || typeof ExcelJS === 'undefined') {
+        if (typeof ExcelJS === 'undefined') alert('ExcelJS 加载失败');
+        return;
+      }
+      const successOnly = coverDataList.filter(r => r.status === 'success');
+      if (!successOnly.length) return;
+
+      const btnOldTxt = coverExportBtn.textContent;
+      coverExportBtn.disabled = true;
+      coverExportBtn.textContent = '正在打包导出...';
+
+      try {
+        const workbook = new ExcelJS.Workbook();
+        const sheet = workbook.addWorksheet('TikTok封面');
+
+        sheet.columns = [
+          { header: '序号', key: 'idx', width: 6 },
+          { header: '封面', key: 'cover', width: 14 },
+          { header: '视频标题', key: 'title', width: 35 },
+          { header: '作者', key: 'author', width: 15 },
+          { header: '视频链接', key: 'url', width: 50 },
+        ];
+
+        const headerRow = sheet.getRow(1);
+        headerRow.height = 20;
+        headerRow.eachCell(cell => {
+          cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A365D' } };
+          cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        });
+
+        const IMG_H_PX = 130;
+        const ROW_HEIGHT_PT = IMG_H_PX * 0.75;
+
+        for (let i = 0; i < successOnly.length; i++) {
+          const item = successOnly[i];
+          const rowNum = i + 2;
+          const row = sheet.getRow(rowNum);
+          row.height = ROW_HEIGHT_PT;
+
+          row.getCell('idx').value = i + 1;
+          row.getCell('title').value = item.title;
+          row.getCell('author').value = item.author || '';
+          row.getCell('url').value = { text: item.url, hyperlink: item.url };
+
+          ['idx', 'title', 'author', 'url'].forEach(key => {
+            row.getCell(key).alignment = {
+              vertical: 'middle',
+              horizontal: key === 'idx' ? 'center' : 'left',
+              wrapText: true
+            };
+          });
+
+          if (item.thumbnailUrl) {
+            try {
+              const buf = await fetchImageAsBuffer(item.thumbnailUrl);
+              const ext = guessImageExtension(item.thumbnailUrl);
+              const imageId = workbook.addImage({ buffer: buf, extension: ext });
+              sheet.addImage(imageId, {
+                tl: { col: 1, row: rowNum - 1 },
+                br: { col: 2, row: rowNum },
+                editAs: 'oneCell'
+              });
+            } catch (e) {
+              row.getCell('cover').value = '加载失败';
+              row.getCell('cover').alignment = { vertical: 'middle', horizontal: 'center' };
+            }
+          }
+          row.commit();
+        }
+
+        const buf = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `tiktok_covers_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}.xlsx`;
+        a.click();
+        URL.revokeObjectURL(url);
+
+      } catch (err) {
+        console.error(err);
+        alert('导出失败: ' + err.message);
+      } finally {
+        coverExportBtn.disabled = false;
+        coverExportBtn.textContent = btnOldTxt;
+      }
+    }
+
+    if (coverFetchBtn) coverFetchBtn.addEventListener('click', startFetchCover);
+    if (coverExportBtn) coverExportBtn.addEventListener('click', exportCoverExcel);
+    if (coverClearBtn) coverClearBtn.addEventListener('click', () => {
+      if (coverUrlInput) coverUrlInput.value = '';
+      coverDataList = [];
+      if (coverResults) coverResults.innerHTML = '';
+      if (coverProgressBar) coverProgressBar.style.display = 'none';
+      if (coverStatsRow) coverStatsRow.style.display = 'none';
+      if (coverExportBtn) coverExportBtn.style.display = 'none';
+      if (coverFetchBtn) {
+        coverFetchBtn.textContent = '获取封面';
+        coverFetchBtn.style.opacity = '1';
+        coverUrlInput.focus();
+      }
+    });
+
+    if (coverUrlInput) {
+      coverUrlInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+          e.preventDefault();
+          startFetchCover();
+        }
+      });
+    }
   });
 })();
