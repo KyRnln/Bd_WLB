@@ -1205,8 +1205,9 @@ class OrderAutomation {
     return null;
   }
 
-  async getTableData() {
+  async getTableData(filterOrderId = null) {
     console.log('=== 开始获取表格数据 ===');
+    console.log('过滤订单ID:', filterOrderId);
     console.log('当前页面URL:', window.location.href);
     console.log('document.readyState:', document.readyState);
 
@@ -1295,12 +1296,25 @@ class OrderAutomation {
       console.log(`订单 ${orderId}: ${rows.length} 个产品`);
     }
 
-    if (orderGroups.size === 0) {
+    // 如果指定了过滤订单ID，只处理该订单号的数据
+    let filteredGroups = orderGroups;
+    if (filterOrderId) {
+      filteredGroups = new Map();
+      if (orderGroups.has(filterOrderId)) {
+        filteredGroups.set(filterOrderId, orderGroups.get(filterOrderId));
+        console.log(`过滤结果: 找到订单 ${filterOrderId}，包含 ${orderGroups.get(filterOrderId).length} 个产品`);
+      } else {
+        console.log(`过滤结果: 未找到订单 ${filterOrderId}`);
+        return [];
+      }
+    }
+
+    if (filteredGroups.size === 0) {
       console.log('当前页面未找到订单数据分组，可能数据尚未加载或页面结构不同');
       return [];
     }
 
-    for (const [orderId, orderRows] of orderGroups) {
+    for (const [orderId, orderRows] of filteredGroups) {
       console.log(`处理订单 ${orderId}，包含 ${orderRows.length} 个产品`);
 
       for (let i = 0; i < orderRows.length; i++) {
@@ -1504,7 +1518,7 @@ class OrderAutomation {
 
       console.log('步骤6：获取数据');
       this.updatePageProgress('正在获取查询结果...', 'info');
-      const orders = await this.getTableData();
+      const orders = await this.getTableData(orderId);
 
       console.log(`正在保存 ${orders.length} 条订单数据到IndexedDB`);
       this.updatePageProgress(`正在保存 ${orders.length} 条数据...`, 'info');

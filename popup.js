@@ -63,6 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // 订单查询相关元素
   const orderIdInput = document.getElementById('orderId');
   const startOrderQueryBtn = document.getElementById('startOrderQueryBtn');
+  const stopOrderQueryBtn = document.getElementById('stopOrderQueryBtn');
 
   // ===== 工具卡片选项卡切换 =====
   const tabOrder = document.getElementById('tabOrder');
@@ -108,6 +109,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (tabCidToName && panelCidToName) {
       tabCidToName.addEventListener('click', () => activateTab(tabCidToName, panelCidToName));
     }
+    // 初始化激活第一个标签页
+    activateTab(tabOrder, panelOrder);
   }
 
   let phrases = [];
@@ -1266,11 +1269,11 @@ document.addEventListener('DOMContentLoaded', () => {
           `"${order.timestamp || ''}"`
         ].join(',');
       })
-    ].join('\\n');
+    ].join('\n');
 
     if (progressCallback) progressCallback(80, '正在添加编码标识...');
 
-    const BOM = '\\uFEFF';
+    const BOM = '\uFEFF';
     const csvWithBOM = BOM + csvContent;
 
     console.log('CSV内容长度:', csvWithBOM.length);
@@ -1432,7 +1435,7 @@ document.addEventListener('DOMContentLoaded', () => {
       color: #333;
       white-space: pre-line;
     `;
-    progressDiv.textContent = '正在准备查询...\\n请稍候...';
+    progressDiv.textContent = '正在准备查询...\n请稍候...';
 
     // 替换textarea
     inputGroup.replaceChild(progressDiv, orderIdInput);
@@ -1456,9 +1459,42 @@ document.addEventListener('DOMContentLoaded', () => {
     if (progressDiv) {
       progressDiv.textContent = message;
     }
+    // 保存进度到storage，实现持久化
+    if (storageAPI) {
+      storageAPI.set({ 'orderQueryProgress': message });
+    }
+  }
+
+  // 恢复进度显示
+  function restoreProgressDisplay() {
+    if (!storageAPI) return;
+    storageAPI.get(['orderQueryProgress'], (result) => {
+      if (result.orderQueryProgress) {
+        // 检查是否已经在进度显示模式
+        const progressDiv = document.getElementById('orderProgressDisplay');
+        if (!progressDiv) {
+          switchToProgressMode();
+        }
+        updateProgressDisplay(result.orderQueryProgress);
+      }
+    });
+  }
+
+  // 清除进度显示
+  function clearProgressDisplay() {
+    if (storageAPI) {
+      storageAPI.remove(['orderQueryProgress']);
+    }
+    const progressDiv = document.getElementById('orderProgressDisplay');
+    if (progressDiv) {
+      progressDiv.textContent = '';
+    }
   }
 
   // 开始订单查询
+  // 订单查询停止标志
+  let shouldStopOrderQuery = false;
+
   startOrderQueryBtn && startOrderQueryBtn.addEventListener('click', async function () {
     const inputText = orderIdInput.value.trim();
     if (!inputText) {
@@ -1467,7 +1503,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const orderIds = [...new Set(
-      inputText.split('\\n')
+      inputText.split('\n')
         .map(id => id.trim())
         .filter(id => id.length > 0)
     )];
@@ -1477,17 +1513,23 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const inputLines = inputText.split('\\n').filter(line => line.trim().length > 0).length;
+    const inputLines = inputText.split('\n').filter(line => line.trim().length > 0).length;
     console.log(`用户输入了 ${inputLines} 行，去重后得到 ${orderIds.length} 个订单ID`);
     console.log('去重前的订单ID:', inputLines);
     console.log('去重后的订单ID:', orderIds);
 
+    // 重置停止标志
+    shouldStopOrderQuery = false;
     startOrderQueryBtn.disabled = true;
     startOrderQueryBtn.textContent = '查询中...';
+    // 显示停止按钮
+    if (stopOrderQueryBtn) {
+      stopOrderQueryBtn.style.display = 'flex';
+    }
 
     // 切换到进度显示模式
     switchToProgressMode();
-    updateProgressDisplay(`准备查询 ${orderIds.length} 个订单...\\n请稍候...`);
+    updateProgressDisplay(`准备查询 ${orderIds.length} 个订单...\n请稍候...`);
 
     let allOrders = [];
 
@@ -1497,7 +1539,7 @@ document.addEventListener('DOMContentLoaded', () => {
       let contentScriptReady = await checkContentScript(tab.id);
 
       if (!contentScriptReady) {
-        updateProgressDisplay('正在初始化扩展...\\n请稍候...');
+        updateProgressDisplay('正在初始化扩展...\n请稍候...');
         contentScriptReady = await injectContentScript(tab.id);
 
         if (!contentScriptReady) {
@@ -1510,10 +1552,18 @@ document.addEventListener('DOMContentLoaded', () => {
       let failedOrders = [];
 
       for (let i = 0; i < orderIds.length; i++) {
+        // 检查是否应该停止查询
+        if (shouldStopOrderQuery) {
+          console.log('用户停止了查询');
+          updateProgressDisplay(`查询已停止\n已处理 ${i}/${orderIds.length} 个订单`);
+          showStatus(`查询已停止，已处理 ${i}/${orderIds.length} 个订单`, 'info', 'orderPanelStatus');
+          break;
+        }
+
         const orderId = orderIds[i];
         const progressPercent = Math.round(((i + 1) / orderIds.length) * 100);
 
-        updateProgressDisplay(`查询进度: ${progressPercent}% (${i + 1}/${orderIds.length})\\n当前处理: ${orderId}\\n请稍候...`);
+        updateProgressDisplay(`查询进度: ${progressPercent}% (${i + 1}/${orderIds.length})\n当前处理: ${orderId}\n请稍候...`);
         showStatus(`查询进度: ${progressPercent}% (${i + 1}/${orderIds.length}) - 处理: ${orderId}`, 'info', 'orderPanelStatus');
 
         try {
@@ -1545,23 +1595,23 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (totalProcessed > 0) {
-        updateProgressDisplay('正在生成并下载CSV文件...\\n请稍候...');
+        updateProgressDisplay('正在生成并下载CSV文件...\n请稍候...');
         const downloadResult = await downloadOrderCSV(allOrders, (progress, message) => {
-          updateProgressDisplay(`导出进度: ${progress}%\\n${message}`);
+          updateProgressDisplay(`导出进度: ${progress}%\n${message}`);
           showStatus(`导出进度: ${progress}% - ${message}`, 'info', 'orderPanelStatus');
         });
 
         if (downloadResult.success) {
           console.log('CSV下载成功:', downloadResult);
-          updateProgressDisplay('CSV文件已下载，正在清理数据...\\n请稍候...');
+          updateProgressDisplay('CSV文件已下载，正在清理数据...\n请稍候...');
 
           try {
             await clearOrderData(tab.id);
-            updateProgressDisplay('操作完成！\\n✅ 已导出CSV\\n✅ 已清理数据');
+            updateProgressDisplay('操作完成！\n✅ 已导出CSV\n✅ 已清理数据');
             showStatus('操作完成！已导出CSV并清理数据', 'success', 'orderPanelStatus');
           } catch (clearError) {
             console.error('数据清理失败:', clearError);
-            updateProgressDisplay('CSV已下载，但数据清理失败\\n请手动清理临时数据');
+            updateProgressDisplay('CSV已下载，但数据清理失败\n请手动清理临时数据');
             showStatus('CSV已下载，但数据清理失败，请手动清理', 'info', 'orderPanelStatus');
           }
 
@@ -1572,26 +1622,47 @@ document.addEventListener('DOMContentLoaded', () => {
       } else {
         let resultMessage = `查询完成，但未获取到有效数据`;
         if (failedOrders.length > 0) {
-          resultMessage += `\\n失败详情: ${failedOrders.join('; ')}`;
+          resultMessage += `\n失败详情: ${failedOrders.join('; ')}`;
         }
-        updateProgressDisplay(`查询完成\\n${resultMessage}`);
+        updateProgressDisplay(`查询完成\n${resultMessage}`);
         showStatus(resultMessage, 'error', 'orderPanelStatus');
       }
 
     } catch (error) {
-      updateProgressDisplay(`查询失败\\n${error.message}`);
+      updateProgressDisplay(`查询失败\n${error.message}`);
       showStatus('查询失败：' + error.message, 'error', 'orderPanelStatus');
     } finally {
+      shouldStopOrderQuery = false;
       startOrderQueryBtn.disabled = false;
       startOrderQueryBtn.textContent = '开始查询并下载';
+      // 隐藏停止按钮
+      if (stopOrderQueryBtn) {
+        stopOrderQueryBtn.style.display = 'none';
+      }
       // 延迟恢复输入界面，给用户时间查看结果
       setTimeout(() => {
         switchToInputMode();
+        // 恢复输入界面后清除进度
+        clearProgressDisplay();
       }, 5000);
     }
   });
 
+  // 停止查询按钮事件
+  stopOrderQueryBtn && stopOrderQueryBtn.addEventListener('click', function () {
+    shouldStopOrderQuery = true;
+    if (stopOrderQueryBtn) {
+      stopOrderQueryBtn.disabled = true;
+      stopOrderQueryBtn.textContent = '正在停止...';
+    }
+    updateProgressDisplay('正在停止查询...\n请稍候...');
+    showStatus('正在停止查询...', 'info', 'orderPanelStatus');
+  });
+
   // ===== 批量获取CID功能 =====
+
+  // 恢复订单查询的进度显示
+  restoreProgressDisplay();
 
   loadData();
 });
