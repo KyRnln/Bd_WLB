@@ -52,6 +52,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const closeBackupDialogBtn = document.getElementById('closeBackupDialogBtn');
   const openPhraseManageBtn = document.getElementById('openPhraseManageBtn');
 
+  // WebDAV
+  const webdavUrl = document.getElementById('webdavUrl');
+  const webdavUsername = document.getElementById('webdavUsername');
+  const webdavPassword = document.getElementById('webdavPassword');
+  const backupToWebdavBtn = document.getElementById('backupToWebdavBtn');
+  const restoreFromWebdavBtn = document.getElementById('restoreFromWebdavBtn');
+  const webdavStatus = document.getElementById('webdavStatus');
+
   // 订单查询相关元素
   const orderIdInput = document.getElementById('orderId');
   const startOrderQueryBtn = document.getElementById('startOrderQueryBtn');
@@ -149,11 +157,18 @@ document.addEventListener('DOMContentLoaded', () => {
   // 加载/保存
   async function loadData() {
     try {
-      const result = await new Promise(resolve => storageAPI.get(['savedPhrases', 'savedTags', 'activeTagId', 'savedCreators'], resolve));
+      const result = await new Promise(resolve => storageAPI.get(['savedPhrases', 'savedTags', 'activeTagId', 'savedCreators', 'webdavConfig'], resolve));
       phrases = result.savedPhrases || [];
       tags = Array.isArray(result.savedTags) ? result.savedTags : [];
       activeTagId = typeof result.activeTagId === 'string' ? result.activeTagId : '__ALL__';
       creators = Array.isArray(result.savedCreators) ? result.savedCreators : [];
+
+      if (result.webdavConfig) {
+        if (webdavUrl) webdavUrl.value = result.webdavConfig.url || 'https://dav.jianguoyun.com/dav/';
+        if (webdavUsername) webdavUsername.value = result.webdavConfig.username || '';
+        if (webdavPassword) webdavPassword.value = result.webdavConfig.password || '';
+      }
+
       searchResults = [];
       await ensureTagsAndMigrate();
       renderAll();
@@ -746,6 +761,146 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // WebDAV 保存配置
+  async function saveWebdavConfig() {
+    const config = {
+      url: webdavUrl.value.trim() || 'https://dav.jianguoyun.com/dav/',
+      username: webdavUsername.value.trim(),
+      password: webdavPassword.value.trim()
+    };
+    await new Promise(resolve => storageAPI.set({ webdavConfig: config }, resolve));
+    return config;
+  }
+
+  // WebDAV 备份
+  async function backupToWebdav() {
+    const config = await saveWebdavConfig();
+
+    if (!config.username || !config.password) {
+      showStatus('⚠️ 请输入WebDAV账号和密码', 'error', 'webdavStatus');
+      return;
+    }
+
+    try {
+      backupToWebdavBtn.disabled = true;
+      backupToWebdavBtn.textContent = '备份中...';
+
+      const data = {
+        version: '1.0',
+        exportTime: new Date().toISOString(),
+        phrases: phrases,
+        tags: tags,
+        activeTagId: activeTagId,
+        creators: creators
+      };
+
+      const jsonString = JSON.stringify(data, null, 2);
+      const BOM = '\uFEFF';
+      const jsonWithBOM = BOM + jsonString;
+
+      const baseUrl = config.url.endsWith('/') ? config.url : config.url + '/';
+      const fileUrl = baseUrl + 'Bd_WLB_backup.json';
+
+      const auth = btoa(`${config.username}:${config.password}`);
+
+      const response = await fetch(fileUrl, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Basic ${auth}`,
+          'Content-Type': 'application/json;charset=utf-8'
+        },
+        body: jsonWithBOM
+      });
+
+      if (response.ok || response.status === 201 || response.status === 204) {
+        showStatus('✅ 成功备份到WebDAV', 'success', 'webdavStatus');
+      } else {
+        throw new Error(`HTTP Error: ${response.status}`);
+      }
+    } catch (error) {
+      console.error('WebDAV备份失败:', error);
+      showStatus('❌ 备份失败，请检查账号密码或网络', 'error', 'webdavStatus');
+    } finally {
+      backupToWebdavBtn.disabled = false;
+      backupToWebdavBtn.textContent = '备份到WebDAV';
+    }
+  }
+
+  // WebDAV 恢复
+  async function restoreFromWebdav() {
+    const config = await saveWebdavConfig();
+
+    if (!config.username || !config.password) {
+      showStatus('⚠️ 请输入WebDAV账号和密码', 'error', 'webdavStatus');
+      return;
+    }
+
+    if (!confirm('从WebDAV恢复将覆盖所有现有数据，确定要继续吗？')) {
+      return;
+    }
+
+    try {
+      restoreFromWebdavBtn.disabled = true;
+      restoreFromWebdavBtn.textContent = '恢复中...';
+
+      const baseUrl = config.url.endsWith('/') ? config.url : config.url + '/';
+      const fileUrl = baseUrl + 'Bd_WLB_backup.json';
+
+      const auth = btoa(`${config.username}:${config.password}`);
+
+      const response = await fetch(fileUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Basic ${auth}`
+        }
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('云端未找到备份文件(Bd_WLB_backup.json)');
+        }
+        throw new Error(`HTTP Error: ${response.status}`);
+      }
+
+      const text = await response.text();
+      // Remove BOM if present
+      const cleanText = text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text;
+      const data = JSON.parse(cleanText);
+
+      if (!data.version || !data.phrases || !data.tags || !data.creators) {
+        throw new Error('数据格式不正确');
+      }
+
+      phrases = data.phrases || [];
+      tags = data.tags || [];
+      activeTagId = data.activeTagId || '__ALL__';
+      creators = data.creators || [];
+      searchResults = [];
+
+      await new Promise(resolve => storageAPI.set({
+        savedPhrases: phrases,
+        savedTags: tags,
+        activeTagId: activeTagId,
+        savedCreators: creators
+      }, resolve));
+
+      renderAll();
+      showStatus('✅ 成功从WebDAV恢复', 'success', 'webdavStatus');
+
+      // 添加一个延迟关闭弹窗的体验优化
+      setTimeout(() => {
+        closeBackupDialog();
+      }, 1500);
+
+    } catch (error) {
+      console.error('WebDAV恢复失败:', error);
+      showStatus(`❌ 恢复失败: ${error.message || '请检查账号密码或网络'}`, 'error', 'webdavStatus');
+    } finally {
+      restoreFromWebdavBtn.disabled = false;
+      restoreFromWebdavBtn.textContent = '从WebDAV恢复';
+    }
+  }
+
   function jumpToCreator(index) {
     if (index < 0 || index >= searchResults.length) return;
 
@@ -977,6 +1132,10 @@ document.addEventListener('DOMContentLoaded', () => {
       closeBackupDialog();
     }
   });
+
+  // WebDAV 事件
+  backupToWebdavBtn && backupToWebdavBtn.addEventListener('click', backupToWebdav);
+  restoreFromWebdavBtn && restoreFromWebdavBtn.addEventListener('click', restoreFromWebdav);
 
   clearAllDataBtn && clearAllDataBtn.addEventListener('click', async () => {
     const ok = confirm('确定清除全部数据吗？这将删除：短语、标签、当前标签选择、达人列表等。该操作不可撤销。');

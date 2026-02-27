@@ -456,19 +456,87 @@
   <div id="backupDialog" class="dialog-mask">
     <div class="dialog">
       <h3>数据备份与恢复</h3>
-      <div style="margin-bottom:16px;">
-        <h4 style="margin:0 0 8px 0;color:#333;">导出数据</h4>
-        <p style="font-size:12px;color:#666;margin:0 0 12px 0;">将所有数据导出为JSON文件，方便备份和迁移</p>
-        <button id="exportDataBtn"
-          style="width:100%;padding:10px;background:#28a745;color:#fff;border:none;border-radius:20px;cursor:pointer;">导出数据</button>
-      </div>
-      <div style="margin-bottom:16px;border-top:1px solid #eee;padding-top:16px;">
-        <h4 style="margin:0 0 8px 0;color:#333;">导入数据</h4>
-        <p style="font-size:12px;color:#666;margin:0 0 12px 0;">从JSON文件导入数据，会覆盖现有数据</p>
-        <input id="importDataFile" type="file" accept=".json" style="width:100%;margin-bottom:8px;" />
-        <button id="importDataBtn"
-          style="width:100%;padding:10px;background:#007bff;color:#fff;border:none;border-radius:20px;cursor:pointer;">导入数据</button>
-      </div>
+      <style>
+        .custom-summary {
+          padding: 12px;
+          font-weight: bold;
+          cursor: pointer;
+          color: #1a365d;
+          outline: none;
+          user-select: none;
+          font-size: 14px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          list-style: none;
+          /* Hide default arrow */
+        }
+
+        /* Hide default default arrow in webkit/blink browsers */
+        .custom-summary::-webkit-details-marker {
+          display: none;
+        }
+
+        .custom-summary::after {
+          content: '▼';
+          font-size: 12px;
+          color: #1a365d;
+          transition: transform 0.3s ease;
+        }
+
+        details[open] .custom-summary::after {
+          transform: rotate(-180deg);
+        }
+      </style>
+      <details
+        style="margin-bottom:16px; border:1px solid #e0e6ff; border-radius:10px; background:#f0f4ff; box-shadow:0 2px 8px rgba(0,0,0,0.05); transition:all 0.3s ease;">
+        <summary class="custom-summary">
+          <span>本地备份与恢复</span>
+        </summary>
+        <div style="padding:0 12px 12px; border-top:1px dashed #c0ccff; margin-top:4px; padding-top:12px;">
+          <div style="margin-bottom:16px;">
+            <h4 style="margin:0 0 8px 0;color:#1a365d;font-size:13px;">导出数据</h4>
+            <p style="font-size:12px;color:#666;margin:0 0 12px 0;">将所有数据导出为JSON文件，方便备份和迁移</p>
+            <button id="exportDataBtn"
+              style="width:100%;padding:10px;background:#28a745;color:#fff;border:none;border-radius:20px;cursor:pointer;">导出数据</button>
+          </div>
+          <div style="margin-bottom:0;border-top:1px solid #e0e6ff;padding-top:16px;">
+            <h4 style="margin:0 0 8px 0;color:#1a365d;font-size:13px;">导入数据</h4>
+            <p style="font-size:12px;color:#666;margin:0 0 12px 0;">从JSON文件导入数据，会覆盖现有数据</p>
+            <input id="importDataFile" type="file" accept=".json" style="width:100%;margin-bottom:8px;" />
+            <button id="importDataBtn"
+              style="width:100%;padding:10px;background:#007bff;color:#fff;border:none;border-radius:20px;cursor:pointer;">导入数据</button>
+          </div>
+        </div>
+      </details>
+
+      <details
+        style="margin-bottom:16px; border:1px solid #e0e6ff; border-radius:10px; background:#f0f4ff; box-shadow:0 2px 8px rgba(0,0,0,0.05); transition:all 0.3s ease;">
+        <summary class="custom-summary">
+          <span>WebDAV 同步</span>
+        </summary>
+        <div style="padding:0 12px 12px; border-top:1px dashed #c0ccff; margin-top:4px; padding-top:12px;">
+          <p style="font-size:12px;color:#666;margin:0 0 12px 0;">通过坚果云等WebDAV服务云端备份与恢复</p>
+
+          <label for="webdavUrl">服务器地址 (例如: 坚果云)</label>
+          <input id="webdavUrl" type="text" placeholder="https://dav.jianguoyun.com/dav/"
+            value="https://dav.jianguoyun.com/dav/" />
+
+          <label for="webdavUsername">账号 (邮箱)</label>
+          <input id="webdavUsername" type="text" placeholder="输入WebDAV账号" />
+
+          <label for="webdavPassword">应用密码</label>
+          <input id="webdavPassword" type="password" placeholder="输入WebDAV应用密码" />
+
+          <div style="display:flex;gap:10px;margin-top:10px;">
+            <button id="backupToWebdavBtn"
+              style="flex:1;padding:10px;background:#17a2b8;color:#fff;border:none;border-radius:20px;cursor:pointer;font-size:13px;">备份到WebDAV</button>
+            <button id="restoreFromWebdavBtn"
+              style="flex:1;padding:10px;background:#6c757d;color:#fff;border:none;border-radius:20px;cursor:pointer;font-size:13px;">从WebDAV恢复</button>
+          </div>
+          <div id="webdavStatus" class="status" style="display:none;margin-top:8px;"></div>
+        </div>
+      </details>
       <div class="footer">
         <button id="closeBackupDialogBtn" style="background:#777;border-radius:20px;">关闭</button>
       </div>

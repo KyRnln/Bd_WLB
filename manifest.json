@@ -26,10 +26,11 @@
     "https://*.tiktokcdn.com/*",
     "https://*.tiktokcdn-us.com/*",
     "https://*.tiktokv.com/*",
+    "https://dav.jianguoyun.com/*",
     "*://*/*"
   ],
   "content_security_policy": {
-    "extension_pages": "default-src 'self'; connect-src https://*.tiktok.com https://*.tiktokcdn.com https://*.tiktokcdn-us.com https://*.tiktokv.com; img-src 'self' https: data:; style-src 'self' 'unsafe-inline'; script-src 'self'"
+    "extension_pages": "default-src 'self'; connect-src https://*.tiktok.com https://*.tiktokcdn.com https://*.tiktokcdn-us.com https://*.tiktokv.com https://dav.jianguoyun.com; img-src 'self' https: data:; style-src 'self' 'unsafe-inline'; script-src 'self'"
   },
   "content_scripts": [
     {
