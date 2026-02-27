@@ -243,7 +243,7 @@
       <div id="creatorCardStatus" class="status info" style="display:none;margin-bottom:8px;"></div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
         <div style="font-weight:700;color:#1a365d;">达人管理</div>
-        <span style="font-size:12px;color:#666;">CSV 导入达人ID，页面自动匹配高亮</span>
+        <span style="font-size:12px;color:#666;">通过 CSV 导入达人ID，页面会自动匹配并高亮达人</span>
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <button id="importCreatorBtn"
@@ -272,13 +272,16 @@
       <div style="display:flex;border-bottom:1px solid #e0e6ff;background:#eef2ff;">
         <div id="tabOrder"
           style="flex:1;text-align:center;padding:10px;font-size:13px;font-weight:bold;color:#1a365d;cursor:pointer;background:#fff;border-bottom:2px solid #ff0050;">
-          订单查询</div>
+          获取订单履约情况</div>
         <div id="tabCid"
           style="flex:1;text-align:center;padding:10px;font-size:13px;font-weight:bold;color:#666;cursor:pointer;border-bottom:2px solid transparent;">
-          获取达人头像cid</div>
+          获取头像/CID</div>
         <div id="tabCover"
           style="flex:1;text-align:center;padding:10px;font-size:13px;font-weight:bold;color:#666;cursor:pointer;border-bottom:2px solid transparent;">
           获取视频封面</div>
+        <div id="tabCidToName"
+          style="flex:1;text-align:center;padding:10px;font-size:13px;font-weight:bold;color:#666;cursor:pointer;border-bottom:2px solid transparent;">
+          通过CID查达人</div>
       </div>
 
       <!-- 订单查询面板 -->
@@ -367,6 +370,39 @@
         <div id="coverResults" style="max-height:180px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;">
         </div>
       </div>
+
+      <!-- 通过CID查达人面板 -->
+      <div id="panelCidToName" style="padding:14px;display:none;">
+        <div id="cidToNamePanelStatus" class="status info" style="display:none;margin-bottom:8px;"></div>
+        <div style="font-size:12px;color:#666;margin-bottom:8px;">批量输入CID查询达人用户名与头像并导出Excel</div>
+        <div style="margin-bottom:10px;">
+          <textarea id="cidToNameInput"
+            placeholder="输入批量CID，每行一个&#10;例如：&#10;7494078236625438400&#10;7494078236625438401" rows="5"
+            style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:monospace;min-height:120px;resize:vertical;box-sizing:border-box;"></textarea>
+        </div>
+        <div style="margin-bottom:10px;">
+          <label for="cidToNameRegion" style="font-size:12px;color:#666;margin-right:6px;">地区:</label>
+          <select id="cidToNameRegion" style="padding:6px;border:1px solid #ddd;border-radius:6px;font-size:12px;">
+            <option value="MY">马来西亚 (MY)</option>
+            <option value="SG">新加坡 (SG)</option>
+            <option value="TH">泰国 (TH)</option>
+            <option value="VN">越南 (VN)</option>
+            <option value="PH">菲律宾 (PH)</option>
+            <option value="ID">印尼 (ID)</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:8px;">
+          <button id="cidToNameSearchBtn"
+            style="flex:none;background:#28a745;color:#fff;border:none;border-radius:20px;padding:7px 14px;cursor:pointer;font-size:12px;">批量查询</button>
+          <button id="cidToNameExportBtn"
+            style="flex:none;background:#0369a1;color:#fff;border:none;border-radius:20px;padding:7px 14px;cursor:pointer;font-size:12px;">导出Excel</button>
+          <button id="cidToNameClearBtn"
+            style="flex:none;background:#dc2626;color:#fff;border:none;border-radius:20px;padding:7px 14px;cursor:pointer;font-size:12px;">清空全部数据</button>
+        </div>
+        <div id="cidToNameResults"
+          style="max-height:150px;overflow-y:auto;border:1px solid #e0e6ff;border-radius:6px;background:#fff;margin-top:10px; display:flex; flex-direction:column; gap:8px; padding:8px;">
+        </div>
+      </div>
     </div>
     <!-- 短语管理卡片 -->
     <div id="phraseCard"
@@ -380,7 +416,7 @@
         <button id="addPhraseBtn"
           style="flex:none;background:#ff0050;padding:4px 8px;font-size:11px;border-radius:20px;">添加短语</button>
         <button id="openPhraseManageBtn"
-          style="flex:none;background:#555;padding:4px 8px;font-size:11px;border-radius:20px;">管理页</button>
+          style="flex:none;background:#555;padding:4px 8px;font-size:11px;border-radius:20px;">短语管理页</button>
       </div>
       <div id="tagBar" class="tagbar" style="margin-bottom:12px;"></div>
       <div id="phraseList" style="display:none;"></div>
