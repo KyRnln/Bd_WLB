@@ -103,6 +103,31 @@
 - **选项卡切换**: 实现功能模块的选项卡切换
 - **进度显示**: 实时显示长时间操作的进度
 
+#### 8. 前后端状态同步机制 (v1.2新增)
+- **状态管理架构**：
+  - background.js负责订单查询逻辑和状态管理
+  - 使用`chrome.storage.local`作为状态共享机制
+  - popup.js通过`chrome.storage.onChanged`监听状态变化
+  - 实现了真正的前后端解耦和实时同步
+- **状态监听优化**：
+  - background.js将查询状态实时写入`chrome.storage.local`
+  - popup.js通过监听storage变化自动更新UI
+  - 移除了依赖轮询的机制，避免popup失去焦点时卡住
+  - 查询完成后自动下载CSV文件并清理临时数据
+- **实现代码示例**：
+  ```javascript
+  // background.js - 更新状态
+  chrome.storage.local.set({ orderQueryState: newState });
+  
+  // popup.js - 监听状态变化
+  chrome.storage.onChanged.addListener((changes, namespace) => {
+    if (namespace === 'local' && changes.orderQueryState) {
+      const newState = changes.orderQueryState.newValue;
+      // 更新UI
+    }
+  });
+  ```
+
 ## 快速开始
 
 ### 安装扩展
@@ -123,3 +148,56 @@
 ## 版本
 
 当前版本: 1.2
+
+## 更新日志
+
+### v1.2 (2026-02-28)
+
+#### 新增功能
+- **初始化应用按钮**：在"数据管理"卡片中添加了"初始化应用"按钮，用于重置第二个卡片（综合工具卡片）的功能状态
+  - 清除订单查询状态、CID查询状态、视频封面状态、通过CID查达人状态
+  - 重置内存态数据
+  - 恢复输入界面
+  - 清除所有面板的进度显示
+
+#### 优化改进
+- **前端状态实时更新**：修复了前端页面不更新的问题
+  - 使用`chrome.storage.onChanged`监听器替代轮询机制
+  - 即使popup失去焦点也能实时更新前端状态
+  - 避免了因popup失去焦点导致的卡住问题
+- **订单查询状态监听优化**：
+  - background.js将查询状态实时写入`chrome.storage.local`
+  - popup.js通过监听storage变化自动更新UI
+  - 查询完成后自动下载CSV文件并清理临时数据
+  - 移除了依赖`pollOrderQueryStatus`函数的轮询机制
+
+#### 技术改进
+- **状态管理架构**：
+  - background.js负责订单查询逻辑和状态管理
+  - 使用`chrome.storage.local`作为状态共享机制
+  - popup.js通过`chrome.storage.onChanged`监听状态变化
+  - 实现了真正的前后端解耦和实时同步
+
+#### 已知问题
+- popup关闭后，`chrome.storage.onChanged`监听器会失效，需要重新打开popup才能继续监听
+- 解决方案：考虑使用background.js作为状态中心，通过消息传递更新popup UI
+
+#### 开发者说明
+- **前端状态更新机制**：
+  ```javascript
+  // background.js - 更新状态
+  chrome.storage.local.set({ orderQueryState: newState });
+  
+  // popup.js - 监听状态变化
+  chrome.storage.onChanged.addListener((changes, namespace) => {
+    if (namespace === 'local' && changes.orderQueryState) {
+      const newState = changes.orderQueryState.newValue;
+      // 更新UI
+    }
+  });
+  ```
+- **初始化应用功能**：
+  - 只重置第二个卡片（综合工具卡片）的功能状态
+  - 不影响短语、达人等其他数据
+  - 通过`chrome.storage.remove()`清除相关数据
+  - 重置内存态并恢复输入界面

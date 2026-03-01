@@ -82,6 +82,21 @@ const cidDb = new CreatorDatabase();
 const pendingCidWaitByTab = new Map();
 let isBatchSearchStopped = false;
 
+// ===== 订单查询持久化状态 =====
+let orderQueryState = {
+  isRunning: false,
+  shouldStop: false,
+  currentIndex: 0,
+  total: 0,
+  processedCount: 0,
+  failedCount: 0,
+  currentOrderId: '',
+  progress: 0,
+  message: '',
+  allOrders: [],
+  failedOrders: []
+};
+
 // ===== 消息处理 =====
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -226,7 +241,7 @@ async function handleMessage(request, sender) {
       await cidDb.clearAllData();
       return { success: true };
     }
-    case 'exportCsv': {
+    case 'exportExcel': {
       const creators = await cidDb.getAllCreators();
       if (!creators.length) return { success: false, error: '没有数据可以导出' };
       const xlsxBytes = await generateXlsx(creators);
@@ -472,6 +487,76 @@ async function handleMessage(request, sender) {
       return { success: true };
     }
     // ===== 结束: 通过CID查达人 =====
+    case 'startOrderQuery': {
+      if (orderQueryState.isRunning) {
+        return { success: false, error: '订单查询已在运行中' };
+      }
+      const orderIds = Array.isArray(request.orderIds) ? request.orderIds : [];
+      const tabId = Number(request.tabId);
+      if (orderIds.length === 0) return { success: false, error: '请输入有效的订单ID列表' };
+      if (!tabId) return { success: false, error: '无法获取当前tabId' };
+
+      orderQueryState = {
+        isRunning: true,
+        shouldStop: false,
+        currentIndex: 0,
+        total: orderIds.length,
+        processedCount: 0,
+        failedCount: 0,
+        currentOrderId: '',
+        progress: 0,
+        message: '查询已启动',
+        allOrders: [],
+        failedOrders: []
+      };
+      await chrome.storage.local.set({ orderQueryState });
+
+      executeOrderQuery(tabId, orderIds).catch(err => {
+        console.error('订单查询执行失败:', err);
+        orderQueryState.isRunning = false;
+        orderQueryState.error = err?.message || String(err);
+        chrome.storage.local.set({ orderQueryState });
+      });
+      return { success: true, message: '订单查询已启动' };
+    }
+    case 'getOrderQueryStatus': {
+      const state = await chrome.storage.local.get('orderQueryState');
+      return { success: true, state: state.orderQueryState || null };
+    }
+    case 'stopOrderQuery': {
+      orderQueryState.shouldStop = true;
+      await chrome.storage.local.set({ orderQueryState });
+      return { success: true };
+    }
+    case 'clearOrderQueryState': {
+      orderQueryState = {
+        isRunning: false,
+        shouldStop: false,
+        currentIndex: 0,
+        total: 0,
+        processedCount: 0,
+        failedCount: 0,
+        currentOrderId: '',
+        progress: 0,
+        message: '',
+        allOrders: [],
+        failedOrders: []
+      };
+      await chrome.storage.local.remove('orderQueryState');
+      return { success: true };
+    }
+    case 'exportOrderData': {
+      const orders = await chrome.storage.local.get('orderQueryOrders');
+      const allOrders = orders.orderQueryOrders || [];
+      if (!allOrders.length) return { success: false, error: '没有数据可以导出' };
+      const xlsxBytes = await generateOrderXlsx(allOrders);
+      await downloadExcel(xlsxBytes);
+      return { success: true };
+    }
+    case 'clearOrderData': {
+      await chrome.storage.local.remove(['orderQueryOrders', 'orderQueryState']);
+      return { success: true };
+    }
     default:
       return { success: false, error: '未知操作' };
   }
@@ -634,11 +719,11 @@ async function generateXlsx(creators) {
   return await buildZip(files);
 }
 
-async function downloadExcel(bytes) {
+async function downloadExcel(bytes, customFilename = null) {
   let bin = '';
   for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
   const dataUrl = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${btoa(bin)}`;
-  const filename = `tiktok_cid_${new Date().toISOString().split('T')[0]}.xlsx`;
+  const filename = customFilename || `tiktok_cid_${new Date().toISOString().split('T')[0]}.xlsx`;
   await chrome.downloads.download({ url: dataUrl, filename, saveAs: true });
 }
 
@@ -711,4 +796,134 @@ async function executeBatchQuery_cidToName(cids, region) {
   batchQueryState_cidToName.isRunning = false;
   batchQueryState_cidToName.currentCid = '';
   await chrome.storage.local.set({ batchQueryState_cidToName });
+}
+
+// ==========================================================
+// 订单查询持久化功能 (在后台持续运行)
+// ==========================================================
+async function executeOrderQuery(tabId, orderIds) {
+  for (let i = 0; i < orderIds.length; i++) {
+    if (orderQueryState.shouldStop) {
+      console.log('[订单查询] 用户停止了查询');
+      break;
+    }
+
+    const orderId = String(orderIds[i] || '').trim();
+    if (!orderId) continue;
+
+    orderQueryState.currentIndex = i + 1;
+    orderQueryState.currentOrderId = orderId;
+    orderQueryState.progress = Math.round(((i + 1) / orderIds.length) * 100);
+    orderQueryState.message = `正在查询: ${orderId}`;
+    await chrome.storage.local.set({ orderQueryState });
+
+    try {
+      const response = await chrome.tabs.sendMessage(tabId, {
+        action: 'startOrderAutomation',
+        orderId: orderId
+      });
+
+      if (response.success && response.data && response.data.length > 0) {
+        orderQueryState.processedCount++;
+        orderQueryState.allOrders.push(...response.data);
+        console.log(`[订单查询] 订单 ${orderId} 处理成功，获取 ${response.data.length} 条数据`);
+      } else {
+        orderQueryState.failedCount++;
+        orderQueryState.failedOrders.push(`${orderId}: ${response.error || '未找到相关数据'}`);
+        console.warn(`[订单查询] 订单 ${orderId} 查询失败:`, response.error);
+      }
+    } catch (error) {
+      orderQueryState.failedCount++;
+      orderQueryState.failedOrders.push(`${orderId}: ${error.message}`);
+      console.error(`[订单查询] 订单 ${orderId} 处理出错:`, error);
+    }
+
+    await chrome.storage.local.set({ orderQueryState });
+
+    if (i < orderIds.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+  }
+
+  orderQueryState.isRunning = false;
+  orderQueryState.currentOrderId = '';
+  orderQueryState.message = orderQueryState.shouldStop ? '查询已停止' : '查询完成';
+  await chrome.storage.local.set({ orderQueryState });
+
+  if (orderQueryState.allOrders.length > 0) {
+    await chrome.storage.local.set({ orderQueryOrders: orderQueryState.allOrders });
+    
+    // 自动下载CSV文件
+    try {
+      const xlsxBytes = await generateOrderXlsx(orderQueryState.allOrders);
+      await downloadExcel(xlsxBytes.data, xlsxBytes.filename);
+    } catch (downloadError) {
+      console.error('[订单查询] CSV下载失败:', downloadError);
+    }
+  }
+}
+
+async function generateOrderXlsx(orders) {
+  const headers = ['达人ID', '产品ID', '订单ID', '状态', '时间'];
+  
+  // 构建Excel XML格式
+  let excelContent = '<?xml version="1.0"?>\n';
+  excelContent += '<?mso-application progid="Excel.Sheet"?>\n';
+  excelContent += '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"\n';
+  excelContent += ' xmlns:o="urn:schemas-microsoft-com:office:office"\n';
+  excelContent += ' xmlns:x="urn:schemas-microsoft-com:office:excel"\n';
+  excelContent += ' xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">\n';
+  excelContent += ' <Styles>\n';
+  excelContent += '  <Style ss:ID="Default" ss:Name="Normal">\n';
+  excelContent += '   <Alignment ss:Vertical="Center"/>\n';
+  excelContent += '   <Font ss:FontName="宋体" x:CharSet="134" ss:Size="11"/>\n';
+  excelContent += '  </Style>\n';
+  excelContent += '  <Style ss:ID="s16">\n';
+  excelContent += '   <Font ss:FontName="宋体" x:CharSet="134" ss:Size="11" ss:Bold="1"/>\n';
+  excelContent += '  </Style>\n';
+  excelContent += ' </Styles>\n';
+  excelContent += ' <Worksheet ss:Name="订单数据">\n';
+  excelContent += '  <Table ss:ExpandedColumnCount="5" ss:ExpandedRowCount="' + (orders.length + 1) + '" x:FullColumns="1" x:FullRows="1">\n';
+  excelContent += '   <Column ss:Width="100"/>\n';
+  excelContent += '   <Column ss:Width="100"/>\n';
+  excelContent += '   <Column ss:Width="120"/>\n';
+  excelContent += '   <Column ss:Width="80"/>\n';
+  excelContent += '   <Column ss:Width="140"/>\n';
+  
+  // 表头
+  excelContent += '   <Row ss:StyleID="s16">\n';
+  headers.forEach(header => {
+    excelContent += '    <Cell><Data ss:Type="String">' + header + '</Data></Cell>\n';
+  });
+  excelContent += '   </Row>\n';
+  
+  // 数据行
+  for (let i = 0; i < orders.length; i++) {
+    const order = orders[i];
+    excelContent += '   <Row>\n';
+    excelContent += '    <Cell><Data ss:Type="String">' + ((order.creatorId || '').replace(/^@/, '') || '') + '</Data></Cell>\n';
+    excelContent += '    <Cell><Data ss:Type="String">' + (order.productId || '') + '</Data></Cell>\n';
+    excelContent += '    <Cell><Data ss:Type="String">' + (order.orderId || '') + '</Data></Cell>\n';
+    excelContent += '    <Cell><Data ss:Type="String">' + (order.status || '') + '</Data></Cell>\n';
+    excelContent += '    <Cell><Data ss:Type="String">' + (order.timestamp || '') + '</Data></Cell>\n';
+    excelContent += '   </Row>\n';
+  }
+  
+  excelContent += '  </Table>\n';
+  excelContent += ' </Worksheet>\n';
+  excelContent += '</Workbook>';
+  
+  // 使用UTF-8 BOM编码
+  const encoder = new TextEncoder();
+  const data = encoder.encode(excelContent);
+  
+  const filename = `orders_${new Date().toISOString().split('T')[0]}.xls`;
+  
+  // 返回Excel数据
+  return { 
+    success: true, 
+    data: data, 
+    filename: filename,
+    method: 'data' 
+  };
 }

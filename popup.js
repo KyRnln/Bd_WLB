@@ -45,6 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const deleteCreatorBtn = document.getElementById('deleteCreatorBtn');
   const clearAllDataBtn = document.getElementById('clearAllDataBtn');
   const backupBtn = document.getElementById('backupBtn');
+  const initAppBtn = document.getElementById('initAppBtn');
   const backupDialog = document.getElementById('backupDialog');
   const exportDataBtn = document.getElementById('exportDataBtn');
   const importDataFile = document.getElementById('importDataFile');
@@ -1136,6 +1137,65 @@ document.addEventListener('DOMContentLoaded', () => {
     showStatus('✅ 已清除全部数据', 'success', 'dataCardStatus');
   });
 
+  initAppBtn && initAppBtn.addEventListener('click', async () => {
+    const ok = confirm('确定重置应用状态吗？这将清除：订单查询状态、CID查询状态、视频封面状态、通过CID查达人状态等。该操作不可撤销。');
+    if (!ok) return;
+    
+    try {
+      // 清除订单相关数据
+      await new Promise(resolve => storageAPI.remove(['orderQueryOrders', 'orderQueryState', 'orderQueryProgress'], resolve));
+      
+      // 清除CID相关数据
+      await new Promise(resolve => storageAPI.remove(['tiktokCidToNameResults'], resolve));
+      
+      // 清除视频封面相关数据
+      await new Promise(resolve => storageAPI.remove(['coverResults'], resolve));
+      
+      // 清除订单查询状态
+      await chrome.runtime.sendMessage({ action: 'clearOrderQueryState' });
+      
+      // 重置内存态
+      cidToNameResults = [];
+      orderQueryOrders = [];
+      
+      // 恢复输入界面
+      switchToInputMode();
+      
+      // 清除进度显示
+      const progressDiv = document.getElementById('orderProgressDisplay');
+      if (progressDiv) {
+        progressDiv.remove();
+      }
+      
+      // 清除所有面板的进度显示
+      const cidProgressDiv = document.getElementById('cidProgressDisplay');
+      if (cidProgressDiv) {
+        cidProgressDiv.remove();
+      }
+      
+      const coverProgressDiv = document.getElementById('coverProgressDisplay');
+      if (coverProgressDiv) {
+        coverProgressDiv.remove();
+      }
+      
+      const cidToNameProgressDiv = document.getElementById('cidToNameProgressDisplay');
+      if (cidToNameProgressDiv) {
+        cidToNameProgressDiv.remove();
+      }
+      
+      showStatus('✅ 应用状态已重置，所有功能已恢复初始状态', 'success', 'dataCardStatus');
+      
+      // 1.5秒后恢复输入界面
+      setTimeout(() => {
+        switchToInputMode();
+      }, 1500);
+      
+    } catch (error) {
+      console.error('重置应用状态失败:', error);
+      showStatus('❌ 重置失败: ' + error.message, 'error', 'dataCardStatus');
+    }
+  });
+
   openPhraseManageBtn && openPhraseManageBtn.addEventListener('click', () => {
     const url = chrome.runtime.getURL('phrase_manage.html');
     window.open(url, '_blank', 'noopener');
@@ -1241,9 +1301,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // CSV下载功能
+  // Excel下载功能
   async function downloadOrderCSV(orders, progressCallback) {
-    console.log('开始生成CSV文件，数据条数:', orders.length);
+    console.log('开始生成Excel文件，数据条数:', orders.length);
     const browserType = detectBrowser();
     console.log('检测到浏览器类型:', browserType);
 
@@ -1251,69 +1311,91 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const headers = ['达人ID', '产品ID', '订单ID', '状态', '时间'];
 
-    if (progressCallback) progressCallback(30, '正在生成CSV内容...');
+    if (progressCallback) progressCallback(30, '正在生成Excel内容...');
 
-    const csvContent = [
-      headers.join(','),
-      ...orders.map((order, index) => {
-        // 为每个订单显示进度
-        if (progressCallback && index % 10 === 0) {
-          const progress = Math.round(30 + (index / orders.length) * 50);
-          progressCallback(progress, `正在处理第 ${index + 1}/${orders.length} 条数据...`);
+    const csvLines = [headers.join(',')];
+    for (let i = 0; i < orders.length; i++) {
+      if (progressCallback) {
+        const progress = Math.round(30 + (i / orders.length) * 50);
+        try {
+          progressCallback(progress, `正在处理第 ${i + 1}/${orders.length} 条数据...`);
+        } catch (err) {
+          if (err.message === '用户停止了操作') {
+            throw err;
+          }
         }
-        return [
-          `"${(order.creatorId || '').replace(/^@/, '')}"`,
-          `"${order.productId || ''}"`,
-          `"${order.orderId || ''}"`,
-          `"${order.status || ''}"`,
-          `"${order.timestamp || ''}"`
-        ].join(',');
-      })
-    ].join('\n');
+      }
+      const order = orders[i];
+      csvLines.push([
+        `"${(order.creatorId || '').replace(/^@/, '')}"`,
+        `"${order.productId || ''}"`,
+        `"${order.orderId || ''}"`,
+        `"${order.status || ''}"`,
+        `"${order.timestamp || ''}"`
+      ].join(','));
+    }
 
-    if (progressCallback) progressCallback(80, '正在添加编码标识...');
+    const csvContent = csvLines.join('\n');
+
+    if (progressCallback) {
+      try {
+        progressCallback(80, '正在添加编码标识...');
+      } catch (err) {
+        if (err.message === '用户停止了操作') {
+          throw err;
+        }
+      }
+    }
 
     const BOM = '\uFEFF';
     const csvWithBOM = BOM + csvContent;
 
-    console.log('CSV内容长度:', csvWithBOM.length);
-    console.log('CSV内容预览:', csvWithBOM.substring(0, 200) + '...');
+    console.log('Excel内容长度:', csvWithBOM.length);
+    console.log('Excel内容预览:', csvWithBOM.substring(0, 200) + '...');
 
     if (progressCallback) progressCallback(90, '正在准备下载文件...');
 
-    const filename = `orders_${new Date().toISOString().split('T')[0]}.csv`;
+    const filename = `orders_${new Date().toISOString().split('T')[0]}.xls`;
 
     try {
-      if (progressCallback) progressCallback(95, '正在下载文件...');
+      if (progressCallback) {
+        try {
+          progressCallback(95, '正在下载文件...');
+        } catch (err) {
+          if (err.message === '用户停止了操作') {
+            throw err;
+          }
+        }
+      }
 
-      // 优先使用chrome.downloads API
       const encoder = new TextEncoder();
       const data = encoder.encode(csvWithBOM);
 
       const downloadId = await chrome.downloads.download({
         filename: filename,
         saveAs: false,
-        url: URL.createObjectURL(new Blob([data], { type: 'text/csv;charset=utf-8' }))
+        url: URL.createObjectURL(new Blob([data], { type: 'application/vnd.ms-excel;charset=utf-8' }))
       });
 
-      console.log('CSV下载API调用成功，下载ID:', downloadId);
+      console.log('Excel下载API调用成功，下载ID:', downloadId);
       if (progressCallback) progressCallback(100, '下载完成！');
       return { success: true, downloadId, method: 'api' };
 
     } catch (downloadError) {
+      if (downloadError.message === '用户停止了操作') {
+        throw downloadError;
+      }
       console.error('chrome.downloads.download调用失败:', downloadError);
 
       try {
         console.log('尝试备用下载方法...');
-        if (progressCallback) progressCallback(95, `正在使用${browserType === 'edge' ? 'Edge专用' : '备用'}下载方法...`);
+        if (progressCallback) progressCallback(95, '正在使用备用下载方法...');
 
-        const blob = new Blob([csvWithBOM], { type: 'text/csv;charset=utf-8' });
+        const blob = new Blob([csvWithBOM], { type: 'application/vnd.ms-excel;charset=utf-8' });
 
-        // 根据浏览器类型选择不同的下载方法
         if (browserType === 'edge') {
           await downloadWithEdge(blob, filename, progressCallback);
         } else {
-          // Chrome和其他浏览器的备用方法
           const url = URL.createObjectURL(blob);
 
           const a = document.createElement('a');
@@ -1322,7 +1404,6 @@ document.addEventListener('DOMContentLoaded', () => {
           a.style.display = 'none';
           document.body.appendChild(a);
 
-          // 在Edge中可能需要更长的时间
           await new Promise(resolve => setTimeout(resolve, 100));
 
           a.click();
@@ -1335,20 +1416,24 @@ document.addEventListener('DOMContentLoaded', () => {
         return { success: true, method: browserType === 'edge' ? 'edge_fallback' : 'fallback' };
 
       } catch (fallbackError) {
+        if (fallbackError.message === '用户停止了操作') {
+          throw fallbackError;
+        }
         console.error('备用下载方法也失败:', fallbackError);
 
-        // 最后的尝试：直接在新标签页打开
         try {
           console.log('尝试在新标签页打开文件...');
-          const blob = new Blob([csvWithBOM], { type: 'text/csv;charset=utf-8' });
+          const blob = new Blob([csvWithBOM], { type: 'application/vnd.ms-excel;charset=utf-8' });
           const url = URL.createObjectURL(blob);
 
-          // 在新标签页打开，让用户手动保存
           window.open(url, '_blank');
 
           if (progressCallback) progressCallback(100, '文件已在新标签页打开，请手动保存！');
           return { success: true, method: 'new_tab', url: url };
         } catch (finalError) {
+          if (finalError.message === '用户停止了操作') {
+            throw finalError;
+          }
           console.error('所有下载方法都失败:', finalError);
           return { success: false, error: `所有下载方法都失败。最后一次错误: ${downloadError.message}` };
         }
@@ -1359,20 +1444,25 @@ document.addEventListener('DOMContentLoaded', () => {
   // 清空订单数据
   async function clearOrderData(tabId) {
     console.log('开始清空订单IndexedDB数据...');
+    console.log('tabId:', tabId);
 
     try {
       let contentScriptReady = await checkContentScript(tabId);
+      console.log('contentScriptReady:', contentScriptReady);
       if (!contentScriptReady) {
         const injected = await injectContentScript(tabId);
+        console.log('injectContentScript结果:', injected);
         if (!injected) {
           console.warn('无法初始化扩展，跳过数据清理');
           return false;
         }
       }
 
+      console.log('发送clearOrderData消息...');
       const response = await chrome.tabs.sendMessage(tabId, {
         action: 'clearOrderData'
       });
+      console.log('clearOrderData响应:', response);
 
       if (response.success) {
         console.log('IndexedDB数据已清空');
@@ -1443,13 +1533,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 恢复到输入模式
   function switchToInputMode() {
+    console.log('switchToInputMode被调用');
     const inputGroup = document.querySelector('.input-group');
     const progressDiv = document.getElementById('orderProgressDisplay');
 
-    if (progressDiv && orderIdInput) {
-      // 恢复textarea
-      inputGroup.replaceChild(orderIdInput, progressDiv);
+    console.log('元素检查 - inputGroup:', !!inputGroup, 'progressDiv:', !!progressDiv, 'orderIdInput:', !!orderIdInput);
+
+    if (inputGroup && orderIdInput) {
+      if (progressDiv) {
+        console.log('找到进度显示div，开始替换...');
+        try {
+          inputGroup.replaceChild(orderIdInput, progressDiv);
+          console.log('元素替换成功');
+        } catch (error) {
+          console.error('替换元素失败:', error);
+          inputGroup.appendChild(orderIdInput);
+        }
+      } else {
+        console.log('进度显示div不存在，确保输入框在DOM中');
+        if (!inputGroup.contains(orderIdInput)) {
+          inputGroup.appendChild(orderIdInput);
+        }
+      }
       orderIdInput.style.display = 'block';
+      console.log('输入框已恢复显示');
+    } else {
+      console.error('无法恢复输入模式，缺少必需的元素');
     }
   }
 
@@ -1468,26 +1577,43 @@ document.addEventListener('DOMContentLoaded', () => {
   // 恢复进度显示
   function restoreProgressDisplay() {
     if (!storageAPI) return;
-    storageAPI.get(['orderQueryProgress'], (result) => {
-      if (result.orderQueryProgress) {
+    storageAPI.get(['orderQueryProgress', 'orderQueryState'], (result) => {
+      // 只有当查询真的在进行中时才显示进度模式
+      const isQueryRunning = result.orderQueryState && result.orderQueryState.isRunning;
+      
+      if (result.orderQueryProgress && isQueryRunning) {
+        console.log('检测到查询正在进行，恢复进度显示');
         // 检查是否已经在进度显示模式
         const progressDiv = document.getElementById('orderProgressDisplay');
         if (!progressDiv) {
           switchToProgressMode();
         }
         updateProgressDisplay(result.orderQueryProgress);
+      } else {
+        console.log('查询未在进行中，清除进度状态');
+        // 查询未在进行中，清除进度并确保输入框可见
+        clearProgressDisplay();
+        switchToInputMode();
       }
     });
   }
 
   // 清除进度显示
   function clearProgressDisplay() {
+    console.log('clearProgressDisplay被调用');
     if (storageAPI) {
       storageAPI.remove(['orderQueryProgress']);
     }
     const progressDiv = document.getElementById('orderProgressDisplay');
     if (progressDiv) {
-      progressDiv.textContent = '';
+      console.log('找到进度显示div，准备移除');
+      const inputGroup = document.querySelector('.input-group');
+      if (inputGroup && inputGroup.contains(progressDiv)) {
+        progressDiv.remove();
+        console.log('进度显示div已移除');
+      }
+    } else {
+      console.log('没有找到进度显示div');
     }
   }
 
@@ -1531,8 +1657,6 @@ document.addEventListener('DOMContentLoaded', () => {
     switchToProgressMode();
     updateProgressDisplay(`准备查询 ${orderIds.length} 个订单...\n请稍候...`);
 
-    let allOrders = [];
-
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
@@ -1547,86 +1671,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
 
-      let totalProcessed = 0;
-      let totalData = 0;
-      let failedOrders = [];
+      // 调用background.js的订单查询API
+      const startResponse = await chrome.runtime.sendMessage({
+        action: 'startOrderQuery',
+        tabId: tab.id,
+        orderIds: orderIds
+      });
 
-      for (let i = 0; i < orderIds.length; i++) {
-        // 检查是否应该停止查询
-        if (shouldStopOrderQuery) {
-          console.log('用户停止了查询');
-          updateProgressDisplay(`查询已停止\n已处理 ${i}/${orderIds.length} 个订单`);
-          showStatus(`查询已停止，已处理 ${i}/${orderIds.length} 个订单`, 'info', 'orderPanelStatus');
-          break;
-        }
-
-        const orderId = orderIds[i];
-        const progressPercent = Math.round(((i + 1) / orderIds.length) * 100);
-
-        updateProgressDisplay(`查询进度: ${progressPercent}% (${i + 1}/${orderIds.length})\n当前处理: ${orderId}\n请稍候...`);
-        showStatus(`查询进度: ${progressPercent}% (${i + 1}/${orderIds.length}) - 处理: ${orderId}`, 'info', 'orderPanelStatus');
-
-        try {
-          const response = await chrome.tabs.sendMessage(tab.id, {
-            action: 'startOrderAutomation',
-            orderId: orderId
-          });
-
-          if (response.success && response.data && response.data.length > 0) {
-            totalProcessed++;
-            totalData += response.data.length;
-            console.log(`订单 ${orderId} 处理成功，获取 ${response.data.length} 条数据`);
-            allOrders.push(...response.data);
-          } else if (response.success && (!response.data || response.data.length === 0)) {
-            failedOrders.push(`${orderId}: 未找到相关数据`);
-            console.warn(`订单 ${orderId} 查询成功但未找到数据`);
-          } else {
-            failedOrders.push(`${orderId}: ${response.error}`);
-            console.error(`订单 ${orderId} 处理失败:`, response.error);
-          }
-        } catch (error) {
-          failedOrders.push(`${orderId}: ${error.message}`);
-          console.error(`订单 ${orderId} 处理出错:`, error);
-        }
-
-        if (i < orderIds.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
+      if (!startResponse.success) {
+        throw new Error(startResponse.error || '启动订单查询失败');
       }
 
-      if (totalProcessed > 0) {
-        updateProgressDisplay('正在生成并下载CSV文件...\n请稍候...');
-        const downloadResult = await downloadOrderCSV(allOrders, (progress, message) => {
-          updateProgressDisplay(`导出进度: ${progress}%\n${message}`);
-          showStatus(`导出进度: ${progress}% - ${message}`, 'info', 'orderPanelStatus');
-        });
+      console.log('订单查询已启动，开始监听状态...');
 
-        if (downloadResult.success) {
-          console.log('CSV下载成功:', downloadResult);
-          updateProgressDisplay('CSV文件已下载，正在清理数据...\n请稍候...');
-
-          try {
-            await clearOrderData(tab.id);
-            updateProgressDisplay('操作完成！\n✅ 已导出CSV\n✅ 已清理数据');
-            showStatus('操作完成！已导出CSV并清理数据', 'success', 'orderPanelStatus');
-          } catch (clearError) {
-            console.error('数据清理失败:', clearError);
-            updateProgressDisplay('CSV已下载，但数据清理失败\n请手动清理临时数据');
-            showStatus('CSV已下载，但数据清理失败，请手动清理', 'info', 'orderPanelStatus');
-          }
-
-        } else {
-          console.error('CSV下载失败:', downloadResult.error);
-          showStatus('查询成功但导出失败，请检查浏览器下载权限', 'error');
-        }
-      } else {
-        let resultMessage = `查询完成，但未获取到有效数据`;
-        if (failedOrders.length > 0) {
-          resultMessage += `\n失败详情: ${failedOrders.join('; ')}`;
-        }
-        updateProgressDisplay(`查询完成\n${resultMessage}`);
-        showStatus(resultMessage, 'error', 'orderPanelStatus');
-      }
+      // 使用chrome.storage.onChanged监听器来实时更新前端状态
+      // 不再使用pollOrderQueryStatus函数，避免popup失去焦点时卡住
 
     } catch (error) {
       updateProgressDisplay(`查询失败\n${error.message}`);
@@ -1648,8 +1707,118 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // 轮询订单查询状态
+  async function pollOrderQueryStatus(totalOrders, tabId) {
+    let lastProcessedCount = 0;
+    let lastMessage = '';
+    let stoppedByUser = false;
+
+    while (true) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      const statusResponse = await chrome.runtime.sendMessage({ action: 'getOrderQueryStatus' });
+      if (!statusResponse.success || !statusResponse.state) {
+        console.warn('获取订单查询状态失败:', statusResponse);
+        continue;
+      }
+
+      const state = statusResponse.state;
+      console.log('订单查询状态:', state);
+
+      // 检查是否用户请求停止
+      if (shouldStopOrderQuery) {
+        if (!state.isRunning) {
+          console.log('订单查询已停止');
+          updateProgressDisplay(`查询已停止\n已处理 ${lastProcessedCount}/${totalOrders} 个订单`);
+          showStatus(`查询已停止，已处理 ${lastProcessedCount}/${totalOrders} 个订单`, 'info', 'orderPanelStatus');
+          stoppedByUser = true;
+          break;
+        } else {
+          console.log('等待查询停止...');
+          continue;
+        }
+      }
+
+      // 更新进度显示
+      if (state.currentOrderId !== lastMessage) {
+        lastMessage = state.currentOrderId;
+        const progressPercent = Math.round((state.currentIndex / totalOrders) * 100);
+        updateProgressDisplay(`查询进度: ${progressPercent}% (${state.currentIndex}/${totalOrders})\n当前处理: ${state.currentOrderId}\n${state.message || '请稍候...'}`);
+        showStatus(`查询进度: ${progressPercent}% - 处理: ${state.currentOrderId}`, 'info', 'orderPanelStatus');
+      }
+
+      // 检查是否完成
+      if (!state.isRunning) {
+        console.log('订单查询完成');
+        
+        if (state.allOrders && state.allOrders.length > 0) {
+          updateProgressDisplay('正在生成并下载Excel文件...\n请稍候...');
+          const downloadResult = await downloadOrderCSV(state.allOrders, (progress, message) => {
+            if (shouldStopOrderQuery) {
+              console.log('用户在Excel导出过程中停止了查询');
+              updateProgressDisplay(`导出已停止\n${message}`);
+              showStatus(`导出已停止 - ${message}`, 'info', 'orderPanelStatus');
+              throw new Error('用户停止了操作');
+            }
+            updateProgressDisplay(`导出进度: ${progress}%\n${message}`);
+            showStatus(`导出进度: ${progress}% - ${message}`, 'info', 'orderPanelStatus');
+          });
+
+          if (downloadResult.success) {
+            console.log('Excel下载成功:', downloadResult);
+            console.log('开始清理数据...');
+            
+            if (shouldStopOrderQuery) {
+              console.log('用户在数据清理前停止了查询');
+              updateProgressDisplay('已跳过数据清理');
+              showStatus('查询已停止，已跳过数据清理', 'info', 'orderPanelStatus');
+            } else {
+              updateProgressDisplay('Excel文件已下载，正在清理数据...\n请稍候...');
+              
+              try {
+                console.log('调用clearOrderData...');
+                await clearOrderData(tabId);
+                console.log('clearOrderData完成');
+                updateProgressDisplay('操作完成！\n✅ 已导出Excel\n✅ 已清理数据');
+                showStatus('操作完成！已导出Excel并清理数据', 'success', 'orderPanelStatus');
+              } catch (clearError) {
+                console.error('数据清理失败:', clearError);
+                updateProgressDisplay('Excel已下载，但数据清理失败\n请手动清理临时数据');
+                showStatus('Excel已下载，但数据清理失败，请手动清理', 'info', 'orderPanelStatus');
+              }
+            }
+          } else {
+            console.error('Excel下载失败:', downloadResult.error);
+            showStatus('查询成功但导出失败，请检查浏览器下载权限', 'error');
+          }
+        } else {
+          let resultMessage = `查询完成，但未获取到有效数据`;
+          if (state.failedOrders && state.failedOrders.length > 0) {
+            resultMessage += `\n失败详情: ${state.failedOrders.join('; ')}`;
+          }
+          updateProgressDisplay(`查询完成\n${resultMessage}`);
+          showStatus(resultMessage, 'error', 'orderPanelStatus');
+        }
+        
+        // 清理状态
+        console.log('调用clearOrderQueryState...');
+        await chrome.runtime.sendMessage({ action: 'clearOrderQueryState' });
+        console.log('clearOrderQueryState完成');
+        break;
+      }
+
+      lastProcessedCount = state.processedCount;
+    }
+    
+    // 恢复输入界面
+    console.log('恢复输入界面...');
+    switchToInputMode();
+    clearProgressDisplay();
+    console.log('输入界面已恢复');
+  }
+
   // 停止查询按钮事件
-  stopOrderQueryBtn && stopOrderQueryBtn.addEventListener('click', function () {
+  stopOrderQueryBtn && stopOrderQueryBtn.addEventListener('click', async function () {
     shouldStopOrderQuery = true;
     if (stopOrderQueryBtn) {
       stopOrderQueryBtn.disabled = true;
@@ -1657,7 +1826,96 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     updateProgressDisplay('正在停止查询...\n请稍候...');
     showStatus('正在停止查询...', 'info', 'orderPanelStatus');
+    
+    // 调用background.js停止订单查询
+    await chrome.runtime.sendMessage({ action: 'stopOrderQuery' });
   });
+
+  // 监听storage变化，实时更新前端状态
+  chrome.storage.onChanged.addListener((changes, namespace) => {
+    if (namespace === 'local' && changes.orderQueryState) {
+      const newState = changes.orderQueryState.newValue;
+      if (newState && newState.isRunning) {
+        // 更新进度显示
+        updateProgressDisplay(`查询进度: ${newState.progress}% (${newState.currentIndex}/${newState.total || 0})\n当前处理: ${newState.currentOrderId}\n${newState.message || '请稍候...'}`);
+        showStatus(`查询进度: ${newState.progress}% - 处理: ${newState.currentOrderId}`, 'info', 'orderPanelStatus');
+      } else if (newState && !newState.isRunning) {
+        // 查询完成或停止
+        console.log('订单查询状态变化:', newState);
+        
+        // 保存tabId用于后续操作
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+          const savedTabId = tabs[0] ? tabs[0].id : null;
+          
+          // 如果有数据，自动下载Excel，否则直接恢复界面
+          if (newState.allOrders && newState.allOrders.length > 0) {
+            console.log('检测到订单查询完成，开始下载Excel...');
+            downloadAndCleanup(newState.allOrders, savedTabId, newState.failedOrders);
+          } else {
+            console.log('没有订单数据，直接恢复输入界面');
+            downloadAndCleanup([], savedTabId, newState.failedOrders);
+          }
+        });
+      }
+    }
+  });
+
+  // 下载并清理订单数据
+  async function downloadAndCleanup(orders, tabId, failedOrders) {
+    console.log('开始执行downloadAndCleanup，订单数量:', orders.length);
+    
+    if (orders.length > 0) {
+      updateProgressDisplay('正在生成并下载Excel文件...\n请稍候...');
+      
+      try {
+        const downloadResult = await downloadOrderCSV(orders, (progress, message) => {
+          updateProgressDisplay(`导出进度: ${progress}%\n${message}`);
+          showStatus(`导出进度: ${progress}% - ${message}`, 'info', 'orderPanelStatus');
+        });
+
+        if (downloadResult.success) {
+          console.log('Excel下载成功:', downloadResult);
+          
+          updateProgressDisplay('Excel文件已下载，正在清理数据...\n请稍候...');
+          
+          const cleared = await clearOrderData(tabId);
+          
+          if (cleared) {
+            updateProgressDisplay('操作完成！\n✅ 已导出Excel\n✅ 已清理数据');
+            showStatus('操作完成！已导出Excel并清理数据', 'success', 'orderPanelStatus');
+          } else {
+            updateProgressDisplay('Excel已下载，但数据清理失败\n请手动清理临时数据');
+            showStatus('Excel已下载，但数据清理失败，请手动清理', 'info', 'orderPanelStatus');
+          }
+        } else {
+          console.error('Excel下载失败:', downloadResult.error);
+          showStatus('查询成功但导出失败，请检查浏览器下载权限', 'error');
+        }
+      } catch (error) {
+        console.error('下载过程出错:', error);
+        showStatus('导出过程出错: ' + error.message, 'error');
+      }
+    } else {
+      let resultMessage = `查询完成，但未获取到有效数据`;
+      if (failedOrders && failedOrders.length > 0) {
+        resultMessage += `\n失败详情: ${failedOrders.join('; ')}`;
+      }
+      updateProgressDisplay(`查询完成\n${resultMessage}`);
+      showStatus(resultMessage, 'error', 'orderPanelStatus');
+    }
+    
+    // 清理状态
+    await chrome.runtime.sendMessage({ action: 'clearOrderQueryState' });
+    
+    // 3秒后恢复输入界面
+    console.log('3秒后恢复输入界面...');
+    setTimeout(() => {
+      console.log('执行恢复输入界面');
+      switchToInputMode();
+      clearProgressDisplay();
+      console.log('输入界面已恢复');
+    }, 3000);
+  }
 
   // ===== 批量获取CID功能 =====
 
@@ -1802,13 +2060,13 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
-    // 导出CSV
+    // 导出Excel
     cidExportBtn.addEventListener('click', async () => {
       try {
         updateCidStatus('正在导出...', 'info');
-        const resp = await chrome.runtime.sendMessage({ action: 'exportCsv' });
+        const resp = await chrome.runtime.sendMessage({ action: 'exportExcel' });
         if (resp.success) {
-          updateCidStatus('✅ CSV导出成功', 'success');
+          updateCidStatus('✅ Excel导出成功', 'success');
         } else {
           updateCidStatus(resp.error || '❌ 导出失败', 'error');
         }
