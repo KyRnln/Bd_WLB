@@ -1383,6 +1383,151 @@ class OrderAutomation {
     return orders;
   }
 
+  async clickSampleRequestMenu() {
+    console.log('=== 点击样品申请菜单 ===');
+    console.log('当前URL:', window.location.href);
+    try {
+      const menuSelectors = [
+        '.m4b-menu-title',
+        'div.m4b-menu-title',
+        '[class*="m4b-menu-title"]',
+        'div[class*="menu-title"]',
+        '.side-menu-item',
+        '[class*="side-menu"]'
+      ];
+
+      let menuElement = null;
+      for (const selector of menuSelectors) {
+        const elements = document.querySelectorAll(selector);
+        console.log(`选择器 ${selector} 找到 ${elements.length} 个元素`);
+        for (const el of elements) {
+          if (el.textContent && el.textContent.includes('样品申请')) {
+            console.log('找到样品申请菜单元素:', el);
+            menuElement = el;
+            break;
+          }
+        }
+        if (menuElement) break;
+      }
+
+      if (!menuElement) {
+        console.log('使用通用方式查找...');
+        const allDivs = document.querySelectorAll('div');
+        let count = 0;
+        for (const div of allDivs) {
+          if (div.textContent && div.textContent.trim() === '样品申请') {
+            console.log('找到样品申请菜单元素(通用方式):', div);
+            menuElement = div;
+            break;
+          }
+          count++;
+          if (count > 5000) break;
+        }
+      }
+
+      if (menuElement) {
+        console.log('找到样品申请菜单，正在点击');
+        menuElement.click();
+        await this.sleep(2000);
+        
+        let waited = 0;
+        while (!window.location.href.includes('sample-request') && waited < 5000) {
+          await this.sleep(500);
+          waited += 500;
+        }
+        
+        return { success: true, message: '已点击样品申请菜单', url: window.location.href };
+      } else {
+        console.warn('未找到样品申请菜单，尝试直接导航');
+        // 直接导航到目标页面
+        const targetUrl = 'https://affiliate.tiktokshopglobalselling.com/product/sample-request';
+        window.location.href = targetUrl;
+        // 等待导航完成
+        await this.sleep(3000);
+        return { success: true, message: '已导航到样品申请页面', url: window.location.href };
+      }
+    } catch (error) {
+      console.error('点击样品申请菜单失败:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async clickCreatorMenu() {
+    console.log('=== 点击达人管理菜单 ===');
+    console.log('当前URL:', window.location.href);
+    try {
+      const menuSelectors = [
+        '.m4b-menu-title',
+        'div.m4b-menu-title',
+        '[class*="m4b-menu-title"]',
+        'div[class*="menu-title"]',
+        '.side-menu-item',
+        '[class*="side-menu"]'
+      ];
+
+      let menuElement = null;
+      for (const selector of menuSelectors) {
+        const elements = document.querySelectorAll(selector);
+        console.log(`选择器 ${selector} 找到 ${elements.length} 个元素`);
+        for (const el of elements) {
+          if (el.textContent && el.textContent.includes('达人管理')) {
+            console.log('找到达人管理菜单元素:', el);
+            menuElement = el;
+            break;
+          }
+        }
+        if (menuElement) break;
+      }
+
+      if (!menuElement) {
+        console.log('使用通用方式查找...');
+        const allDivs = document.querySelectorAll('div');
+        let count = 0;
+        for (const div of allDivs) {
+          if (div.textContent && div.textContent.trim() === '达人管理') {
+            console.log('找到达人管理菜单元素(通用方式):', div);
+            menuElement = div;
+            break;
+          }
+          count++;
+          if (count > 5000) break; // 限制遍历数量
+        }
+      }
+
+      if (menuElement) {
+        console.log('找到达人管理菜单，正在点击');
+        menuElement.click();
+        await this.sleep(2000);
+        
+        let waited = 0;
+        const targetPatterns = ['connection/creator-management', '/creator', 'influencer'];
+        while (waited < 5000) {
+          const currentHref = window.location.href;
+          const isTarget = targetPatterns.some(p => currentHref.includes(p));
+          if (isTarget) {
+            console.log('页面切换成功:', currentHref);
+            break;
+          }
+          await this.sleep(500);
+          waited += 500;
+        }
+        
+        return { success: true, message: '已点击达人管理菜单', url: window.location.href };
+      } else {
+        console.warn('未找到达人管理菜单，尝试直接导航');
+        // 直接导航到目标页面
+        const targetUrl = 'https://affiliate.tiktokshopglobalselling.com/connection/creator-management';
+        window.location.href = targetUrl;
+        // 等待导航完成
+        await this.sleep(3000);
+        return { success: true, message: '已导航到达人管理页面', url: window.location.href };
+      }
+    } catch (error) {
+      console.error('点击达人管理菜单失败:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
   async executeAutomation(orderId) {
     console.log(`=== 开始执行自动化流程，订单ID: ${orderId} ===`);
     try {
@@ -1590,7 +1735,13 @@ console.log('当前页面URL:', window.location.href);
 // 监听来自popup的消息（订单查询相关）
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.log('收到订单查询消息:', request.action, request);
-  if (request.action === 'startOrderAutomation') {
+  if (request.action === 'clickSampleRequestMenu') {
+    orderAutomation.clickSampleRequestMenu().then(sendResponse);
+    return true;
+  } else if (request.action === 'clickCreatorMenu') {
+    orderAutomation.clickCreatorMenu().then(sendResponse);
+    return true;
+  } else if (request.action === 'startOrderAutomation') {
     orderAutomation.executeAutomation(request.orderId).then(sendResponse);
     return true;
   } else if (request.action === 'exportOrderData') {
@@ -1641,6 +1792,10 @@ class TikTokShopCidExtractor {
 
   safeSendMessage(message) {
     try {
+      if (!chrome.runtime?.id) {
+        console.warn('[CID] 扩展上下文已失效');
+        return;
+      }
       chrome.runtime.sendMessage(message);
     } catch (e) {
       console.warn('[CID] 扩展上下文失效，消息发送失败:', e.message);
@@ -1649,6 +1804,10 @@ class TikTokShopCidExtractor {
 
   safeSendMessagePromise(message) {
     try {
+      if (!chrome.runtime?.id) {
+        console.warn('[CID] 扩展上下文已失效');
+        return Promise.resolve({ success: false, error: '扩展上下文失效' });
+      }
       return chrome.runtime.sendMessage(message);
     } catch (e) {
       console.warn('[CID] 扩展上下文失效，消息发送失败:', e.message);

@@ -174,6 +174,39 @@ const response = await chrome.runtime.sendMessage({ action: 'xxx', ...params });
 | `startWaitingForCid` | `query: string, timeoutMs: number` | `{ success: true, cid, sourceUrl }` | 等待CID响应 |
 | `installNetworkHook` | - | `{ success: true }` | 安装网络钩子 |
 | `hookCandidates` | `url: string, candidates: string[]` | - | 接收CID候选 |
+| `clickSampleRequestMenu` | - | `{ success: true/false }` | 点击样品申请菜单 |
+| `clickCreatorMenu` | - | `{ success: true/false }` | 点击达人管理菜单 |
+
+### 页面菜单自动点击功能
+
+为确保在正确的页面执行操作，订单查询和批量查询功能实现了自动点击左侧菜单的功能。
+
+#### clickSampleRequestMenu (样品申请菜单)
+- **位置**: content.js:1386 (OrderAutomation 类)
+- **功能**: 点击左侧菜单切换到样品申请页面
+- **目标URL**: `affiliate.tiktokshopglobalselling.com/product/sample-request`
+- **实现逻辑**:
+  1. 使用多种选择器查找样品申请菜单元素
+  2. 点击菜单后等待页面加载
+  3. 等待URL变化确认页面切换成功
+
+#### clickCreatorMenu (达人管理菜单)
+- **位置**: content.js:1443 (OrderAutomation 类)
+- **功能**: 点击左侧菜单切换到达人管理页面
+- **目标URL**: `affiliate.tiktokshopglobalselling.com/connection/creator-management`
+- **实现逻辑**:
+  1. 使用多种选择器查找达人管理菜单元素
+  2. 点击菜单后等待页面加载
+  3. 等待URL变化确认页面切换成功
+
+#### popup.js 菜单点击调用
+- **位置**: popup.js:1740 (订单查询), popup.js:2868 (批量查询)
+- **调用流程**:
+  1. 检查当前页面URL是否为目标页面
+  2. 如不是，发送消息点击对应菜单
+  3. 等待2秒页面切换
+  4. 重新检查content script是否准备好
+  5. 继续执行后续操作
 
 ### XLSX 导出函数
 

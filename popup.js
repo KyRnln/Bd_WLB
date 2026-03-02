@@ -111,7 +111,9 @@ document.addEventListener('DOMContentLoaded', () => {
       tabCidToName.addEventListener('click', () => activateTab(tabCidToName, panelCidToName));
     }
     // 初始化激活第一个标签页
-    activateTab(tabOrder, panelOrder);
+    if (tabCover && panelCover) {
+      activateTab(tabCover, panelCover);
+    }
   }
 
   let phrases = [];
@@ -1717,8 +1719,14 @@ document.addEventListener('DOMContentLoaded', () => {
     switchToProgressMode();
     updateProgressDisplay(`准备查询 ${orderIds.length} 个订单...\n请稍候...`);
 
+    const ORDER_QUERY_URL = 'affiliate.tiktokshopglobalselling.com/product/sample-request';
+
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+      // 检查当前页面是否为目标页面
+      const currentUrl = tab.url || '';
+      const isTargetPage = currentUrl.includes(ORDER_QUERY_URL);
 
       let contentScriptReady = await checkContentScript(tab.id);
 
@@ -1729,6 +1737,30 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!contentScriptReady) {
           throw new Error('无法在当前页面加载扩展，请刷新页面后重试');
         }
+      }
+
+      // 如果不在目标页面，点击样品申请菜单
+      if (!isTargetPage) {
+        updateProgressDisplay('正在切换到样品申请页面...\n请稍候...');
+        
+        try {
+          const clickResult = await chrome.tabs.sendMessage(tab.id, {
+            action: 'clickSampleRequestMenu'
+          });
+          console.log('点击样品申请菜单结果:', clickResult);
+        } catch (clickError) {
+          console.warn('点击菜单失败，可能需要手动切换页面');
+        }
+
+        // 等待页面切换
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+
+      // 重新检查 content script（页面可能已切换）
+      contentScriptReady = await checkContentScript(tab.id);
+      if (!contentScriptReady) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        contentScriptReady = await checkContentScript(tab.id);
       }
 
       // 调用background.js的订单查询API
@@ -2372,7 +2404,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         sheet.columns = [
           { header: '序号', key: 'idx', width: 6 },
-          { header: '封面', key: 'cover', width: 14 },
+          { header: '封面', key: 'cover', width: 20 },
           { header: '视频标题', key: 'title', width: 35 },
           { header: '作者', key: 'author', width: 15 },
           { header: '视频链接', key: 'url', width: 50 },
@@ -2386,7 +2418,8 @@ document.addEventListener('DOMContentLoaded', () => {
           cell.alignment = { vertical: 'middle', horizontal: 'center' };
         });
 
-        const IMG_H_PX = 130;
+        const IMG_W_PX = 720;
+        const IMG_H_PX = 720;
         const ROW_HEIGHT_PT = IMG_H_PX * 0.75;
 
         for (let i = 0; i < successOnly.length; i++) {
@@ -2825,6 +2858,20 @@ document.addEventListener('DOMContentLoaded', () => {
       searchBtn.textContent = '查询中...';
 
       try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+        let contentScriptReady = await checkContentScript(tab.id);
+        if (!contentScriptReady) {
+          contentScriptReady = await injectContentScript(tab.id);
+        }
+
+        // 重新检查 content script
+        contentScriptReady = await checkContentScript(tab.id);
+        if (!contentScriptReady) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          contentScriptReady = await checkContentScript(tab.id);
+        }
+
         const response = await chrome.runtime.sendMessage({
           action: 'startBatchQuery_cidToName',
           cids: cids,
