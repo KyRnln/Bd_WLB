@@ -589,7 +589,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function importCreatorsFromXlsx(file) {
     if (!file) return;
-    
+
     if (typeof ExcelJS === 'undefined') {
       alert('ExcelJS库未加载');
       return;
@@ -599,7 +599,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const arrayBuffer = await file.arrayBuffer();
       const workbook = new ExcelJS.Workbook();
       await workbook.xlsx.load(arrayBuffer);
-      
+
       const sheet = workbook.getWorksheet(1);
       if (!sheet) {
         alert('未找到工作表');
@@ -628,7 +628,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const cells = row.values;
         const id = cells[idIdx + 1] ? cells[idIdx + 1].toString().trim() : '';
         if (!id) return;
-        
+
         parsed.push({
           id: id,
           cid: cidIdx >= 0 && cells[cidIdx + 1] ? cells[cidIdx + 1].toString().trim() : '',
@@ -1255,56 +1255,56 @@ document.addEventListener('DOMContentLoaded', () => {
   initAppBtn && initAppBtn.addEventListener('click', async () => {
     const ok = confirm('确定重置应用状态吗？这将清除：订单查询状态、CID查询状态、视频封面状态、通过CID查达人状态等。该操作不可撤销。');
     if (!ok) return;
-    
+
     try {
       // 清除订单相关数据
       await new Promise(resolve => storageAPI.remove(['orderQueryOrders', 'orderQueryState', 'orderQueryProgress'], resolve));
-      
+
       // 清除CID相关数据
       await new Promise(resolve => storageAPI.remove(['tiktokCidToNameResults'], resolve));
-      
+
       // 清除视频封面相关数据
       await new Promise(resolve => storageAPI.remove(['coverResults'], resolve));
-      
+
       // 清除订单查询状态
       await chrome.runtime.sendMessage({ action: 'clearOrderQueryState' });
-      
+
       // 重置内存态
       cidToNameResults = [];
       orderQueryOrders = [];
-      
+
       // 恢复输入界面
       switchToInputMode();
-      
+
       // 清除进度显示
       const progressDiv = document.getElementById('orderProgressDisplay');
       if (progressDiv) {
         progressDiv.remove();
       }
-      
+
       // 清除所有面板的进度显示
       const cidProgressDiv = document.getElementById('cidProgressDisplay');
       if (cidProgressDiv) {
         cidProgressDiv.remove();
       }
-      
+
       const coverProgressDiv = document.getElementById('coverProgressDisplay');
       if (coverProgressDiv) {
         coverProgressDiv.remove();
       }
-      
+
       const cidToNameProgressDiv = document.getElementById('cidToNameProgressDisplay');
       if (cidToNameProgressDiv) {
         cidToNameProgressDiv.remove();
       }
-      
+
       showStatus('✅ 应用状态已重置，所有功能已恢复初始状态', 'success', 'dataCardStatus');
-      
+
       // 1.5秒后恢复输入界面
       setTimeout(() => {
         switchToInputMode();
       }, 1500);
-      
+
     } catch (error) {
       console.error('重置应用状态失败:', error);
       showStatus('❌ 重置失败: ' + error.message, 'error', 'dataCardStatus');
@@ -1456,7 +1456,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const progress = Math.round(50 + (i / orders.length) * 40);
           progressCallback(progress, `正在处理第 ${i + 1}/${orders.length} 条数据...`);
         }
-        
+
         const order = orders[i];
         sheet.addRow({
           creatorId: (order.creatorId || '').replace(/^@/, ''),
@@ -1477,14 +1477,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const buf = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      
+
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = filename;
       a.style.display = 'none';
       document.body.appendChild(a);
-      
+
       await new Promise(resolve => setTimeout(resolve, 100));
       a.click();
       document.body.removeChild(a);
@@ -1642,7 +1642,7 @@ document.addEventListener('DOMContentLoaded', () => {
     storageAPI.get(['orderQueryProgress', 'orderQueryState'], (result) => {
       // 只有当查询真的在进行中时才显示进度模式
       const isQueryRunning = result.orderQueryState && result.orderQueryState.isRunning;
-      
+
       if (result.orderQueryProgress && isQueryRunning) {
         console.log('检测到查询正在进行，恢复进度显示');
         // 检查是否已经在进度显示模式
@@ -1742,7 +1742,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // 如果不在目标页面，点击样品申请菜单
       if (!isTargetPage) {
         updateProgressDisplay('正在切换到样品申请页面...\n请稍候...');
-        
+
         try {
           const clickResult = await chrome.tabs.sendMessage(tab.id, {
             action: 'clickSampleRequestMenu'
@@ -1842,10 +1842,10 @@ document.addEventListener('DOMContentLoaded', () => {
       // 检查是否完成
       if (!state.isRunning) {
         console.log('订单查询完成');
-        
+
         if (state.allOrders && state.allOrders.length > 0) {
           updateProgressDisplay('正在生成并下载Excel文件...\n请稍候...');
-          
+
           let downloadResult;
           try {
             downloadResult = await chrome.runtime.sendMessage({ action: 'exportOrderData' });
@@ -1857,14 +1857,14 @@ document.addEventListener('DOMContentLoaded', () => {
           if (downloadResult.success) {
             console.log('XLSX下载成功:', downloadResult);
             console.log('开始清理数据...');
-            
+
             if (shouldStopOrderQuery) {
               console.log('用户在数据清理前停止了查询');
               updateProgressDisplay('已跳过数据清理');
               showStatus('查询已停止，已跳过数据清理', 'info', 'orderPanelStatus');
             } else {
               updateProgressDisplay('XLSX文件已下载，正在清理数据...\n请稍候...');
-              
+
               try {
                 console.log('调用clearOrderData...');
                 await clearOrderData(tabId);
@@ -1889,7 +1889,7 @@ document.addEventListener('DOMContentLoaded', () => {
           updateProgressDisplay(`查询完成\n${resultMessage}`);
           showStatus(resultMessage, 'error', 'orderPanelStatus');
         }
-        
+
         // 清理状态
         console.log('调用clearOrderQueryState...');
         await chrome.runtime.sendMessage({ action: 'clearOrderQueryState' });
@@ -1899,7 +1899,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       lastProcessedCount = state.processedCount;
     }
-    
+
     // 恢复输入界面
     console.log('恢复输入界面...');
     switchToInputMode();
@@ -1916,7 +1916,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     updateProgressDisplay('正在停止查询...\n请稍候...');
     showStatus('正在停止查询...', 'info', 'orderPanelStatus');
-    
+
     // 调用background.js停止订单查询
     await chrome.runtime.sendMessage({ action: 'stopOrderQuery' });
   });
@@ -1932,11 +1932,11 @@ document.addEventListener('DOMContentLoaded', () => {
       } else if (newState && !newState.isRunning) {
         // 查询完成或停止
         console.log('订单查询状态变化:', newState);
-        
+
         // 保存tabId用于后续操作
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
           const savedTabId = tabs[0] ? tabs[0].id : null;
-          
+
           // 如果有数据，自动下载Excel，否则直接恢复界面
           if (newState.allOrders && newState.allOrders.length > 0) {
             console.log('检测到订单查询完成，开始下载Excel...');
@@ -1953,10 +1953,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // 下载并清理订单数据
   async function downloadAndCleanup(orders, tabId, failedOrders) {
     console.log('开始执行downloadAndCleanup，订单数量:', orders.length);
-    
+
     if (orders.length > 0) {
       updateProgressDisplay('正在生成并下载Excel文件...\n请稍候...');
-      
+
       let downloadResult;
       try {
         downloadResult = await chrome.runtime.sendMessage({ action: 'exportOrderData' });
@@ -1967,11 +1967,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (downloadResult.success) {
         console.log('XLSX下载成功:', downloadResult);
-        
+
         updateProgressDisplay('XLSX文件已下载，正在清理数据...\n请稍候...');
-        
+
         const cleared = await clearOrderData(tabId);
-        
+
         if (cleared) {
           updateProgressDisplay('操作完成！\n✅ 已导出XLSX\n✅ 已清理数据');
           showStatus('操作完成！已导出XLSX并清理数据', 'success', 'orderPanelStatus');
@@ -1991,10 +1991,10 @@ document.addEventListener('DOMContentLoaded', () => {
       updateProgressDisplay(`查询完成\n${resultMessage}`);
       showStatus(resultMessage, 'error', 'orderPanelStatus');
     }
-    
+
     // 清理状态
     await chrome.runtime.sendMessage({ action: 'clearOrderQueryState' });
-    
+
     // 3秒后恢复输入界面
     console.log('3秒后恢复输入界面...');
     setTimeout(() => {
@@ -2418,15 +2418,26 @@ document.addEventListener('DOMContentLoaded', () => {
           cell.alignment = { vertical: 'middle', horizontal: 'center' };
         });
 
-        const IMG_W_PX = 720;
-        const IMG_H_PX = 720;
-        const ROW_HEIGHT_PT = IMG_H_PX * 0.75;
+        // TikTok thumbnails are typically 720×1280, but we should respect the actual
+        // dimensions of the fetched image so the exported worksheets don’t squish them.
+        // We'll compute display width based on the cover column width and then scale the
+        // height according to the original aspect ratio.  Row height in points is pixels *
+        // 0.75 (1pt = 1.333px).
+        const colCover = sheet.getColumn('cover');
+        // record baseline column width in case we resize it later; this width will be
+        // used to compute the display pixel width for every image, ensuring the
+        // calculation is stable across rows.
+        const BASE_COVER_WIDTH_UNITS = colCover && colCover.width ? colCover.width : 20;
+        colCover.width = BASE_COVER_WIDTH_UNITS;
+        const DISPLAY_W_PX_BASE = BASE_COVER_WIDTH_UNITS * 7; // px approximation
+        // row height (pt) will be calculated later per‑row once we know the image aspect ratio
+        let ROW_HEIGHT_PT = null;
 
         for (let i = 0; i < successOnly.length; i++) {
           const item = successOnly[i];
           const rowNum = i + 2;
           const row = sheet.getRow(rowNum);
-          row.height = ROW_HEIGHT_PT;
+          // row height will be updated once we know the actual image ratio
 
           row.getCell('idx').value = i + 1;
           row.getCell('title').value = item.title;
@@ -2445,13 +2456,45 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
               const buf = await fetchImageAsBuffer(item.thumbnailUrl);
               const ext = guessImageExtension(item.thumbnailUrl);
+
+              // create an Image object to read natural dimensions
+              const blob = new Blob([buf]);
+              const img = new Image();
+              const imgLoaded = new Promise((resolve, reject) => {
+                img.onload = () => resolve();
+                img.onerror = () => reject(new Error('图片加载失败'));
+              });
+              img.src = URL.createObjectURL(blob);
+              await imgLoaded;
+              const origW = img.naturalWidth || DISPLAY_W_PX;
+              const origH = img.naturalHeight || DISPLAY_W_PX;
+              URL.revokeObjectURL(img.src);
+
+              const ratio = origH / origW;
+              // compute display width based on the fixed base column size rather than
+              // the mutable current width; this prevents compounding shrinkage when we
+              // adjust the column later.
+              const displayW = Math.round(DISPLAY_W_PX_BASE * 0.5);
+              const displayH = Math.round(displayW * ratio);
+              ROW_HEIGHT_PT = displayH * 0.75;
+              row.height = ROW_HEIGHT_PT;
+
+              // adjust column to at least fit this image; do not shrink it once enlarged
+              const newColWidth = Math.ceil(displayW / 7);
+              if (newColWidth > colCover.width) {
+                colCover.width = newColWidth;
+              }
+
               const imageId = workbook.addImage({ buffer: buf, extension: ext });
               sheet.addImage(imageId, {
                 tl: { col: 1, row: rowNum - 1 },
-                br: { col: 2, row: rowNum },
+                ext: { width: displayW, height: displayH },
                 editAs: 'oneCell'
               });
             } catch (e) {
+              // fallback row height if we failed to load or calculate image size (scaled down by half)
+              const DISPLAY_W_PX_CURRENT = (colCover.width || 20) * 7;
+              row.height = (DISPLAY_W_PX_CURRENT * 0.5) * 0.75;
               row.getCell('cover').value = '加载失败';
               row.getCell('cover').alignment = { vertical: 'middle', horizontal: 'center' };
             }
