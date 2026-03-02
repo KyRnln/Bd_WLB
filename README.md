@@ -121,7 +121,38 @@
 - **选项卡切换**: 实现功能模块的选项卡切换
 - **进度显示**: 实时显示长时间操作的进度
 
-#### 8. 前后端状态同步机制 (v1.2新增)
+#### 10. 达人头像动态尺寸导出 (ExcelJS)
+- **问题背景**: OOXML格式会根据单元格尺寸自动缩放图片，导致头像显示比例失真
+- **解决方案**: 使用ExcelJS库的`ext`属性精确控制图片尺寸，而非依赖单元格大小
+- **实现流程**:
+  1. **Base64转Buffer**: 将存储的base64头像数据转换为ArrayBuffer
+  2. **读取原始尺寸**: 通过HTML Image对象的`naturalWidth`和`naturalHeight`获取图片真实像素尺寸
+  3. **比例计算**: 计算头像高宽比 `ratio = origH / origW`，防止图片变形
+  4. **动态显示尺寸**: 根据基础宽度动态计算显示尺寸
+     ```javascript
+     const DISPLAY_W_PX_BASE = 15 * 7; // 约105像素基础宽度
+     const displayW = Math.round(DISPLAY_W_PX_BASE * 0.5); // 缩小50%约52像素
+     const displayH = Math.round(displayW * ratio); // 根据比例计算高度
+     ```
+  5. **行高适配**: 根据图片显示高度调整Excel行高
+     ```javascript
+     row.height = displayH * 0.75; // Excel行高单位转换系数
+     ```
+  6. **精确插入**: 使用`ext`属性精确指定图片尺寸（单位为像素）
+     ```javascript
+     sheet.addImage(imageId, {
+       tl: { col: 1, row: rowNum - 1 },
+       ext: { width: displayW, height: displayH }, // ← 精确控制
+       editAs: 'oneCell'
+     });
+     ```
+- **关键特性**:
+  - 自动适应各种纵横比的头像（正方形、竖长、横长等）
+  - 防止图片阻挡相邻列数据（使用`oneCell`锚点）
+  - 错误处理：加载失败时显示提示文本，不中断导出过程
+- **实现位置**: popup.js:2152 (`exportCreatorExcel` 函数)
+
+#### 11. 前后端状态同步机制 (v1.2新增)
 - **状态管理架构**：
   - background.js负责订单查询逻辑和状态管理
   - 使用`chrome.storage.local`作为状态共享机制
@@ -314,7 +345,7 @@ const response = await chrome.runtime.sendMessage({ action: 'xxx', ...params });
   - 统一使用 `downloadExcel(data, customFilename)` 函数处理下载
   - 修复文件名问题：订单导出使用 `orders_日期.xlsx`，达人导出使用 `tiktok_cid_日期.xlsx`
   - 视频封面导出：改用实际缩略图比例动态计算行高，防止 720×1280 封面被挤压导致高度异常
-  - 达人头像导出：改为 1:1 正方形显示，保持原始宽高比不变形
+  - 达人头像导出：改为ExcelJS库处理，动态读取原始图片尺寸，根据实际比例计算行高，保证头像显示比例正确
   - 修复“通过CID获取达人”批量查询启动错误：移除对当前活动标签和内容脚本的依赖，避免在无可用页面时触发异常
 - **上下文失效处理**：
   - 在 TikTokShopCidExtractor 类中添加 `safeSendMessage` 和 `safeSendMessagePromise` 方法

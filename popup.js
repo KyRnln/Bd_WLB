@@ -2149,19 +2149,139 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 导出Excel
-    cidExportBtn.addEventListener('click', async () => {
+    async function exportCreatorExcel() {
       try {
-        updateCidStatus('正在导出...', 'info');
-        const resp = await chrome.runtime.sendMessage({ action: 'exportExcel' });
-        if (resp.success) {
-          updateCidStatus('✅ XLSX导出成功', 'success');
-        } else {
-          updateCidStatus(resp.error || '❌ 导出失败', 'error');
+        updateCidStatus('正在获取数据...', 'info');
+
+        // 获取存储的达人数据
+        const resp = await chrome.runtime.sendMessage({ action: 'getStoredResults' });
+        if (!resp.success || !resp.results || resp.results.length === 0) {
+          updateCidStatus('❌ 没有可导出的数据', 'error');
+          return;
         }
+
+        if (typeof ExcelJS === 'undefined') {
+          updateCidStatus('❌ ExcelJS 加载失败', 'error');
+          return;
+        }
+
+        const creators = resp.results;
+        updateCidStatus('正在打包导出...', 'info');
+
+        const workbook = new ExcelJS.Workbook();
+        const sheet = workbook.addWorksheet('达人信息');
+
+        sheet.columns = [
+          { header: '序号', key: 'idx', width: 6 },
+          { header: '头像', key: 'avatar', width: 15 },
+          { header: '达人 ID', key: 'id', width: 20 },
+          { header: 'CID', key: 'cid', width: 20 },
+          { header: '获取时间', key: 'time', width: 25 },
+        ];
+
+        const headerRow = sheet.getRow(1);
+        headerRow.height = 20;
+        headerRow.eachCell(cell => {
+          cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A365D' } };
+          cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        });
+
+        // 头像尺寸计算
+        const colAvatar = sheet.getColumn('avatar');
+        const BASE_AVATAR_WIDTH_UNITS = colAvatar && colAvatar.width ? colAvatar.width : 15;
+        colAvatar.width = BASE_AVATAR_WIDTH_UNITS;
+        const DISPLAY_W_PX_BASE = BASE_AVATAR_WIDTH_UNITS * 7; // px approximation
+
+        for (let i = 0; i < creators.length; i++) {
+          const creator = creators[i];
+          const rowNum = i + 2;
+          const row = sheet.getRow(rowNum);
+
+          row.getCell('idx').value = i + 1;
+          row.getCell('id').value = creator.id || '';
+          row.getCell('cid').value = creator.cid || '';
+          row.getCell('time').value = creator.timestamp ? new Date(creator.timestamp).toLocaleString('zh-CN') : '';
+
+          ['idx', 'id', 'cid', 'time'].forEach(key => {
+            row.getCell(key).alignment = {
+              vertical: 'middle',
+              horizontal: key === 'idx' ? 'center' : 'left',
+              wrapText: true
+            };
+          });
+
+          // 如果有头像，添加到表格
+          if (creator.avatarBase64) {
+            try {
+              // 从 base64 转为 buffer
+              const b64str = creator.avatarBase64.replace(/^data:[^;]+;base64,/, '');
+              const bin = atob(b64str);
+              const bytes = new Uint8Array(bin.length);
+              for (let j = 0; j < bin.length; j++) bytes[j] = bin.charCodeAt(j);
+              const buf = bytes.buffer;
+
+              // 读取图片原始尺寸
+              const blob = new Blob([buf]);
+              const img = new Image();
+              const imgLoaded = new Promise((resolve, reject) => {
+                img.onload = () => resolve();
+                img.onerror = () => reject(new Error('图片加载失败'));
+              });
+              img.src = URL.createObjectURL(blob);
+              await imgLoaded;
+              const origW = img.naturalWidth || DISPLAY_W_PX_BASE;
+              const origH = img.naturalHeight || DISPLAY_W_PX_BASE;
+              URL.revokeObjectURL(img.src);
+
+              // 计算显示比例
+              const ratio = origH / origW;
+              const displayW = Math.round(DISPLAY_W_PX_BASE * 0.5); // 缩小一半
+              const displayH = Math.round(displayW * ratio);
+              row.height = displayH * 0.75;
+
+              // 调整列宽以适应图片
+              const newColWidth = Math.ceil(displayW / 7);
+              if (newColWidth > colAvatar.width) {
+                colAvatar.width = newColWidth;
+              }
+
+              // 添加图片
+              const ext = creator.avatarBase64.includes('image/png') ? 'png' : 'jpeg';
+              const imageId = workbook.addImage({ buffer: buf, extension: ext });
+              sheet.addImage(imageId, {
+                tl: { col: 1, row: rowNum - 1 },
+                ext: { width: displayW, height: displayH },
+                editAs: 'oneCell'
+              });
+            } catch (e) {
+              console.error('添加头像失败:', e);
+              row.height = DISPLAY_W_PX_BASE * 0.5 * 0.75;
+              row.getCell('avatar').value = '加载失败';
+              row.getCell('avatar').alignment = { vertical: 'middle', horizontal: 'center' };
+            }
+          }
+          row.commit();
+        }
+
+        // 导出文件
+        const buf = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `tiktok_creators_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}.xlsx`;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        updateCidStatus('✅ XLSX导出成功', 'success');
       } catch (e) {
-        updateCidStatus('❌ 导出失败', 'error');
+        console.error('导出失败:', e);
+        updateCidStatus('❌ 导出失败: ' + e.message, 'error');
       }
-    });
+    }
+
+    cidExportBtn.addEventListener('click', exportCreatorExcel);
 
     // 清除数据
     cidClearBtn.addEventListener('click', async () => {
