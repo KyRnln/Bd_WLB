@@ -852,14 +852,6 @@ async function executeOrderQuery(tabId, orderIds) {
 
   if (orderQueryState.allOrders.length > 0) {
     await chrome.storage.local.set({ orderQueryOrders: orderQueryState.allOrders });
-    
-    // 自动下载CSV文件
-    try {
-      const xlsxBytes = await generateOrderXlsx(orderQueryState.allOrders);
-      await downloadExcel(xlsxBytes.data, xlsxBytes.filename);
-    } catch (downloadError) {
-      console.error('[订单查询] CSV下载失败:', downloadError);
-    }
   }
 }
 
@@ -913,13 +905,13 @@ async function generateOrderXlsx(orders) {
   excelContent += ' </Worksheet>\n';
   excelContent += '</Workbook>';
   
-  // 使用UTF-8 BOM编码
+  // 使用 UTF-8 BOM 编码
   const encoder = new TextEncoder();
   const data = encoder.encode(excelContent);
   
-  const filename = `orders_${new Date().toISOString().split('T')[0]}.xls`;
+  const filename = `orders_${new Date().toISOString().split('T')[0]}.xlsx`;
   
-  // 返回Excel数据
+  // 返回 Excel 数据
   return { 
     success: true, 
     data: data, 

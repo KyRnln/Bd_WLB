@@ -15,7 +15,7 @@
 
 ### 订单查询与导出
 - 通过订单ID查询达人履约情况
-- 支持将查询结果导出为CSV文件
+- 支持将查询结果导出为XLSX文件
 - 方便数据分析和记录
 
 ### 达人信息批量获取
@@ -35,18 +35,20 @@
 
 ```
 ├── manifest.json              # Chrome扩展配置文件 (Manifest V3)
-├── background.js              # 后台服务 Worker - 处理消息、管理创作者数据
+├── background.js              # 后台服务 Worker - 处理消息、管理创作者数据、订单查询
 ├── content.js                 # 内容脚本 - 实现页面交互、订单查询自动化
 ├── popup.html                 # 扩展弹窗界面 - 快捷短语和工具入口
-├── popup.js                   # 弹窗逻辑 - 短语管理和界面交互
+├── popup.js                   # 弹窗逻辑 - 短语管理、达人管理、界面交互
 ├── phrase_manage.html         # 短语管理页面 - 专门的短语编辑界面
 ├── page_bridge.js             # 页面桥接脚本 - 用于调试和页面间通信
 ├── migrate.js                 # 数据迁移工具 - 管理本地数据格式升级
-├── icon128.png                # 扩展图标 (128x128)
-├── icon48.png                 # 扩展图标 (48x48)
-├── icon32.png                 # 扩展图标 (32x32)
-├── icon16.png                 # 扩展图标 (16x16)
-└── README.md                  # 项目说明文档
+├── libs/
+│   └── exceljs.min.js        # ExcelJS 库 - 用于生成 xlsx 格式文件
+├── icon128.png               # 扩展图标 (128x128)
+├── icon48.png                # 扩展图标 (48x48)
+├── icon32.png                # 扩展图标 (32x32)
+├── icon16.png                # 扩展图标 (16x16)
+└── README.md                 # 项目说明文档
 ```
 
 ### 核心技术栈
@@ -55,6 +57,7 @@
 - **HTML5 + CSS3** - 响应式界面设计
 - **IndexedDB** - 浏览器内置数据库，用于存储订单和创作者数据
 - **chrome.storage.local** - Chrome扩展本地存储API，用于短语和标签数据
+- **ExcelJS** - 用于生成 xlsx 格式的 Excel 文件
 - **DOM API** - 操作页面元素，实现自动化功能
 - **MutationObserver** - 监听页面DOM变化，动态注入功能
 - **Fetch API** - 处理网络请求
@@ -113,7 +116,7 @@
   - background.js将查询状态实时写入`chrome.storage.local`
   - popup.js通过监听storage变化自动更新UI
   - 移除了依赖轮询的机制，避免popup失去焦点时卡住
-  - 查询完成后自动下载CSV文件并清理临时数据
+  - 查询完成后自动下载XLSX文件并清理临时数据
 - **实现代码示例**：
   ```javascript
   // background.js - 更新状态
@@ -147,9 +150,30 @@
 
 ## 版本
 
-当前版本: 1.2
+当前版本: 1.3
 
 ## 更新日志
+
+### v1.3 (2026-03-02)
+
+#### 功能更新
+- **全面支持 XLSX 格式导出**：将所有 CSV 导出功能改为 XLSX 格式
+  - 订单查询导出：CSV → XLSX
+  - 达人管理导入/导出：CSV → XLSX
+  - 达人模板下载：CSV → XLSX
+  - 视频封面导出：CSV → XLSX
+  - CID查达人导出：CSV → XLSX
+
+#### 技术改进
+- **引入 ExcelJS 库**：使用 exceljs.min.js 库生成专业的 xlsx 格式文件
+- **达人管理功能升级**：
+  - 支持 XLSX 格式模板下载
+  - 支持 XLSX 格式数据导入
+  - 导入时支持增量更新（已存在的达人会自动更新信息）
+- **UI 文本更新**：所有用户可见的"Excel"文本统一改为"XLSX"
+
+#### 已知问题修复
+- 移除了未使用的短语 CSV 导入导出相关代码
 
 ### v1.2 (2026-02-28)
 
@@ -168,7 +192,7 @@
 - **订单查询状态监听优化**：
   - background.js将查询状态实时写入`chrome.storage.local`
   - popup.js通过监听storage变化自动更新UI
-  - 查询完成后自动下载CSV文件并清理临时数据
+  - 查询完成后自动下载XLSX文件并清理临时数据
   - 移除了依赖`pollOrderQueryStatus`函数的轮询机制
 
 #### 技术改进

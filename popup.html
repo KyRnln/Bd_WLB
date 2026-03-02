@@ -243,14 +243,14 @@
       <div id="creatorCardStatus" class="status info" style="display:none;margin-bottom:8px;"></div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
         <div style="font-weight:700;color:#1a365d;">达人管理</div>
-        <span style="font-size:12px;color:#666;">通过 CSV 导入达人ID，页面会自动匹配并高亮达人</span>
+        <span style="font-size:12px;color:#666;">通过 XLSX 导入达人ID，页面会自动匹配并高亮达人</span>
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <button id="importCreatorBtn"
-          style="flex:none;background:#ff0050;padding:4px 8px;font-size:11px;border-radius:20px;">导入 CSV</button>
+          style="flex:none;background:#ff0050;padding:4px 8px;font-size:11px;border-radius:20px;">导入 XLSX</button>
         <button id="downloadCreatorTemplateBtn"
           style="flex:none;background:#007bff;padding:4px 8px;font-size:11px;border-radius:20px;">下载模板</button>
-        <input id="creatorFileInput" type="file" accept=".csv" style="display:none;" />
+        <input id="creatorFileInput" type="file" accept=".xlsx" style="display:none;" />
       </div>
       <div style="margin-top:12px;">
         <input id="creatorSearchInput" type="text" placeholder="通过达人ID，CID，地区搜索..."
@@ -314,7 +314,7 @@
           <button id="cidStopBtn"
             style="display:none;flex:none;background:#f59e0b;color:#fff;border:none;border-radius:20px;padding:7px 14px;cursor:pointer;font-size:12px;">停止搜索</button>
           <button id="cidExportBtn"
-            style="flex:none;background:#0369a1;color:#fff;border:none;border-radius:20px;padding:7px 14px;cursor:pointer;font-size:12px;">导出Excel</button>
+            style="flex:none;background:#0369a1;color:#fff;border:none;border-radius:20px;padding:7px 14px;cursor:pointer;font-size:12px;">导出XLSX</button>
           <button id="cidClearBtn"
             style="flex:none;background:#dc2626;color:#fff;border:none;border-radius:20px;padding:7px 14px;cursor:pointer;font-size:12px;">清除暂存数据</button>
         </div>
@@ -332,7 +332,7 @@
       <!-- 视频封面面板 -->
       <div id="panelCover" style="padding:14px;display:none;">
         <div id="coverPanelStatus" class="status info" style="display:none;margin-bottom:8px;"></div>
-        <div style="font-size:12px;color:#666;margin-bottom:8px;">粘贴TikTok视频链接（每行一个）获取封面并导出Excel</div>
+        <div style="font-size:12px;color:#666;margin-bottom:8px;">粘贴TikTok视频链接（每行一个）获取封面并导出XLSX</div>
 
         <div style="margin-bottom:10px;">
           <textarea id="coverUrlInput"
@@ -347,7 +347,7 @@
           <button id="coverClearBtn"
             style="flex:none;background:#fff;color:#555;border:1px solid #ddd;border-radius:20px;padding:7px 14px;cursor:pointer;font-size:12px;box-shadow:none;">清空</button>
           <button id="coverExportBtn"
-            style="display:none;flex:none;background:#28a745;color:#fff;border:none;border-radius:20px;padding:7px 14px;cursor:pointer;font-size:12px;">导出Excel</button>
+            style="display:none;flex:none;background:#28a745;color:#fff;border:none;border-radius:20px;padding:7px 14px;cursor:pointer;font-size:12px;">导出XLSX</button>
         </div>
 
         <div id="coverProgressBar" class="hidden"
@@ -376,7 +376,7 @@
       <!-- 通过CID查达人面板 -->
       <div id="panelCidToName" style="padding:14px;display:none;">
         <div id="cidToNamePanelStatus" class="status info" style="display:none;margin-bottom:8px;"></div>
-        <div style="font-size:12px;color:#666;margin-bottom:8px;">批量输入CID查询达人用户名与头像并导出Excel</div>
+        <div style="font-size:12px;color:#666;margin-bottom:8px;">批量输入CID查询达人用户名与头像并导出XLSX</div>
         <div style="margin-bottom:10px;">
           <textarea id="cidToNameInput"
             placeholder="输入批量CID，每行一个&#10;例如：&#10;7494078236625438400&#10;7494078236625438401" rows="5"
@@ -397,7 +397,7 @@
           <button id="cidToNameSearchBtn"
             style="flex:none;background:#28a745;color:#fff;border:none;border-radius:20px;padding:7px 14px;cursor:pointer;font-size:12px;">批量查询</button>
           <button id="cidToNameExportBtn"
-            style="flex:none;background:#0369a1;color:#fff;border:none;border-radius:20px;padding:7px 14px;cursor:pointer;font-size:12px;">导出Excel</button>
+            style="flex:none;background:#0369a1;color:#fff;border:none;border-radius:20px;padding:7px 14px;cursor:pointer;font-size:12px;">导出XLSX</button>
           <button id="cidToNameClearBtn"
             style="flex:none;background:#dc2626;color:#fff;border:none;border-radius:20px;padding:7px 14px;cursor:pointer;font-size:12px;">清空全部数据</button>
         </div>

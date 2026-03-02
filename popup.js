@@ -585,6 +585,92 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  async function importCreatorsFromXlsx(file) {
+    if (!file) return;
+    
+    if (typeof ExcelJS === 'undefined') {
+      alert('ExcelJS库未加载');
+      return;
+    }
+
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(arrayBuffer);
+      
+      const sheet = workbook.getWorksheet(1);
+      if (!sheet) {
+        alert('未找到工作表');
+        return;
+      }
+
+      const headers = [];
+      const firstRow = sheet.getRow(1);
+      firstRow.eachCell(cell => {
+        headers.push(cell.value ? cell.value.toString().toLowerCase().trim() : '');
+      });
+
+      const idIdx = headers.findIndex(h => h === 'creator_id' || h === 'id');
+      const cidIdx = headers.findIndex(h => h === 'creator_cid' || h === 'cid');
+      const regionIdx = headers.findIndex(h => h === 'region_code' || h === 'region');
+      const remarkIdx = headers.findIndex(h => h === 'remark');
+
+      if (idIdx === -1) {
+        alert('模板中未找到 creator_id 列');
+        return;
+      }
+
+      const parsed = [];
+      sheet.eachRow((row, rowNum) => {
+        if (rowNum === 1) return;
+        const cells = row.values;
+        const id = cells[idIdx + 1] ? cells[idIdx + 1].toString().trim() : '';
+        if (!id) return;
+        
+        parsed.push({
+          id: id,
+          cid: cidIdx >= 0 && cells[cidIdx + 1] ? cells[cidIdx + 1].toString().trim() : '',
+          region: regionIdx >= 0 && cells[regionIdx + 1] ? cells[regionIdx + 1].toString().trim() : '',
+          remark: remarkIdx >= 0 && cells[remarkIdx + 1] ? cells[remarkIdx + 1].toString().trim() : '',
+        });
+      });
+
+      if (!parsed.length) {
+        alert('未解析到有效的达人ID');
+        return;
+      }
+
+      let addedCount = 0;
+      let updatedCount = 0;
+      const newCreators = dedupeCreators(parsed);
+
+      for (const newCreator of newCreators) {
+        const existingIndex = creators.findIndex(c => c.id === newCreator.id);
+        if (existingIndex >= 0) {
+          if (newCreator.cid) creators[existingIndex].cid = newCreator.cid;
+          if (newCreator.region) creators[existingIndex].region = newCreator.region;
+          if (newCreator.remark) creators[existingIndex].remark = newCreator.remark;
+          updatedCount++;
+        } else {
+          creators.push(newCreator);
+          addedCount++;
+        }
+      }
+
+      await new Promise(resolve => storageAPI.set({ savedCreators: creators }, resolve));
+      renderCreators();
+
+      if (addedCount > 0 || updatedCount > 0) {
+        showStatus(`✅ 成功导入: 新增 ${addedCount} 个，更新 ${updatedCount} 个`, 'success', 'creatorCardStatus');
+      } else {
+        showStatus(`✅ 无新数据导入，均已存在`, 'info', 'creatorCardStatus');
+      }
+    } catch (error) {
+      console.error('导入Excel失败:', error);
+      alert('导入失败: ' + error.message);
+    }
+  }
+
   function searchCreators(query) {
     if (!query.trim()) {
       searchResults = [];
@@ -1042,19 +1128,46 @@ document.addEventListener('DOMContentLoaded', () => {
     renderTagManageList();
   });
 
-  // 达人 CSV 导入
+  //LSX 导入 达人 X
   importCreatorBtn && importCreatorBtn.addEventListener('click', () => {
     creatorFileInput && creatorFileInput.click();
   });
   creatorFileInput && creatorFileInput.addEventListener('change', async (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
-    await importCreatorsFromCsv(file);
+    await importCreatorsFromXlsx(file);
     e.target.value = '';
   });
-  downloadCreatorTemplateBtn && downloadCreatorTemplateBtn.addEventListener('click', () => {
-    const template = 'creator_id,creator_cid,region_code,remark\\n';
-    downloadTextFile('creator_template.csv', template);
+  downloadCreatorTemplateBtn && downloadCreatorTemplateBtn.addEventListener('click', async () => {
+    if (typeof ExcelJS === 'undefined') {
+      alert('ExcelJS库未加载');
+      return;
+    }
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('达人模板');
+    sheet.columns = [
+      { header: 'creator_id', key: 'id', width: 20 },
+      { header: 'creator_cid', key: 'cid', width: 20 },
+      { header: 'region_code', key: 'region', width: 15 },
+      { header: 'remark', key: 'remark', width: 25 },
+    ];
+    const headerRow = sheet.getRow(1);
+    headerRow.eachCell(cell => {
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A365D' } };
+    });
+    sheet.addRow({ id: 'example_creator_001', cid: 'example_cid_001', region: 'US', remark: '示例备注' });
+    const buf = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'creator_template.xlsx';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
     showStatus('✅ 已下载模板', 'success');
   });
 
@@ -1304,140 +1417,87 @@ document.addEventListener('DOMContentLoaded', () => {
   // Excel下载功能
   async function downloadOrderCSV(orders, progressCallback) {
     console.log('开始生成Excel文件，数据条数:', orders.length);
-    const browserType = detectBrowser();
-    console.log('检测到浏览器类型:', browserType);
 
     if (progressCallback) progressCallback(10, '正在准备数据...');
 
-    const headers = ['达人ID', '产品ID', '订单ID', '状态', '时间'];
-
     if (progressCallback) progressCallback(30, '正在生成Excel内容...');
 
-    const csvLines = [headers.join(',')];
-    for (let i = 0; i < orders.length; i++) {
-      if (progressCallback) {
-        const progress = Math.round(30 + (i / orders.length) * 50);
-        try {
-          progressCallback(progress, `正在处理第 ${i + 1}/${orders.length} 条数据...`);
-        } catch (err) {
-          if (err.message === '用户停止了操作') {
-            throw err;
-          }
-        }
-      }
-      const order = orders[i];
-      csvLines.push([
-        `"${(order.creatorId || '').replace(/^@/, '')}"`,
-        `"${order.productId || ''}"`,
-        `"${order.orderId || ''}"`,
-        `"${order.status || ''}"`,
-        `"${order.timestamp || ''}"`
-      ].join(','));
+    if (typeof ExcelJS === 'undefined') {
+      console.error('ExcelJS库未加载');
+      return { success: false, error: 'ExcelJS库未加载' };
     }
-
-    const csvContent = csvLines.join('\n');
-
-    if (progressCallback) {
-      try {
-        progressCallback(80, '正在添加编码标识...');
-      } catch (err) {
-        if (err.message === '用户停止了操作') {
-          throw err;
-        }
-      }
-    }
-
-    const BOM = '\uFEFF';
-    const csvWithBOM = BOM + csvContent;
-
-    console.log('Excel内容长度:', csvWithBOM.length);
-    console.log('Excel内容预览:', csvWithBOM.substring(0, 200) + '...');
-
-    if (progressCallback) progressCallback(90, '正在准备下载文件...');
-
-    const filename = `orders_${new Date().toISOString().split('T')[0]}.xls`;
 
     try {
-      if (progressCallback) {
-        try {
-          progressCallback(95, '正在下载文件...');
-        } catch (err) {
-          if (err.message === '用户停止了操作') {
-            throw err;
-          }
-        }
-      }
+      if (progressCallback) progressCallback(50, '正在创建工作簿...');
 
-      const encoder = new TextEncoder();
-      const data = encoder.encode(csvWithBOM);
+      const workbook = new ExcelJS.Workbook();
+      const sheet = workbook.addWorksheet('订单数据');
 
-      const downloadId = await chrome.downloads.download({
-        filename: filename,
-        saveAs: false,
-        url: URL.createObjectURL(new Blob([data], { type: 'application/vnd.ms-excel;charset=utf-8' }))
+      sheet.columns = [
+        { header: '达人ID', key: 'creatorId', width: 15 },
+        { header: '产品ID', key: 'productId', width: 15 },
+        { header: '订单ID', key: 'orderId', width: 25 },
+        { header: '状态', key: 'status', width: 12 },
+        { header: '时间', key: 'timestamp', width: 20 },
+      ];
+
+      const headerRow = sheet.getRow(1);
+      headerRow.height = 20;
+      headerRow.eachCell(cell => {
+        cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A365D' } };
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
       });
 
-      console.log('Excel下载API调用成功，下载ID:', downloadId);
+      for (let i = 0; i < orders.length; i++) {
+        if (progressCallback) {
+          const progress = Math.round(50 + (i / orders.length) * 40);
+          progressCallback(progress, `正在处理第 ${i + 1}/${orders.length} 条数据...`);
+        }
+        
+        const order = orders[i];
+        sheet.addRow({
+          creatorId: (order.creatorId || '').replace(/^@/, ''),
+          productId: order.productId || '',
+          orderId: order.orderId || '',
+          status: order.status || '',
+          timestamp: order.timestamp || '',
+        });
+      }
+
+      sheet.columns.forEach(column => {
+        column.width = Math.max(column.width, 10);
+      });
+
+      if (progressCallback) progressCallback(90, '正在准备下载文件...');
+
+      const filename = `orders_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+      const buf = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      
+      await new Promise(resolve => setTimeout(resolve, 100));
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      console.log('Excel下载成功');
       if (progressCallback) progressCallback(100, '下载完成！');
-      return { success: true, downloadId, method: 'api' };
+      return { success: true, method: 'xlsx' };
 
-    } catch (downloadError) {
-      if (downloadError.message === '用户停止了操作') {
-        throw downloadError;
+    } catch (error) {
+      if (error.message === '用户停止了操作') {
+        throw error;
       }
-      console.error('chrome.downloads.download调用失败:', downloadError);
-
-      try {
-        console.log('尝试备用下载方法...');
-        if (progressCallback) progressCallback(95, '正在使用备用下载方法...');
-
-        const blob = new Blob([csvWithBOM], { type: 'application/vnd.ms-excel;charset=utf-8' });
-
-        if (browserType === 'edge') {
-          await downloadWithEdge(blob, filename, progressCallback);
-        } else {
-          const url = URL.createObjectURL(blob);
-
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = filename;
-          a.style.display = 'none';
-          document.body.appendChild(a);
-
-          await new Promise(resolve => setTimeout(resolve, 100));
-
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-        }
-
-        console.log('备用下载方法已执行');
-        if (progressCallback) progressCallback(100, '下载完成！');
-        return { success: true, method: browserType === 'edge' ? 'edge_fallback' : 'fallback' };
-
-      } catch (fallbackError) {
-        if (fallbackError.message === '用户停止了操作') {
-          throw fallbackError;
-        }
-        console.error('备用下载方法也失败:', fallbackError);
-
-        try {
-          console.log('尝试在新标签页打开文件...');
-          const blob = new Blob([csvWithBOM], { type: 'application/vnd.ms-excel;charset=utf-8' });
-          const url = URL.createObjectURL(blob);
-
-          window.open(url, '_blank');
-
-          if (progressCallback) progressCallback(100, '文件已在新标签页打开，请手动保存！');
-          return { success: true, method: 'new_tab', url: url };
-        } catch (finalError) {
-          if (finalError.message === '用户停止了操作') {
-            throw finalError;
-          }
-          console.error('所有下载方法都失败:', finalError);
-          return { success: false, error: `所有下载方法都失败。最后一次错误: ${downloadError.message}` };
-        }
-      }
+      console.error('Excel生成失败:', error);
+      return { success: false, error: error.message };
     }
   }
 
@@ -1779,8 +1839,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log('调用clearOrderData...');
                 await clearOrderData(tabId);
                 console.log('clearOrderData完成');
-                updateProgressDisplay('操作完成！\n✅ 已导出Excel\n✅ 已清理数据');
-                showStatus('操作完成！已导出Excel并清理数据', 'success', 'orderPanelStatus');
+                updateProgressDisplay('操作完成！\n✅ 已导出XLSX\n✅ 已清理数据');
+                showStatus('操作完成！已导出XLSX并清理数据', 'success', 'orderPanelStatus');
               } catch (clearError) {
                 console.error('数据清理失败:', clearError);
                 updateProgressDisplay('Excel已下载，但数据清理失败\n请手动清理临时数据');
@@ -1881,14 +1941,14 @@ document.addEventListener('DOMContentLoaded', () => {
           const cleared = await clearOrderData(tabId);
           
           if (cleared) {
-            updateProgressDisplay('操作完成！\n✅ 已导出Excel\n✅ 已清理数据');
-            showStatus('操作完成！已导出Excel并清理数据', 'success', 'orderPanelStatus');
+            updateProgressDisplay('操作完成！\n✅ 已导出XLSX\n✅ 已清理数据');
+            showStatus('操作完成！已导出XLSX并清理数据', 'success', 'orderPanelStatus');
           } else {
-            updateProgressDisplay('Excel已下载，但数据清理失败\n请手动清理临时数据');
-            showStatus('Excel已下载，但数据清理失败，请手动清理', 'info', 'orderPanelStatus');
+            updateProgressDisplay('XLSX已下载，但数据清理失败\n请手动清理临时数据');
+            showStatus('XLSX已下载，但数据清理失败，请手动清理', 'info', 'orderPanelStatus');
           }
         } else {
-          console.error('Excel下载失败:', downloadResult.error);
+          console.error('XLSX下载失败:', downloadResult.error);
           showStatus('查询成功但导出失败，请检查浏览器下载权限', 'error');
         }
       } catch (error) {
@@ -2066,7 +2126,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateCidStatus('正在导出...', 'info');
         const resp = await chrome.runtime.sendMessage({ action: 'exportExcel' });
         if (resp.success) {
-          updateCidStatus('✅ Excel导出成功', 'success');
+          updateCidStatus('✅ XLSX导出成功', 'success');
         } else {
           updateCidStatus(resp.error || '❌ 导出失败', 'error');
         }
