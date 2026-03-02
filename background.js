@@ -647,13 +647,12 @@ function b64ToBytes(b64str) {
 }
 
 async function generateXlsx(creators) {
-  const IMG_PX = 60;
-  const IMG_EMU = IMG_PX * 9525; // 571500
-  const ROW_HT = 45; // points (~60px)
-  const hasImg = creators.some(c => c.avatarBase64);
+  const ROW_HT_PT = 20; // 标准行高
+  const COL_WIDTH_AVATAR = 0; // 移除头像列，不再导出图片
+  const hasImg = false; // 始终设为false，不生成绘图部分
 
   // Shared strings
-  const strs = ['头像', '达人 ID', 'CID', '获取时间'];
+  const strs = ['达人 ID', 'CID', '获取时间'];
   const strMap = new Map(strs.map((s, i) => [s, i]));
   function si(s) {
     const str = String(s || '');
@@ -664,28 +663,26 @@ async function generateXlsx(creators) {
   // Sheet rows: header + data
   let sheetXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-<sheetFormatPr defaultRowHeight="${hasImg ? ROW_HT : 15}"/>
-<cols><col min="1" max="1" width="9" customWidth="1"/><col min="2" max="2" width="25" customWidth="1"/><col min="3" max="3" width="20" customWidth="1"/><col min="4" max="4" width="20" customWidth="1"/></cols>
+<sheetFormatPr defaultRowHeight="${ROW_HT_PT}"/>
+<cols><col min="1" max="1" width="25" customWidth="1"/><col min="2" max="2" width="20" customWidth="1"/><col min="3" max="3" width="25" customWidth="1"/></cols>
 <sheetData>`;
 
   // Header row
-  sheetXml += `<row r="1"><c r="A1" t="s"><v>${si('头像')}</v></c><c r="B1" t="s"><v>${si('达人 ID')}</v></c><c r="C1" t="s"><v>${si('CID')}</v></c><c r="D1" t="s"><v>${si('获取时间')}</v></c></row>`;
+  sheetXml += `<row r="1"><c r="A1" t="s"><v>${si('达人 ID')}</v></c><c r="B1" t="s"><v>${si('CID')}</v></c><c r="C1" t="s"><v>${si('获取时间')}</v></c></row>`;
 
   creators.forEach((c, i) => {
     const r = i + 2;
-    const ht = hasImg ? ` ht="${ROW_HT}" customHeight="1"` : '';
     const ts = new Date(c.timestamp || Date.now()).toLocaleString('zh-CN');
-    sheetXml += `<row r="${r}"${ht}><c r="A${r}" t="s"><v>${si('')}</v></c><c r="B${r}" t="s"><v>${si(c.id || '')}</v></c><c r="C${r}" t="s"><v>${si(c.cid || '')}</v></c><c r="D${r}" t="s"><v>${si(ts)}</v></c></row>`;
+    sheetXml += `<row r="${r}"><c r="A${r}" t="s"><v>${si(c.id || '')}</v></c><c r="B${r}" t="s"><v>${si(c.cid || '')}</v></c><c r="C${r}" t="s"><v>${si(ts)}</v></c></row>`;
   });
-  sheetXml += `</sheetData>${hasImg ? '<drawing r:id="rId1"/>' : ''}</worksheet>`;
+  sheetXml += `</sheetData></worksheet>`;
 
   const ssXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${strs.length}" uniqueCount="${strs.length}">${strs.map(s => `<si><t xml:space="preserve">${xmlEsc(s)}</t></si>`).join('')}</sst>`;
-  const styXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts><font><sz val="11"/><name val="Calibri"/></font></fonts><fills><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/></cellXfs></styleSheet>`;
+  const styXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts><font><sz val="11"/><name val="Calibri"/></font></fonts><fills><fill><patternFill patternType="none"/></fill></fills><borders><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/></cellXfs></styleSheet>`;
   const wbXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="达人CID" sheetId="1" r:id="rId1"/></sheets></workbook>`;
   const wbRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`;
   const rels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`;
-
-  let ctXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>${hasImg ? '<Default Extension="png" ContentType="image/png"/><Default Extension="jpg" ContentType="image/jpeg"/>' : ''}<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${hasImg ? '<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>' : ''}</Types>`;
+  const ctXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`;
 
   const files = [
     { name: '[Content_Types].xml', data: s2b(ctXml) },
@@ -698,24 +695,8 @@ async function generateXlsx(creators) {
   ];
 
   if (hasImg) {
-    let drawXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">`;
-    let drawRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">`;
-    let sh1Rels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/></Relationships>`;
-    let imgIdx = 0;
-    creators.forEach((c, i) => {
-      if (!c.avatarBase64) return;
-      imgIdx++;
-      const row0 = i + 1; // 0-based row index (skip header=0)
-      const ext = c.avatarBase64.includes('image/png') ? 'png' : 'jpg';
-      drawXml += `<xdr:twoCellAnchor editAs="oneCell"><xdr:from><xdr:col>0</xdr:col><xdr:colOff>38100</xdr:colOff><xdr:row>${row0}</xdr:row><xdr:rowOff>38100</xdr:rowOff></xdr:from><xdr:to><xdr:col>1</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>${row0 + 1}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="${imgIdx + 1}" name="Av${imgIdx}"/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr><xdr:blipFill><a:blip r:embed="rId${imgIdx}"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill><xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${IMG_EMU}" cy="${IMG_EMU}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:twoCellAnchor>`;
-      drawRels += `<Relationship Id="rId${imgIdx}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image${imgIdx}.${ext}"/>`;
-      files.push({ name: `xl/media/image${imgIdx}.${ext}`, data: b64ToBytes(c.avatarBase64) });
-    });
-    drawXml += `</xdr:wsDr>`;
-    drawRels += `</Relationships>`;
-    files.push({ name: 'xl/worksheets/_rels/sheet1.xml.rels', data: s2b(sh1Rels) });
-    files.push({ name: 'xl/drawings/drawing1.xml', data: s2b(drawXml) });
-    files.push({ name: 'xl/drawings/_rels/drawing1.xml.rels', data: s2b(drawRels) });
+    // 图片导出已禁用 - 改由popup.js通过ExcelJS库处理
+    // 如需为达人头像添加图片，请在popup.js中增加类似TikTok视频封面的ExcelJS实现
   }
 
   return await buildZip(files);
@@ -859,7 +840,7 @@ async function executeOrderQuery(tabId, orderIds) {
 
 async function generateOrderXlsx(orders) {
   const headers = ['达人ID', '产品ID', '订单ID', '状态', '时间'];
-  
+
   // 构建Excel XML格式
   let excelContent = '<?xml version="1.0"?>\n';
   excelContent += '<?mso-application progid="Excel.Sheet"?>\n';
@@ -883,14 +864,14 @@ async function generateOrderXlsx(orders) {
   excelContent += '   <Column ss:Width="120"/>\n';
   excelContent += '   <Column ss:Width="80"/>\n';
   excelContent += '   <Column ss:Width="140"/>\n';
-  
+
   // 表头
   excelContent += '   <Row ss:StyleID="s16">\n';
   headers.forEach(header => {
     excelContent += '    <Cell><Data ss:Type="String">' + header + '</Data></Cell>\n';
   });
   excelContent += '   </Row>\n';
-  
+
   // 数据行
   for (let i = 0; i < orders.length; i++) {
     const order = orders[i];
@@ -902,22 +883,22 @@ async function generateOrderXlsx(orders) {
     excelContent += '    <Cell><Data ss:Type="String">' + (order.timestamp || '') + '</Data></Cell>\n';
     excelContent += '   </Row>\n';
   }
-  
+
   excelContent += '  </Table>\n';
   excelContent += ' </Worksheet>\n';
   excelContent += '</Workbook>';
-  
+
   // 使用 UTF-8 BOM 编码
   const encoder = new TextEncoder();
   const data = encoder.encode(excelContent);
-  
+
   const filename = `orders_${new Date().toISOString().split('T')[0]}.xlsx`;
-  
+
   // 返回 Excel 数据
-  return { 
-    success: true, 
-    data: data, 
+  return {
+    success: true,
+    data: data,
     filename: filename,
-    method: 'data' 
+    method: 'data'
   };
 }

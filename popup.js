@@ -2901,20 +2901,8 @@ document.addEventListener('DOMContentLoaded', () => {
       searchBtn.textContent = '查询中...';
 
       try {
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-
-        let contentScriptReady = await checkContentScript(tab.id);
-        if (!contentScriptReady) {
-          contentScriptReady = await injectContentScript(tab.id);
-        }
-
-        // 重新检查 content script
-        contentScriptReady = await checkContentScript(tab.id);
-        if (!contentScriptReady) {
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          contentScriptReady = await checkContentScript(tab.id);
-        }
-
+        // 批量查询在后台自行打开新标签页执行，不依赖当前活动标签。去掉之前的
+        // content script 检查，避免在无可用 tab 或权限不足时出错。
         const response = await chrome.runtime.sendMessage({
           action: 'startBatchQuery_cidToName',
           cids: cids,
@@ -2930,6 +2918,7 @@ document.addEventListener('DOMContentLoaded', () => {
           searchBtn.textContent = '批量查询';
         }
       } catch (error) {
+        console.error('batch query start error', error);
         showStatus('❌ 批量查询发生错误', 'error');
         batchQueryInProgress = false;
         searchBtn.disabled = false;

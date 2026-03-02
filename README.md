@@ -314,6 +314,8 @@ const response = await chrome.runtime.sendMessage({ action: 'xxx', ...params });
   - 统一使用 `downloadExcel(data, customFilename)` 函数处理下载
   - 修复文件名问题：订单导出使用 `orders_日期.xlsx`，达人导出使用 `tiktok_cid_日期.xlsx`
   - 视频封面导出：改用实际缩略图比例动态计算行高，防止 720×1280 封面被挤压导致高度异常
+  - 达人头像导出：改为 1:1 正方形显示，保持原始宽高比不变形
+  - 修复“通过CID获取达人”批量查询启动错误：移除对当前活动标签和内容脚本的依赖，避免在无可用页面时触发异常
 - **上下文失效处理**：
   - 在 TikTokShopCidExtractor 类中添加 `safeSendMessage` 和 `safeSendMessagePromise` 方法
   - 优雅处理 "Extension context invalidated" 错误
