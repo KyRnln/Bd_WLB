@@ -1631,12 +1631,29 @@ class TikTokShopCidExtractor {
       const data = event.data;
       if (!data || data.source !== 'tt-cid-hook') return;
       if (data.type !== 'candidates') return;
-      chrome.runtime.sendMessage({
+      this.safeSendMessage({
         action: 'hookCandidates',
         url: data.url,
         candidates: data.candidates
-      }).catch(() => { });
+      });
     });
+  }
+
+  safeSendMessage(message) {
+    try {
+      chrome.runtime.sendMessage(message);
+    } catch (e) {
+      console.warn('[CID] 扩展上下文失效，消息发送失败:', e.message);
+    }
+  }
+
+  safeSendMessagePromise(message) {
+    try {
+      return chrome.runtime.sendMessage(message);
+    } catch (e) {
+      console.warn('[CID] 扩展上下文失效，消息发送失败:', e.message);
+      return Promise.resolve({ success: false, error: '扩展上下文失效' });
+    }
   }
 
   async searchCreator(creatorIdRaw) {
@@ -1644,7 +1661,7 @@ class TikTokShopCidExtractor {
     if (!creatorId) throw new Error('请输入达人ID');
 
     // 1) 安装网络 hook
-    const hookRes = await chrome.runtime.sendMessage({ action: 'installNetworkHook' });
+    const hookRes = await this.safeSendMessagePromise({ action: 'installNetworkHook' });
     console.log('[CID] installNetworkHook 返回:', hookRes);
 
     // 2) 查找搜索输入框
@@ -1652,7 +1669,7 @@ class TikTokShopCidExtractor {
     if (!input) throw new Error('找不到搜索输入框，请确保页面已正确加载');
 
     // 3) 先让后台开始等待 cid，再触发搜索
-    const waitCidPromise = chrome.runtime.sendMessage({
+    const waitCidPromise = this.safeSendMessagePromise({
       action: 'startWaitingForCid',
       query: creatorId,
       timeoutMs: 20000
@@ -1694,10 +1711,10 @@ class TikTokShopCidExtractor {
     const avatarBase64 = await this.getAvatarBase64();
     console.log('[CID] 头像抓取:', avatarBase64 ? '成功' : '未获取到');
 
-    await chrome.runtime.sendMessage({ action: 'storeResult', data: { id: creatorId, cid, url, avatarBase64 } });
-    const openRes = await chrome.runtime.sendMessage({ action: 'openTab', url });
+    await this.safeSendMessagePromise({ action: 'storeResult', data: { id: creatorId, cid, url, avatarBase64 } });
+    const openRes = await this.safeSendMessagePromise({ action: 'openTab', url });
     if (openRes?.success && openRes?.tabId) {
-      await chrome.runtime.sendMessage({ action: 'closeTab', tabId: openRes.tabId });
+      await this.safeSendMessagePromise({ action: 'closeTab', tabId: openRes.tabId });
     }
 
     return { success: true, cid, url, avatarBase64 };

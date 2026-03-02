@@ -100,7 +100,22 @@
 - **异步响应**: 使用Promise处理异步消息响应
 - **错误处理**: 完善的消息处理错误捕获机制
 
-#### 7. 用户界面优化
+#### 7. XLSX 导出系统
+- **统一导出接口**: 所有导出功能通过 background.js 的消息处理
+- **生成函数**:
+  - `generateXlsx(creators)` - 生成达人CID的xlsx文件（带头像）
+  - `generateOrderXlsx(orders)` - 生成订单数据的xlsx文件
+- **下载函数**: `downloadExcel(data, customFilename)` - 触发浏览器下载
+- **消息调用**:
+  - `exportExcel` - 导出达人数据
+  - `exportOrderData` - 导出订单数据
+
+#### 8. 上下文失效处理
+- **问题说明**: Chrome扩展重新加载时，content script上下文会失效
+- **解决方案**: 使用 `safeSendMessage` 和 `safeSendMessagePromise` 方法
+- **实现位置**: TikTokShopCidExtractor 类中
+
+#### 9. 用户界面优化
 - **响应式设计**: 适配不同尺寸的弹窗界面
 - **动画效果**: 使用CSS动画增强用户体验
 - **选项卡切换**: 实现功能模块的选项卡切换
@@ -130,6 +145,95 @@
     }
   });
   ```
+
+## 开发者说明
+
+### background.js 消息处理
+
+扩展使用消息机制进行前后端通信，所有消息在 `handleMessage` 函数中处理：
+
+```javascript
+// popup.js / content.js 调用示例
+const response = await chrome.runtime.sendMessage({ action: 'xxx', ...params });
+```
+
+#### 可用消息列表
+
+| 消息 action | 参数 | 返回值 | 说明 |
+|-------------|------|--------|------|
+| `startOrderQuery` | `orderIds: string[]` | `{ success: true }` | 开始订单查询 |
+| `stopOrderQuery` | - | `{ success: true }` | 停止订单查询 |
+| `getOrderQueryStatus` | - | `OrderQueryState` | 获取订单查询状态 |
+| `clearOrderQueryState` | - | `{ success: true }` | 清理订单查询状态 |
+| `exportOrderData` | - | `{ success: true/false, error? }` | 导出订单数据为XLSX |
+| `clearOrderData` | - | `{ success: true }` | 清理订单数据 |
+| `exportExcel` | - | `{ success: true/false, error? }` | 导出达人CID为XLSX |
+| `clearData` | - | `{ success: true }` | 清理达人数据 |
+| `openTab` | `url: string` | `{ success: true, tabId }` | 打开新标签页 |
+| `closeTab` | `tabId: number` | `{ success: true }` | 关闭标签页 |
+| `startWaitingForCid` | `query: string, timeoutMs: number` | `{ success: true, cid, sourceUrl }` | 等待CID响应 |
+| `installNetworkHook` | - | `{ success: true }` | 安装网络钩子 |
+| `hookCandidates` | `url: string, candidates: string[]` | - | 接收CID候选 |
+
+### XLSX 导出函数
+
+#### generateXlsx(creators)
+- **位置**: background.js:648
+- **参数**: `creators` - 达人对象数组
+- **返回**: `Uint8Array` - xlsx 文件的二进制数据
+- **用途**: 生成达人CID的xlsx文件（带头像）
+
+#### generateOrderXlsx(orders)
+- **位置**: background.js:858
+- **参数**: `orders` - 订单对象数组
+- **返回**: `{ success: true, data: Uint8Array, filename: string }`
+- **用途**: 生成订单数据的xlsx文件
+
+#### downloadExcel(data, customFilename)
+- **位置**: background.js:723
+- **参数**: 
+  - `data`: `Uint8Array` - xlsx 文件数据
+  - `customFilename`: `string` - 自定义文件名（可选）
+- **返回**: `Promise<void>`
+- **用途**: 触发浏览器下载
+
+### content.js 上下文安全方法
+
+#### safeSendMessage(message)
+- **位置**: content.js:1640 (TikTokShopCidExtractor 类)
+- **参数**: `message` - 要发送的消息对象
+- **用途**: 安全发送消息，捕获上下文失效异常
+
+#### safeSendMessagePromise(message)
+- **位置**: content.js:1650
+- **参数**: `message` - 要发送的消息对象
+- **返回**: `Promise` - 消息响应或错误响应
+- **用途**: 安全发送需要等待响应的消息
+
+### popup.js ExcelJS 导出函数
+
+#### downloadOrderCSV(orders, progressCallback)
+- **位置**: popup.js:1418
+- **参数**:
+  - `orders`: 订单数组
+  - `progressCallback`: 进度回调函数
+- **返回**: `{ success: true/false, error? }`
+- **备注**: 目前主要通过 background.js 的 exportOrderData 调用
+
+#### importCreatorsFromXlsx(file)
+- **位置**: popup.js:588
+- **参数**: `file` - xlsx 文件对象
+- **用途**: 从 xlsx 文件导入达人数据
+
+### storage 键值说明
+
+| 键名 | 类型 | 说明 |
+|------|------|------|
+| `orderQueryState` | Object | 订单查询状态 |
+| `orderQueryOrders` | Array | 订单查询结果 |
+| `savedCreators` | Array | 已保存的达人数据 |
+| `savedPhrases` | Array | 已保存的短语数据 |
+| `phraseTags` | Array | 短语标签 |
 
 ## 快速开始
 
@@ -171,6 +275,14 @@
   - 支持 XLSX 格式数据导入
   - 导入时支持增量更新（已存在的达人会自动更新信息）
 - **UI 文本更新**：所有用户可见的"Excel"文本统一改为"XLSX"
+- **XLSX 导出系统重构**：
+  - 导出功能移至 background.js 处理，避免 popup 上下文失效导致的问题
+  - 使用消息机制调用：`chrome.runtime.sendMessage({ action: 'exportOrderData' })`
+  - 统一使用 `downloadExcel(data, customFilename)` 函数处理下载
+  - 修复文件名问题：订单导出使用 `orders_日期.xlsx`，达人导出使用 `tiktok_cid_日期.xlsx`
+- **上下文失效处理**：
+  - 在 TikTokShopCidExtractor 类中添加 `safeSendMessage` 和 `safeSendMessagePromise` 方法
+  - 优雅处理 "Extension context invalidated" 错误
 
 #### 已知问题修复
 - 移除了未使用的短语 CSV 导入导出相关代码

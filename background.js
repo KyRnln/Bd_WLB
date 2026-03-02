@@ -245,7 +245,8 @@ async function handleMessage(request, sender) {
       const creators = await cidDb.getAllCreators();
       if (!creators.length) return { success: false, error: '没有数据可以导出' };
       const xlsxBytes = await generateXlsx(creators);
-      await downloadExcel(xlsxBytes);
+      const filename = `tiktok_cid_${new Date().toISOString().split('T')[0]}.xlsx`;
+      await downloadExcel(xlsxBytes, filename);
       return { success: true };
     }
     case 'openTab': {
@@ -549,8 +550,9 @@ async function handleMessage(request, sender) {
       const orders = await chrome.storage.local.get('orderQueryOrders');
       const allOrders = orders.orderQueryOrders || [];
       if (!allOrders.length) return { success: false, error: '没有数据可以导出' };
-      const xlsxBytes = await generateOrderXlsx(allOrders);
-      await downloadExcel(xlsxBytes);
+      const xlsxResult = await generateOrderXlsx(allOrders);
+      if (!xlsxResult.success) return { success: false, error: xlsxResult.error };
+      await downloadExcel(xlsxResult.data, xlsxResult.filename);
       return { success: true };
     }
     case 'clearOrderData': {
@@ -719,11 +721,11 @@ async function generateXlsx(creators) {
   return await buildZip(files);
 }
 
-async function downloadExcel(bytes, customFilename = null) {
+async function downloadExcel(data, customFilename = null) {
   let bin = '';
-  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  for (let i = 0; i < data.length; i++) bin += String.fromCharCode(data[i]);
   const dataUrl = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${btoa(bin)}`;
-  const filename = customFilename || `tiktok_cid_${new Date().toISOString().split('T')[0]}.xlsx`;
+  const filename = customFilename || `orders_${new Date().toISOString().split('T')[0]}.xlsx`;
   await chrome.downloads.download({ url: dataUrl, filename, saveAs: true });
 }
 

@@ -1813,19 +1813,17 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if (state.allOrders && state.allOrders.length > 0) {
           updateProgressDisplay('正在生成并下载Excel文件...\n请稍候...');
-          const downloadResult = await downloadOrderCSV(state.allOrders, (progress, message) => {
-            if (shouldStopOrderQuery) {
-              console.log('用户在Excel导出过程中停止了查询');
-              updateProgressDisplay(`导出已停止\n${message}`);
-              showStatus(`导出已停止 - ${message}`, 'info', 'orderPanelStatus');
-              throw new Error('用户停止了操作');
-            }
-            updateProgressDisplay(`导出进度: ${progress}%\n${message}`);
-            showStatus(`导出进度: ${progress}% - ${message}`, 'info', 'orderPanelStatus');
-          });
+          
+          let downloadResult;
+          try {
+            downloadResult = await chrome.runtime.sendMessage({ action: 'exportOrderData' });
+          } catch (exportError) {
+            console.error('导出失败:', exportError);
+            downloadResult = { success: false, error: exportError.message || '导出失败' };
+          }
 
           if (downloadResult.success) {
-            console.log('Excel下载成功:', downloadResult);
+            console.log('XLSX下载成功:', downloadResult);
             console.log('开始清理数据...');
             
             if (shouldStopOrderQuery) {
@@ -1833,7 +1831,7 @@ document.addEventListener('DOMContentLoaded', () => {
               updateProgressDisplay('已跳过数据清理');
               showStatus('查询已停止，已跳过数据清理', 'info', 'orderPanelStatus');
             } else {
-              updateProgressDisplay('Excel文件已下载，正在清理数据...\n请稍候...');
+              updateProgressDisplay('XLSX文件已下载，正在清理数据...\n请稍候...');
               
               try {
                 console.log('调用clearOrderData...');
@@ -1843,12 +1841,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 showStatus('操作完成！已导出XLSX并清理数据', 'success', 'orderPanelStatus');
               } catch (clearError) {
                 console.error('数据清理失败:', clearError);
-                updateProgressDisplay('Excel已下载，但数据清理失败\n请手动清理临时数据');
-                showStatus('Excel已下载，但数据清理失败，请手动清理', 'info', 'orderPanelStatus');
+                updateProgressDisplay('XLSX已下载，但数据清理失败\n请手动清理临时数据');
+                showStatus('XLSX已下载，但数据清理失败，请手动清理', 'info', 'orderPanelStatus');
               }
             }
           } else {
-            console.error('Excel下载失败:', downloadResult.error);
+            console.error('XLSX下载失败:', downloadResult.error);
             showStatus('查询成功但导出失败，请检查浏览器下载权限', 'error');
           }
         } else {
@@ -1927,33 +1925,31 @@ document.addEventListener('DOMContentLoaded', () => {
     if (orders.length > 0) {
       updateProgressDisplay('正在生成并下载Excel文件...\n请稍候...');
       
+      let downloadResult;
       try {
-        const downloadResult = await downloadOrderCSV(orders, (progress, message) => {
-          updateProgressDisplay(`导出进度: ${progress}%\n${message}`);
-          showStatus(`导出进度: ${progress}% - ${message}`, 'info', 'orderPanelStatus');
-        });
+        downloadResult = await chrome.runtime.sendMessage({ action: 'exportOrderData' });
+      } catch (exportError) {
+        console.error('导出失败:', exportError);
+        downloadResult = { success: false, error: exportError.message || '导出失败' };
+      }
 
-        if (downloadResult.success) {
-          console.log('Excel下载成功:', downloadResult);
-          
-          updateProgressDisplay('Excel文件已下载，正在清理数据...\n请稍候...');
-          
-          const cleared = await clearOrderData(tabId);
-          
-          if (cleared) {
-            updateProgressDisplay('操作完成！\n✅ 已导出XLSX\n✅ 已清理数据');
-            showStatus('操作完成！已导出XLSX并清理数据', 'success', 'orderPanelStatus');
-          } else {
-            updateProgressDisplay('XLSX已下载，但数据清理失败\n请手动清理临时数据');
-            showStatus('XLSX已下载，但数据清理失败，请手动清理', 'info', 'orderPanelStatus');
-          }
+      if (downloadResult.success) {
+        console.log('XLSX下载成功:', downloadResult);
+        
+        updateProgressDisplay('XLSX文件已下载，正在清理数据...\n请稍候...');
+        
+        const cleared = await clearOrderData(tabId);
+        
+        if (cleared) {
+          updateProgressDisplay('操作完成！\n✅ 已导出XLSX\n✅ 已清理数据');
+          showStatus('操作完成！已导出XLSX并清理数据', 'success', 'orderPanelStatus');
         } else {
-          console.error('XLSX下载失败:', downloadResult.error);
-          showStatus('查询成功但导出失败，请检查浏览器下载权限', 'error');
+          updateProgressDisplay('XLSX已下载，但数据清理失败\n请手动清理临时数据');
+          showStatus('XLSX已下载，但数据清理失败，请手动清理', 'info', 'orderPanelStatus');
         }
-      } catch (error) {
-        console.error('下载过程出错:', error);
-        showStatus('导出过程出错: ' + error.message, 'error');
+      } else {
+        console.error('XLSX下载失败:', downloadResult.error);
+        showStatus('查询成功但导出失败，请检查浏览器下载权限', 'error');
       }
     } else {
       let resultMessage = `查询完成，但未获取到有效数据`;
