@@ -143,11 +143,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // 加载/保存
   async function loadData() {
     try {
-      const result = await new Promise(resolve => storageAPI.get(['savedPhrases', 'savedTags', 'activeTagId', 'savedCreators', 'webdavConfig'], resolve));
+      const result = await new Promise(resolve => storageAPI.get(['savedPhrases', 'savedTags', 'activeTagId', 'savedCreators', 'webdavConfig', 'creatorBlacklist'], resolve));
       phrases = result.savedPhrases || [];
       tags = Array.isArray(result.savedTags) ? result.savedTags : [];
       activeTagId = typeof result.activeTagId === 'string' ? result.activeTagId : '__ALL__';
       creators = Array.isArray(result.savedCreators) ? result.savedCreators : [];
+      window.creatorBlacklist = Array.isArray(result.creatorBlacklist) ? result.creatorBlacklist : [];
 
       if (result.webdavConfig) {
         if (webdavUrl) webdavUrl.value = result.webdavConfig.url || 'https://dav.jianguoyun.com/dav/';
@@ -164,6 +165,7 @@ document.addEventListener('DOMContentLoaded', () => {
       tags = [];
       activeTagId = '__ALL__';
       creators = [];
+      window.creatorBlacklist = [];
       searchResults = [];
       await ensureTagsAndMigrate();
       renderAll();
@@ -381,7 +383,9 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderCreators() {
     if (creatorPreview) {
       if (creators.length) {
-        creatorPreview.textContent = `${creators.length} 个达人已导入`;
+        const blacklistCount = (window.creatorBlacklist || []).length;
+        const blacklistText = blacklistCount > 0 ? `，已隐藏 ${blacklistCount} 个达人` : '';
+        creatorPreview.textContent = `${creators.length} 个达人已导入${blacklistText}`;
         creatorPreview.style.cssText = `
           margin-top: 8px;
           font-size: 12px;
@@ -758,7 +762,8 @@ document.addEventListener('DOMContentLoaded', () => {
         phrases: phrases,
         tags: tags,
         activeTagId: activeTagId,
-        creators: creators
+        creators: creators,
+        creatorBlacklist: window.creatorBlacklist || []
       };
 
       const jsonString = JSON.stringify(data, null, 2);
@@ -809,6 +814,7 @@ document.addEventListener('DOMContentLoaded', () => {
       tags = data.tags || [];
       activeTagId = data.activeTagId || '__ALL__';
       creators = data.creators || [];
+      const creatorBlacklist = data.creatorBlacklist || [];
       searchResults = [];
 
       // 保存到存储
@@ -816,7 +822,8 @@ document.addEventListener('DOMContentLoaded', () => {
         savedPhrases: phrases,
         savedTags: tags,
         activeTagId: activeTagId,
-        savedCreators: creators
+        savedCreators: creators,
+        creatorBlacklist: creatorBlacklist
       }, resolve));
 
       // 重新渲染
@@ -863,7 +870,8 @@ document.addEventListener('DOMContentLoaded', () => {
         phrases: phrases,
         tags: tags,
         activeTagId: activeTagId,
-        creators: creators
+        creators: creators,
+        creatorBlacklist: window.creatorBlacklist || []
       };
 
       const jsonString = JSON.stringify(data, null, 2);
@@ -947,13 +955,15 @@ document.addEventListener('DOMContentLoaded', () => {
       tags = data.tags || [];
       activeTagId = data.activeTagId || '__ALL__';
       creators = data.creators || [];
+      const creatorBlacklist = data.creatorBlacklist || [];
       searchResults = [];
 
       await new Promise(resolve => storageAPI.set({
         savedPhrases: phrases,
         savedTags: tags,
         activeTagId: activeTagId,
-        savedCreators: creators
+        savedCreators: creators,
+        creatorBlacklist: creatorBlacklist
       }, resolve));
 
       renderAll();
@@ -1237,15 +1247,16 @@ document.addEventListener('DOMContentLoaded', () => {
   restoreFromWebdavBtn && restoreFromWebdavBtn.addEventListener('click', restoreFromWebdav);
 
   clearAllDataBtn && clearAllDataBtn.addEventListener('click', async () => {
-    const ok = confirm('确定清除全部数据吗？这将删除：短语、标签、当前标签选择、达人列表等。该操作不可撤销。');
+    const ok = confirm('确定清除全部数据吗？这将删除：短语、标签、当前标签选择、达人列表、隐藏达人信息等。该操作不可撤销。');
     if (!ok) return;
-    await new Promise(resolve => storageAPI.remove(['savedPhrases', 'savedTags', 'activeTagId', 'savedCreators'], resolve));
+    await new Promise(resolve => storageAPI.remove(['savedPhrases', 'savedTags', 'activeTagId', 'savedCreators', 'creatorBlacklist'], resolve));
 
     // 重置内存态并重新初始化默认标签
     phrases = [];
     tags = [];
     activeTagId = '__ALL__';
     creators = [];
+    window.creatorBlacklist = [];
     searchResults = [];
     await ensureTagsAndMigrate();
     renderAll();
@@ -2011,6 +2022,20 @@ document.addEventListener('DOMContentLoaded', () => {
   restoreProgressDisplay();
 
   loadData();
+
+  // 监听来自 content.js 的黑名单更新消息
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === 'blacklistUpdated') {
+      // 重新加载黑名单数据并更新UI
+      const storageAPI = getStorage();
+      if (storageAPI) {
+        storageAPI.get(['creatorBlacklist'], result => {
+          window.creatorBlacklist = Array.isArray(result.creatorBlacklist) ? result.creatorBlacklist : [];
+          renderCreators();
+        });
+      }
+    }
+  });
 });
 
 // ===== 批量获取CID卡片交互 =====

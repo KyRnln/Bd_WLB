@@ -1429,13 +1429,13 @@ class OrderAutomation {
         console.log('找到样品申请菜单，正在点击');
         menuElement.click();
         await this.sleep(2000);
-        
+
         let waited = 0;
         while (!window.location.href.includes('sample-request') && waited < 5000) {
           await this.sleep(500);
           waited += 500;
         }
-        
+
         return { success: true, message: '已点击样品申请菜单', url: window.location.href };
       } else {
         console.warn('未找到样品申请菜单，尝试直接导航');
@@ -1498,7 +1498,7 @@ class OrderAutomation {
         console.log('找到达人管理菜单，正在点击');
         menuElement.click();
         await this.sleep(2000);
-        
+
         let waited = 0;
         const targetPatterns = ['connection/creator-management', '/creator', 'influencer'];
         while (waited < 5000) {
@@ -1511,7 +1511,7 @@ class OrderAutomation {
           await this.sleep(500);
           waited += 500;
         }
-        
+
         return { success: true, message: '已点击达人管理菜单', url: window.location.href };
       } else {
         console.warn('未找到达人管理菜单，尝试直接导航');
@@ -2139,4 +2139,339 @@ new TikTokShopCidExtractor();
       return true;
     }
   });
+})();
+
+// ==========================================================
+// 达人ID隐藏功能
+// ==========================================================
+(function () {
+  const BLACKLIST_STORAGE_KEY = 'creatorBlacklist';
+
+  // 注入样式
+  function injectBlacklistStyles() {
+    if (document.getElementById('creator-blacklist-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'creator-blacklist-styles';
+    style.textContent = `
+      .creator-blacklist-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 50px;
+        height: 24px;
+        margin-left: 8px;
+        padding: 0 6px;
+        background: #ffe0e6;
+        border: 1px solid #ff0050;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        color: #ff0050;
+        white-space: nowrap;
+      }
+      .creator-blacklist-btn:hover {
+        background: #ffc9d9;
+        border-color: #ff0050;
+        color: #ff0050;
+      }
+      .creator-blacklist-btn.blacklisted {
+        background: #f5f5f5;
+        border-color: #d9d9d9;
+        color: #666;
+      }
+      .creator-id-blacklisted {
+        text-decoration: line-through !important;
+        opacity: 0.25 !important;
+        color: inherit !important;
+      }
+      /* 确保即使有悬浮效果也保持隐藏样式 */
+      .creator-id-blacklisted:hover {
+        text-decoration: line-through !important;
+        opacity: 0.25 !important;
+      }
+    `;
+    document.documentElement.appendChild(style);
+  }
+
+  // 加载黑名单
+  function loadBlacklist() {
+    return new Promise(resolve => {
+      try {
+        if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) {
+          resolve([]);
+          return;
+        }
+        chrome.storage.local.get([BLACKLIST_STORAGE_KEY], result => {
+          try {
+            const blacklist = result[BLACKLIST_STORAGE_KEY] || [];
+            // 如果是旧格式（字符串数组），转换为新格式（对象数组）
+            const converted = blacklist.map(item => {
+              if (typeof item === 'string') {
+                return { id: item, blacklistedAt: Date.now() };
+              }
+              return item;
+            });
+            resolve(converted);
+          } catch (parseError) {
+            // 转换失败，返回空数组
+            console.debug('黑名单数据转换失败', parseError);
+            resolve([]);
+          }
+        });
+      } catch (error) {
+        // 上下文失效或其他错误，返回空数组
+        console.debug('加载黑名单失败', error);
+        resolve([]);
+      }
+    });
+  }
+
+  // 保存黑名单
+  function saveBlacklist(blacklist) {
+    if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) {
+      return Promise.resolve();
+    }
+    return new Promise(resolve => {
+      try {
+        chrome.storage.local.set({ [BLACKLIST_STORAGE_KEY]: blacklist }, () => {
+          // 检查上下文是否仍然有效
+          try {
+            if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
+              chrome.runtime.sendMessage({ action: 'blacklistUpdated', blacklistCount: blacklist.length }).catch(() => {
+                // popup 可能未打开或上下文失效
+              });
+            }
+          } catch (msgError) {
+            // 消息发送失败，可能是扩展上下文失效，但不需要终止执行
+            console.debug('黑名单更新消息发送失败', msgError);
+          }
+          resolve();
+        });
+      } catch (storageError) {
+        // 存储操作失败，但不影响页面功能
+        console.debug('黑名单保存失败', storageError);
+        resolve();
+      }
+    });
+  }
+
+  // 获取达人ID文本
+  function getCreatorIdFromElement(element) {
+    const textContent = element.textContent || '';
+    return textContent.trim();
+  }
+
+  // 创建隐藏按钮
+  function createBlacklistButton(creatorIdElement, creatorId) {
+    const btn = document.createElement('button');
+    btn.className = 'creator-blacklist-btn';
+    btn.textContent = '隐藏';
+    btn.title = '点击隐藏此达人';
+    btn.type = 'button';
+
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      try {
+        const blacklist = await loadBlacklist();
+        const isBlacklisted = blacklist.some(item => item.id === creatorId);
+
+        if (isBlacklisted) {
+          // 取消隐藏
+          const index = blacklist.findIndex(item => item.id === creatorId);
+          if (index !== -1) {
+            blacklist.splice(index, 1);
+          }
+          creatorIdElement.classList.remove('creator-id-blacklisted');
+          btn.classList.remove('blacklisted');
+          btn.textContent = '隐藏';
+          btn.title = '点击隐藏此达人';
+        } else {
+          // 隐藏
+          blacklist.push({
+            id: creatorId,
+            blacklistedAt: Date.now()
+          });
+          creatorIdElement.classList.add('creator-id-blacklisted');
+          btn.classList.add('blacklisted');
+          btn.textContent = '解除';
+          btn.title = '点击取消隐藏';
+        }
+
+        await saveBlacklist(blacklist);
+      } catch (error) {
+        // 记录错误但不影响用户交互
+        if (!error.message.includes('Extension context invalidated')) {
+          console.error('隐藏操作出错', error);
+        }
+        // 如果是上下文失效错误，静默处理，用户可以重试
+      }
+    });
+
+    return btn;
+  }
+
+  // 初始化隐藏功能
+  async function initBlacklistFeature() {
+    try {
+      injectBlacklistStyles();
+
+      const blacklist = await loadBlacklist();
+
+      // 使用 MutationObserver 监听DOM变化
+      const observer = new MutationObserver(mutations => {
+        try {
+          mutations.forEach(mutation => {
+            if (mutation.addedNodes.length > 0) {
+              mutation.addedNodes.forEach(node => {
+                try {
+                  if (node.nodeType === Node.ELEMENT_NODE) {
+                    // 只查找达人ID class的元素
+                    const idElements = node.querySelectorAll ?
+                      node.querySelectorAll('[class*="creator-info__HightBoldText"]') :
+                      [];
+
+                    idElements.forEach(el => {
+                      try {
+                        const text = getCreatorIdFromElement(el);
+                        // 达人ID要么以@开头，要么包含字母
+                        if (text && (text.startsWith('@') || /[a-zA-Z]/.test(text))) {
+                          processCreatorIdElement(el, blacklist);
+                        }
+                      } catch (eErr) {
+                        // 单个元素处理失败，继续处理其他元素
+                      }
+                    });
+                  }
+                } catch (nodeErr) {
+                  // 节点处理失败，继续下一个节点
+                }
+              });
+            }
+          });
+        } catch (mutationErr) {
+          // MutationObserver 回调出错，但不应该导致脚本停止
+          console.debug('MutationObserver 处理出错', mutationErr);
+        }
+      });
+
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+        attributes: false,
+        characterData: false
+      });
+
+      // 初始化：处理已存在的所有达人ID元素
+      const allIdElements = document.querySelectorAll('[class*="creator-info__HightBoldText"]');
+      allIdElements.forEach(el => {
+        try {
+          const text = getCreatorIdFromElement(el);
+          // 达人ID要么以@开头，要么包含字母
+          if (text && (text.startsWith('@') || /[a-zA-Z]/.test(text))) {
+            processCreatorIdElement(el, blacklist);
+          }
+        } catch (elErr) {
+          // 单个元素处理失败，继续
+        }
+      });
+    } catch (initError) {
+      // 初始化过程中的任何错误都不应该导致脚本崩溃
+      console.debug('隐藏功能初始化失败', initError);
+    }
+  }
+
+  // 处理达人ID元素
+  function processCreatorIdElement(idElement, blacklist) {
+    // 获取达人ID
+    const creatorId = getCreatorIdFromElement(idElement);
+
+    if (!creatorId) return;
+
+    // 检查是否已有按钮
+    let parentContainer = idElement.parentNode;
+    const existingBtn = parentContainer?.querySelector('.creator-blacklist-btn');
+
+    if (!existingBtn && parentContainer) {
+      // 不修改原有元素，在父级添加按钮
+      const btn = createBlacklistButton(idElement, creatorId);
+      parentContainer.appendChild(btn);
+    }
+
+    // 应用黑名单样式
+    if (blacklist.some(item => item.id === creatorId)) {
+      idElement.classList.add('creator-id-blacklisted');
+      // 直接设置内联样式，以确保不被覆盖
+      idElement.style.textDecoration = 'line-through';
+      idElement.style.opacity = '0.25';
+
+      const btn = idElement.parentNode?.querySelector('.creator-blacklist-btn');
+      if (btn) {
+        btn.classList.add('blacklisted');
+        btn.textContent = '解除';
+      }
+
+      // 监听元素属性变化，如果样式被重置则恢复
+      const styleObserver = new MutationObserver(() => {
+        try {
+          // 定期恢复样式
+          if (!idElement.style.textDecoration.includes('line-through')) {
+            idElement.style.textDecoration = 'line-through';
+          }
+          if (idElement.style.opacity !== '0.25') {
+            idElement.style.opacity = '0.25';
+          }
+        } catch (e) {
+          // 忽略错误
+        }
+      });
+
+      // 观察元素的属性变化
+      styleObserver.observe(idElement, {
+        attributes: true,
+        attributeFilter: ['style'],
+        subtree: false
+      });
+
+      // 同时监听悬浮事件，防止被覆盖
+      idElement.addEventListener('mouseenter', () => {
+        idElement.style.textDecoration = 'line-through';
+        idElement.style.opacity = '0.25';
+      }, true);
+
+      idElement.addEventListener('mouseleave', () => {
+        idElement.style.textDecoration = 'line-through';
+        idElement.style.opacity = '0.25';
+      }, true);
+    }
+  }
+
+  // 页面加载完成后初始化
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      try {
+        initBlacklistFeature();
+      } catch (e) {
+        console.debug('隐藏功能初始化失败', e);
+      }
+    });
+  } else {
+    try {
+      initBlacklistFeature();
+    } catch (e) {
+      console.debug('隐藏功能初始化失败', e);
+    }
+  }
+
+  // 全局错误处理：捕获未处理的上下文失效错误
+  window.addEventListener('unhandledrejection', event => {
+    if (event.reason && event.reason.message &&
+      event.reason.message.includes('Extension context invalidated')) {
+      // 静默处理上下文失效错误
+      event.preventDefault();
+    }
+  }, { passive: false });
 })();

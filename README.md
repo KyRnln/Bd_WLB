@@ -23,6 +23,13 @@
 - 可在达人管理页面使用此功能
 - 提高达人管理效率
 
+### 达人隐藏管理
+- 在达人列表中点击达人ID旁的隐藏按钮
+- 隐藏后达人ID显示中间划线且透明度为25%，便于区分
+- 隐藏信息数据持久化保存，即使关闭浏览器也不会丢失
+- 隐藏数据与项目备份整合，支持导出/导入和WebDAV云同步
+- 达人管理页面实时显示已隐藏的达人数量
+
 ### 创作者管理
 - 记录和管理TikTok创作者信息
 - 快速查看和调用创作者数据
@@ -177,6 +184,184 @@
   });
   ```
 
+#### 12. 达人隐藏功能 (v1.3新增，v1.4优化)
+- **功能概述**：
+  - 在达人列表中识别达人ID元素，动态注入隐藏按钮
+  - 点击按钮可将达人加入隐藏列表，再次点击可解除隐藏
+  - 支持跨标签页共享隐藏信息，实时同步
+  - 隐藏信息与项目备份数据整合，支持导出/导入和WebDAV云同步
+  - 在达人管理页面显示已隐藏的达人数量统计
+
+- **实现架构**：
+  - **content.js**: 页面脚本，负责隐藏UI交互和按钮注入 (content.js:2146-2467)
+  - **popup.js**: 扩展弹窗，负责显示隐藏统计信息和备份整合 (popup.js:149, 386, 766-826, 874, 958-966, 1252-1259)
+  - **chrome.storage.local**: 隐藏信息持久化存储（键：`creatorBlacklist`）
+  
+- **核心实现流程**：
+  
+  1. **达人ID元素识别** (content.js:2257)
+     - CSS选择器：`[class*="creator-info__HightBoldText"]` - 精确定位达人ID元素
+     - 文本验证：使用正则表达式验证 `/[a-zA-Z]/` - 确保包含字母（排除纯数字如粉丝数）
+     - DOM监听：使用`MutationObserver`监听页面变化，动态处理新增的表格行
+     - 点击位置：找出达人ID元素的父节点，避免嵌套过深导致选择器复杂
+  
+  2. **按钮注入和样式** (content.js:2152-2194)
+     - **按钮元素**：`<button class="creator-blacklist-btn" title="点击隐藏此达人">隐藏</button>`
+     - **样式注入**：自动在`<head>`中注入样式表，避免重复注入
+     - **样式定义** (v1.4优化)：
+       - 默认状态（未隐藏）：`background: #ffe0e6, border: #ff0050, color: #ff0050`（红色 - 表示可操作）
+       - 悬停状态：`background: #ffc9d9, border: #ff0050, color: #ff0050`（深红色）
+       - 隐藏状态：`.blacklisted` → `background: #f5f5f5, border: #d9d9d9, color: #666`（灰色 - 表示已隐藏）
+     - **放置策略**：直接追加到ID元素的父节点，避免破坏原有DOM结构
+  
+  3. **隐藏/解除隐藏逻辑** (content.js:2278-2312)
+     ```javascript
+     btn.addEventListener('click', async (e) => {
+       e.preventDefault();
+       e.stopPropagation();
+       
+       const blacklist = await loadBlacklist();
+       const isBlacklisted = blacklist.some(item => item.id === creatorId);
+       
+       if (isBlacklisted) {
+         // ← 解除隐藏
+         blacklist = blacklist.filter(item => item.id !== creatorId);
+         creatorIdElement.classList.remove('creator-id-blacklisted');
+         btn.classList.remove('blacklisted');
+         btn.textContent = '隐藏';
+         btn.title = '点击隐藏此达人';
+       } else {
+         // ← 隐藏
+         blacklist.push({ id: creatorId, blacklistedAt: Date.now() });
+         creatorIdElement.classList.add('creator-id-blacklisted');
+         btn.classList.add('blacklisted');
+         btn.textContent = '解除';
+         btn.title = '点击取消隐藏';
+       }
+       
+       await saveBlacklist(blacklist);
+     });
+     ```
+     - **状态切换**：点击时自动查询当前隐藏状态，智能判断添加或删除
+     - **样式同步**：动态添加/移除`.creator-id-blacklisted`和`.blacklisted`类
+     - **按钮反馈**：按钮文本和标题随状态变化，给用户清晰的视觉反馈
+  
+  4. **隐藏数据存储与备份整合** (content.js:2237-2263, popup.js:758-826, 858-905, 930-989)
+     - **存储格式**：对象数组 `[{ id: string, blacklistedAt: number }, ...]`
+     - **存储键**：`chrome.storage.local['creatorBlacklist']`
+     - **自动转换**：加载时自动将旧格式（字符串数组）转换为新格式（对象数组）
+     - **跨页面同步**：保存时通过`chrome.runtime.sendMessage`通知popup.js更新UI
+     - **备份整合** (v1.4新增)：
+       ```javascript
+       // 导出备份时包含隐藏信息
+       const data = {
+         version: '1.0',
+         exportTime: new Date().toISOString(),
+         phrases: phrases,
+         tags: tags,
+         activeTagId: activeTagId,
+         creators: creators,
+         creatorBlacklist: window.creatorBlacklist || []  // ← v1.4新增
+       };
+       
+       // 导入备份时恢复隐藏信息
+       const creatorBlacklist = data.creatorBlacklist || [];
+       await storageAPI.set({
+         creatorBlacklist: creatorBlacklist
+       });
+       ```
+     - **WebDAV云同步** (v1.4新增)：隐藏信息随完整备份上传到云端，从云端恢复时自动恢复隐藏列表
+     - **清除所有数据**：清除数据时同时清除隐藏信息
+  
+  5. **达人ID视觉标记** (content.js:2185, 2408-2428, CSS)
+     - **样式类**：`.creator-id-blacklisted`
+     - **CSS定义** (v1.4增强)：
+       ```css
+       .creator-id-blacklisted {
+         text-decoration: line-through !important;  /* 中间划线效果 */
+         opacity: 0.25 !important;                  /* 降低到25%透明度 */
+         color: inherit !important;
+       }
+       .creator-id-blacklisted:hover {
+         text-decoration: line-through !important;  /* hover时保持隐藏效果 */
+         opacity: 0.25 !important;
+       }
+       ```
+     - **样式保护机制** (v1.4新增，三层防护)：
+       - L1: 内联样式 - 直接设置`element.style.textDecoration`和`element.style.opacity`
+       - L2: MutationObserver - 监听元素属性变化，自动恢复被修改的样式
+       - L3: 事件监听 - 在mouseenter/mouseleave时主动重新应用样式
+       ```javascript
+       // 防止TikTok悬浮气泡覆盖隐藏样式
+       idElement.style.textDecoration = 'line-through';
+       idElement.style.opacity = '0.25';
+       
+       const styleObserver = new MutationObserver(() => {
+         if (!idElement.style.textDecoration.includes('line-through')) {
+           idElement.style.textDecoration = 'line-through';
+         }
+         if (idElement.style.opacity !== '0.25') {
+           idElement.style.opacity = '0.25';
+         }
+       });
+       
+       idElement.addEventListener('mouseenter', () => {
+         idElement.style.textDecoration = 'line-through';
+         idElement.style.opacity = '0.25';
+       }, true);
+       ```
+     - **效果**：被隐藏的达人ID显示为删除线并变淡，易于区分，且不会被第三方脚本或悬浮效果破坏
+  
+  6. **popup.js统计显示** (popup.js:151, 386-387, 2032-2040)
+     - **加载隐藏列表**：在`loadData()`中读取`creatorBlacklist`数据
+       ```javascript
+       window.creatorBlacklist = Array.isArray(result.creatorBlacklist) 
+         ? result.creatorBlacklist : [];
+       ```
+     - **动态计数显示**：
+       ```javascript
+       const blacklistCount = (window.creatorBlacklist || []).length;
+       const blacklistText = blacklistCount > 0 
+         ? `，已隐藏 ${blacklistCount} 个达人` : '';
+       creatorPreview.textContent = 
+         `${creators.length} 个达人已导入${blacklistText}`;
+       ```
+     - **UI更新**：在达人管理页面上方显示 `1451 个达人已导入，已隐藏 5 个达人`
+     - **实时监听**：监听来自content.js的`blacklistUpdated`消息，自动刷新统计
+       ```javascript
+       chrome.runtime.onMessage.addListener((request, sender) => {
+         if (request.action === 'blacklistUpdated') {
+           // 重新加载隐藏列表数据并更新UI
+           storageAPI.get(['creatorBlacklist'], result => {
+             window.creatorBlacklist = Array.isArray(result.creatorBlacklist) 
+               ? result.creatorBlacklist : [];
+             renderCreators();
+           });
+         }
+       });
+       ```
+
+- **工作流程总结**：
+  1. ✅ **初始化阶段**：页面加载时，content.js执行初始化，注入样式和事件监听
+  2. ✅ **识别阶段**：扫描页面中所有达人ID元素，验证是否为有效ID
+  3. ✅ **注入阶段**：在每个达人ID旁边注入隐藏按钮，加载现有隐藏列表数据
+  4. ✅ **样式同步**：将已隐藏的ID立即应用删除线和透明度样式，并激活三层防护机制
+  5. ✅ **交互阶段**：用户点击按钮，触发隐藏/解除隐藏逻辑
+  6. ✅ **存储阶段**：更改后的隐藏列表保存到`chrome.storage.local`
+  7. ✅ **同步阶段**：发送消息给popup.js，更新统计显示
+  8. ✅ **备份整合** (v1.4新增)：导出/导入备份时自动包含隐藏信息，WebDAV云端同步隐藏状态
+  9. ✅ **持久化**：隐藏数据随浏览器关闭保存，刷新页面自动恢复
+
+- **数据持久化特性**：
+  - 隐藏数据存储在`chrome.storage.local`，浏览器本地化存储，关闭后保留
+  - 支持跨标签页共享，一个标签页的隐藏操作通过消息机制立即影响其他标签页和popup
+  - 与达人管理数据（`savedCreators`）分开存储，互不影响
+  - 格式演进：自动将旧格式转换为新格式，确保向后兼容
+  - **备份多通道** (v1.4新增)：
+    - **本地备份**：通过导出按钮下载JSON备份文件，包含完整隐藏列表
+    - **WebDAV云备份**：定期或手动上传到坚果云等WebDAV服务，实现多设备同步
+    - **自动恢复**：导入备份或从云端恢复时，自动还原所有隐藏设置
+
 ## 开发者说明
 
 ### background.js 消息处理
@@ -298,6 +483,7 @@ const response = await chrome.runtime.sendMessage({ action: 'xxx', ...params });
 | `savedCreators` | Array | 已保存的达人数据 |
 | `savedPhrases` | Array | 已保存的短语数据 |
 | `phraseTags` | Array | 短语标签 |
+| `creatorBlacklist` | Array | 达人黑名单 - 格式：`[{ id: string, blacklistedAt: number }, ...]` |
 
 ## 快速开始
 
@@ -318,13 +504,65 @@ const response = await chrome.runtime.sendMessage({ action: 'xxx', ...params });
 
 ## 版本
 
-当前版本: 1.3
+当前版本: 1.4
 
 ## 更新日志
 
-### v1.3 (2026-03-02)
+### v1.4 (2026-03-03)
 
 #### 功能更新
+- **达人隐藏功能UI优化与架构完善**
+  - 将按钮符号从"✕"和"✓"改为更清晰的文字标签"隐藏"和"解除"
+  - 调整按钮样式：红色表示"隐藏"操作，灰色表示"已隐藏"状态
+  - 增加按钮宽度和内间距，提升用户体验
+  - 改进CSS specificity防止TikTok悬浮气泡覆盖隐藏样式
+
+- **隐藏信息与项目备份系统整合**
+  - 隐藏信息集成到导出/导入功能中
+  - 隐藏信息随其他数据一起备份和恢复
+  - WebDAV云端备份包含完整的隐藏列表
+  - 多设备之间隐藏状态自动同步
+  - 清除所有数据时同时清除隐藏信息
+
+- **元素样式保护增强**
+  - 使用内联样式（element.style）覆盖外部CSS
+  - 监听元素属性变化，自动恢复被修改的隐藏样式
+  - 在mouseenter/mouseleave事件时主动重新应用样式
+  - 防止第三方脚本或TikTok自身的样式变化破坏隐藏效果
+
+#### 技术改进
+- **备份系统数据结构扩展**
+  - exportData()和importData()添加creatorBlacklist字段
+  - WebDAV备份(backupToWebdav)包含隐藏信息
+  - WebDAV恢复(restoreFromWebdav)恢复隐藏信息
+  - 数据版本号保持1.0，保证向后兼容性
+
+- **达人隐藏功能实现优化**
+  - processCreatorIdElement()函数增强样式保护机制
+  - 实现三层防护：内联样式、MutationObserver、事件监听
+  - 防止样式被DOM更新或第三方脚本覆盖
+
+- **代码文本统一**
+  - 将所有用户界面文本"拉黑"改为"隐藏"
+  - 将统计文本"已封锁"改为"已隐藏"
+  - popup.js中已隐藏达人数量统计精确反映实时状态
+
+#### 已知问题修复
+- 修复页面刷新后已隐藏达人仍显示"✓"符号的问题
+- 修复隐藏样式在元素hover时被TikTok悬浮气泡覆盖的问题
+
+### v1.3 (2026-03-03)
+
+#### 功能更新
+- **达人隐藏管理功能**（新增）
+  - 在达人列表中识别并标记达人ID元素，动态注入隐藏按钮
+  - 点击达人ID旁的隐藏按钮，可将达人加入隐藏列表
+  - 隐藏后达人ID显示中间划线（strikethrough）且透明度降至25%，视觉上易于区分
+  - 再次点击可取消隐藏，ID恢复原样
+  - 隐藏数据持久化存储在浏览器，即使关闭或重启浏览器也保留
+  - 达人管理面板实时显示已隐藏达人数量：`1451 个达人已导入，已隐藏 5 个达人`
+  - 支持跨标签页共享，一个标签页的隐藏操作立即影响其他标签页
+
 - **全面支持 XLSX 格式导出**：将所有 CSV 导出功能改为 XLSX 格式
   - 订单查询导出：CSV → XLSX
   - 达人管理导入/导出：CSV → XLSX
@@ -333,6 +571,13 @@ const response = await chrome.runtime.sendMessage({ action: 'xxx', ...params });
   - CID查达人导出：CSV → XLSX
 
 #### 技术改进
+- **达人隐藏功能实现**：
+  - 使用`MutationObserver`监听DOM变化，动态处理表格行的加载
+  - 精确的CSS选择器和正则验证，确保只匹配达人ID（排除粉丝数等数字）
+  - 消息机制实现popup与content.js之间的隐藏列表数据同步
+  - 灵活的隐藏列表数据结构：`{ id: string, blacklistedAt: timestamp }`，支持格式演进
+  - 隐藏列表与达人管理数据分离存储，互不影响
+
 - **引入 ExcelJS 库**：使用 exceljs.min.js 库生成专业的 xlsx 格式文件
 - **达人管理功能升级**：
   - 支持 XLSX 格式模板下载
