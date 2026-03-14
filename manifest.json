@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "商务WLB插件",
-  "version": "1.2",
+  "version": "1.5",
   "description": "工作是为了更好的生活",
   "icons": {
     "16": "icon/icon16.png",
@@ -46,6 +46,24 @@
       ],
       "run_at": "document_start",
       "all_frames": true
+    },
+    {
+      "matches": [
+        "https://affiliate.tiktokshopglobalselling.com/*"
+      ],
+      "js": [
+        "Creator/creator_highlight.js"
+      ],
+      "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "https://affiliate.tiktokshopglobalselling.com/*"
+      ],
+      "js": [
+        "Creator/creator_hide.js"
+      ],
+      "run_at": "document_end"
     },
     {
       "matches": [

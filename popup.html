@@ -5,331 +5,66 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>商务WLB插件</title>
-  <style>
-    body {
-      width: 420px;
-      min-height: 520px;
-      margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      background: #f7f7f9;
-      color: #222;
-      box-sizing: border-box;
-    }
-
-    .main {
-      padding: 16px 20px 24px;
-    }
-
-    .actions {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 14px;
-    }
-
-    .tagbar {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      margin: 2px 0 10px;
-      overflow-x: auto;
-      padding-bottom: 2px;
-    }
-
-    .tagbar::-webkit-scrollbar {
-      height: 6px;
-    }
-
-    .tagbar::-webkit-scrollbar-thumb {
-      background: rgba(0, 0, 0, 0.12);
-      border-radius: 99px;
-    }
-
-    .tag-chip {
-      flex: none;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 10px;
-      border-radius: 999px;
-      border: 1px solid #e6e6ea;
-      background: #fff;
-      color: #333;
-      font-size: 12px;
-      cursor: pointer;
-      user-select: none;
-      white-space: nowrap;
-    }
-
-    .tag-chip.active {
-      border-color: rgba(255, 0, 80, 0.55);
-      box-shadow: 0 2px 10px rgba(255, 0, 80, 0.10);
-      color: #ff0050;
-      font-weight: 700;
-    }
-
-    .tag-chip.manage {
-      margin-left: auto;
-      background: #fff7fa;
-      border-color: rgba(255, 0, 80, 0.35);
-      color: #ff0050;
-      font-weight: 700;
-    }
-
-    button {
-      flex: 1;
-      padding: 10px 12px;
-      border: none;
-      border-radius: 8px;
-      font-size: 14px;
-      cursor: pointer;
-      color: #fff;
-      background: #ff0050;
-      transition: transform 0.15s ease, box-shadow 0.15s ease;
-      box-shadow: 0 4px 10px rgba(255, 0, 80, 0.28);
-    }
-
-    button:hover {
-      transform: translateY(-1px);
-    }
-
-    button:active {
-      transform: translateY(0);
-    }
-
-    #phraseList {
-      margin-top: 6px;
-    }
-
-    .phrase-item {
-      background: #fff;
-      border-radius: 10px;
-      padding: 12px 12px;
-      margin-bottom: 10px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .phrase-item .title {
-      font-size: 14px;
-      font-weight: 600;
-      margin-bottom: 4px;
-      color: #222;
-    }
-
-    .phrase-item .content {
-      font-size: 12px;
-      color: #555;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .phrase-actions {
-      display: flex;
-      gap: 6px;
-    }
-
-    .phrase-actions button {
-      flex: none;
-      padding: 6px 10px;
-      font-size: 12px;
-      box-shadow: none;
-    }
-
-    .status {
-      display: none;
-      margin-top: 10px;
-      padding: 10px;
-      border-radius: 6px;
-      font-size: 12px;
-    }
-
-    .status.success {
-      display: block;
-      background: #e7f8ec;
-      color: #117a42;
-    }
-
-    .status.info {
-      display: block;
-      background: #eef4ff;
-      color: #2b4acb;
-    }
-
-    .status.error {
-      display: block;
-      background: #fdecea;
-      color: #c0392b;
-    }
-
-    .dialog-mask {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.4);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 999;
-    }
-
-    .dialog-mask.show {
-      display: flex;
-    }
-
-    .dialog {
-      background: #fff;
-      border-radius: 12px;
-      padding: 18px 20px;
-      width: 360px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-    }
-
-    .dialog h3 {
-      margin: 0 0 12px;
-      font-size: 16px;
-      color: #222;
-    }
-
-    .dialog label {
-      font-size: 12px;
-      color: #555;
-      display: block;
-      margin-bottom: 6px;
-    }
-
-    .dialog input,
-    .dialog textarea,
-    .dialog select {
-      width: 100%;
-      box-sizing: border-box;
-      padding: 10px;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      font-size: 13px;
-      margin-bottom: 12px;
-      font-family: inherit;
-    }
-
-    .dialog textarea {
-      min-height: 120px;
-      resize: vertical;
-    }
-
-    .dialog .footer {
-      display: flex;
-      gap: 10px;
-      margin-top: 6px;
-    }
-
-    .dialog .footer button {
-      flex: 1;
-    }
-
-    .muted {
-      color: #666;
-      font-size: 12px;
-      margin-top: 6px;
-    }
-  </style>
+  <link rel="stylesheet" href="styles/base.css">
+  <link rel="stylesheet" href="styles/components.css">
+  <link rel="stylesheet" href="styles/utilities.css">
 </head>
 
 <body>
   <div class="main">
-    <!-- 达人管理卡片 -->
-    <div id="creatorCard"
-      style="margin-top:16px;padding:14px;border:1px solid #e0e6ff;border-radius:10px;background:#f0f4ff;box-shadow:0 2px 8px rgba(0,0,0,0.05);box-sizing:border-box;">
-      <div id="creatorCardStatus" class="status info" style="display:none;margin-bottom:8px;"></div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-        <div style="font-weight:700;color:#1a365d;">达人管理</div>
-        <span style="font-size:12px;color:#666;">通过 XLSX 导入达人ID，页面会自动匹配并高亮达人</span>
+    <div id="creatorCard" class="card">
+      <div id="creatorCardStatus" class="status info" style="display:none;"></div>
+      <div class="card-header">
+        <div class="card-title">达人管理</div>
+        <span class="card-desc">通过 XLSX 导入达人ID，页面会自动匹配并高亮达人</span>
       </div>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-        <button id="importCreatorBtn"
-          style="flex:none;background:#ff0050;padding:4px 8px;font-size:11px;border-radius:20px;">导入 XLSX</button>
-        <button id="downloadCreatorTemplateBtn"
-          style="flex:none;background:#007bff;padding:4px 8px;font-size:11px;border-radius:20px;">下载模板</button>
-        <input id="creatorFileInput" type="file" accept=".xlsx" style="display:none;" />
+      <div class="card-actions">
+        <button id="openCreatorManageBtn" class="btn-sm">达人管理</button>
       </div>
-      <div style="margin-top:12px;">
-        <input id="creatorSearchInput" type="text" placeholder="通过达人ID，CID，地区搜索..."
-          style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:13px;box-sizing:border-box;" />
+      <div class="mt-3">
+        <input id="creatorSearchInput" type="text" placeholder="通过达人ID，CID，地区搜索..." class="search-input" />
       </div>
       <div id="creatorPreview"></div>
-      <div id="creatorSearchResults" style="margin-top:8px;display:none;">
-        <div style="font-size:12px;color:#666;margin-bottom:6px;">搜索结果：</div>
-        <div id="creatorSearchList"
-          style="max-height:120px;overflow-y:auto;border:1px solid #eee;border-radius:6px;background:#fafafa;width:100%;box-sizing:border-box;">
-        </div>
+      <div id="creatorSearchResults" class="search-results">
+        <div class="text-sm text-muted mb-2">搜索结果：</div>
+        <div id="creatorSearchList" class="search-list"></div>
       </div>
     </div>
 
-    <!-- 综合工具卡片 (订单 & CID) -->
-    <div id="toolsCard"
-      style="margin-top:16px;border:1px solid #e0e6ff;border-radius:10px;background:#f0f4ff;box-shadow:0 2px 8px rgba(0,0,0,0.05);box-sizing:border-box;overflow:hidden;padding:14px;">
-      <div style="font-size:12px;color:#666;margin-bottom:12px;text-align:center;">选择要使用的功能</div>
-      <div style="display:flex;flex-direction:column;gap:10px;">
-        <button id="btnCover"
-          style="padding:12px 16px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;color:#fff;background:#ff0050;box-shadow:0 2px 6px rgba(255,0,80,0.28);transition:transform 0.15s ease,box-shadow 0.15s ease;">📹 获取视频封面</button>
-        <button id="btnCid"
-          style="padding:12px 16px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;color:#fff;background:#1d5fff;box-shadow:0 2px 6px rgba(29,95,255,0.28);transition:transform 0.15s ease,box-shadow 0.15s ease;">👤 获取头像/CID</button>
-        <button id="btnCidToName"
-          style="padding:12px 16px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;color:#fff;background:#28a745;box-shadow:0 2px 6px rgba(40,167,69,0.28);transition:transform 0.15s ease,box-shadow 0.15s ease;">🔍 通过CID获取达人信息</button>
-        <button id="btnOrder"
-          style="padding:12px 16px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;color:#fff;background:#f59e0b;box-shadow:0 2px 6px rgba(245,158,11,0.28);transition:transform 0.15s ease,box-shadow 0.15s ease;">📦 获取订单履约情况</button>
+    <div id="toolsCard" class="card">
+      <div class="text-base text-muted text-center mb-3">选择要使用的功能</div>
+      <div class="flex flex-col gap-3">
+        <button id="btnCover" class="tool-btn">📹 获取视频封面</button>
+        <button id="btnCid" class="tool-btn">👤 获取头像/CID</button>
+        <button id="btnCidToName" class="tool-btn">🔍 通过CID获取达人信息</button>
+        <button id="btnOrder" class="tool-btn">📦 获取订单履约情况</button>
       </div>
     </div>
-    <!-- 短语管理卡片 -->
-    <div id="phraseCard"
-      style="margin-top:16px;padding:14px;border:1px solid #e0e6ff;border-radius:10px;background:#f0f4ff;box-shadow:0 2px 8px rgba(0,0,0,0.05);box-sizing:border-box;">
-      <div id="phraseCardStatus" class="status info" style="display:none;margin-bottom:8px;"></div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-        <div style="font-weight:700;color:#1a365d;">短语管理</div>
-        <span style="font-size:12px;color:#666;">快捷短语输入"/"触发</span>
+
+    <div id="phraseCard" class="card">
+      <div id="phraseCardStatus" class="status info" style="display:none;"></div>
+      <div class="card-header">
+        <div class="card-title">短语管理</div>
+        <span class="card-desc">快捷短语输入"/"触发</span>
       </div>
-      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
-        <button id="addPhraseBtn"
-          style="flex:none;background:#ff0050;padding:4px 8px;font-size:11px;border-radius:20px;">添加短语</button>
-        <button id="openPhraseManageBtn"
-          style="flex:none;background:#555;padding:4px 8px;font-size:11px;border-radius:20px;">短语管理页</button>
-      </div>
-      <div id="tagBar" class="tagbar" style="margin-bottom:12px;"></div>
+      <div id="tagBar" class="tagbar"></div>
       <div id="phraseList" style="display:none;"></div>
     </div>
 
-    <div id="dataCard"
-      style="margin-top:16px;padding:14px;border:1px solid #e0e6ff;border-radius:10px;background:#f0f4ff;box-shadow:0 2px 8px rgba(0,0,0,0.05);box-sizing:border-box;">
-      <div id="dataCardStatus" class="status info" style="display:none;margin-bottom:8px;"></div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-        <div style="font-weight:700;color:#1a365d;">数据管理</div>
-        <span style="font-size:12px;color:#64748b;">备份与恢复数据</span>
+    <div id="dataCard" class="card">
+      <div id="dataCardStatus" class="status info" style="display:none;"></div>
+      <div class="card-header">
+        <div class="card-title">数据管理</div>
+        <span class="card-desc">备份与恢复数据</span>
       </div>
-      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-        <button id="backupBtn"
-          style="flex:1;background:#0369a1;color:#fff;border:none;border-radius:20px;padding:8px 12px;cursor:pointer;font-size:13px;">备份数据</button>
-        <button id="initAppBtn"
-          style="flex:1;background:#6c757d;color:#fff;border:none;border-radius:20px;padding:8px 12px;cursor:pointer;font-size:13px;">初始化应用</button>
-        <button id="clearAllDataBtn"
-          style="background:#dc2626;color:#fff;border:none;border-radius:20px;padding:8px 12px;cursor:pointer;font-size:13px;">清除全部数据</button>
+      <div class="card-actions">
+        <button id="backupBtn" class="btn-sm">备份数据</button>
+        <button id="initAppBtn" class="btn-sm">初始化应用</button>
+        <button id="clearAllDataBtn" class="btn-sm">清除全部数据</button>
       </div>
     </div>
   </div>
 
-  <!-- 标签管理弹窗 -->
-  <div id="tagManageDialog" class="dialog-mask">
-    <div class="dialog">
-      <h3>标签管理</h3>
-      <div id="tagListManage"></div>
-      <div class="footer">
-        <button id="closeTagManageBtn" style="background:#777;border-radius:20px;">关闭</button>
-        <button id="addTagBtn" style="border-radius:20px;">添加标签</button>
-      </div>
-      <p class="muted">提示：删除标签会将该标签下的短语自动转移到“默认”。</p>
-    </div>
-  </div>
-
-  <!-- 短语编辑弹窗 -->
   <div id="phraseEditDialog" class="dialog-mask">
     <div class="dialog">
       <h3 id="phraseEditTitle">添加短语</h3>
@@ -340,13 +75,12 @@
       <label for="phraseContent">内容</label>
       <textarea id="phraseContent" placeholder="输入要插入的文本"></textarea>
       <div class="footer">
-        <button id="cancelPhraseBtn" style="background:#777;border-radius:20px;">取消</button>
-        <button id="savePhraseBtn" style="border-radius:20px;">保存</button>
+        <button id="cancelPhraseBtn" class="btn-sm">取消</button>
+        <button id="savePhraseBtn" class="btn-sm">保存</button>
       </div>
     </div>
   </div>
 
-  <!-- 达人编辑弹窗 -->
   <div id="creatorEditDialog" class="dialog-mask">
     <div class="dialog">
       <h3>编辑达人信息</h3>
@@ -356,112 +90,71 @@
       <input id="creatorEditCid" type="text" placeholder="输入达人CID" />
       <label for="creatorEditRegion">地区代码（选填）</label>
       <input id="creatorEditRegion" type="text" placeholder="例如：MY/TH/ID/SG/PH/VN" />
+      <label for="creatorEditTag">标签（选填）</label>
+      <input id="creatorEditTag" type="text" placeholder="例如：绩效达人、流失达人、隐藏达人" />
       <label for="creatorEditRemark">备注信息（选填）</label>
-      <textarea id="creatorEditRemark" placeholder="输入达人的备注信息" style="min-height: 60px; resize: vertical;"></textarea>
+      <textarea id="creatorEditRemark" placeholder="输入达人的备注信息" style="min-height: 60px;"></textarea>
       <div class="footer">
-        <button id="cancelCreatorEditBtn" style="background:#777;border-radius:20px;">取消</button>
-        <button id="saveCreatorEditBtn" style="border-radius:20px;">保存</button>
-        <button id="deleteCreatorBtn" style="background:#dc3545;border-radius:20px;">删除</button>
+        <button id="cancelCreatorEditBtn" class="btn-sm">取消</button>
+        <button id="saveCreatorEditBtn" class="btn-sm">保存</button>
+        <button id="deleteCreatorBtn" class="btn-sm">删除</button>
       </div>
     </div>
   </div>
 
-  <!-- 备份导入导出弹窗 -->
   <div id="backupDialog" class="dialog-mask">
     <div class="dialog">
       <h3>数据备份与恢复</h3>
-      <style>
-        .custom-summary {
-          padding: 12px;
-          font-weight: bold;
-          cursor: pointer;
-          color: #1a365d;
-          outline: none;
-          user-select: none;
-          font-size: 14px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          list-style: none;
-          /* Hide default arrow */
-        }
-
-        /* Hide default default arrow in webkit/blink browsers */
-        .custom-summary::-webkit-details-marker {
-          display: none;
-        }
-
-        .custom-summary::after {
-          content: '▼';
-          font-size: 12px;
-          color: #1a365d;
-          transition: transform 0.3s ease;
-        }
-
-        details[open] .custom-summary::after {
-          transform: rotate(-180deg);
-        }
-      </style>
-      <details
-        style="margin-bottom:16px; border:1px solid #e0e6ff; border-radius:10px; background:#f0f4ff; box-shadow:0 2px 8px rgba(0,0,0,0.05); transition:all 0.3s ease;">
+      <details class="panel">
         <summary class="custom-summary">
           <span>本地备份与恢复</span>
         </summary>
-        <div style="padding:0 12px 12px; border-top:1px dashed #c0ccff; margin-top:4px; padding-top:12px;">
-          <div style="margin-bottom:16px;">
-            <h4 style="margin:0 0 8px 0;color:#1a365d;font-size:13px;">导出数据</h4>
-            <p style="font-size:12px;color:#666;margin:0 0 12px 0;">将所有数据导出为JSON文件，方便备份和迁移</p>
-            <button id="exportDataBtn"
-              style="width:100%;padding:10px;background:#28a745;color:#fff;border:none;border-radius:20px;cursor:pointer;">导出数据</button>
+        <div class="panel-content">
+          <div class="mb-4">
+            <h4>导出数据</h4>
+            <p>将所有数据导出为JSON文件，方便备份和迁移</p>
+            <button id="exportDataBtn" class="btn-sm w-full">导出数据</button>
           </div>
-          <div style="margin-bottom:0;border-top:1px solid #e0e6ff;padding-top:16px;">
-            <h4 style="margin:0 0 8px 0;color:#1a365d;font-size:13px;">导入数据</h4>
-            <p style="font-size:12px;color:#666;margin:0 0 12px 0;">从JSON文件导入数据，会覆盖现有数据</p>
-            <input id="importDataFile" type="file" accept=".json" style="width:100%;margin-bottom:8px;" />
-            <button id="importDataBtn"
-              style="width:100%;padding:10px;background:#007bff;color:#fff;border:none;border-radius:20px;cursor:pointer;">导入数据</button>
+          <div class="pt-4" style="border-top:1px solid var(--card-border);">
+            <h4>导入数据</h4>
+            <p>从JSON文件导入数据，会覆盖现有数据</p>
+            <input id="importDataFile" type="file" accept=".json" class="w-full mb-2" />
+            <button id="importDataBtn" class="btn-sm w-full">导入数据</button>
           </div>
         </div>
       </details>
 
-      <details
-        style="margin-bottom:16px; border:1px solid #e0e6ff; border-radius:10px; background:#f0f4ff; box-shadow:0 2px 8px rgba(0,0,0,0.05); transition:all 0.3s ease;">
+      <details class="panel">
         <summary class="custom-summary">
           <span>WebDAV 同步</span>
         </summary>
-        <div style="padding:0 12px 12px; border-top:1px dashed #c0ccff; margin-top:4px; padding-top:12px;">
-          <p style="font-size:12px;color:#666;margin:0 0 12px 0;">通过坚果云等WebDAV服务云端备份与恢复</p>
-
+        <div class="panel-content">
+          <p>通过坚果云等WebDAV服务云端备份与恢复</p>
           <label for="webdavUrl">服务器地址 (例如: 坚果云)</label>
-          <input id="webdavUrl" type="text" placeholder="https://dav.jianguoyun.com/dav/"
-            value="https://dav.jianguoyun.com/dav/" />
-
+          <input id="webdavUrl" type="text" placeholder="https://dav.jianguoyun.com/dav/" value="https://dav.jianguoyun.com/dav/" />
           <label for="webdavUsername">账号 (邮箱)</label>
           <input id="webdavUsername" type="text" placeholder="输入WebDAV账号" />
-
           <label for="webdavPassword">应用密码</label>
           <input id="webdavPassword" type="password" placeholder="输入WebDAV应用密码" />
-
-          <div style="display:flex;gap:10px;margin-top:10px;">
-            <button id="backupToWebdavBtn"
-              style="flex:1;padding:10px;background:#17a2b8;color:#fff;border:none;border-radius:20px;cursor:pointer;font-size:13px;">备份到WebDAV</button>
-            <button id="restoreFromWebdavBtn"
-              style="flex:1;padding:10px;background:#6c757d;color:#fff;border:none;border-radius:20px;cursor:pointer;font-size:13px;">从WebDAV恢复</button>
+          <div class="flex gap-3 mt-3">
+            <button id="backupToWebdavBtn" class="btn-sm flex-1">备份到WebDAV</button>
+            <button id="restoreFromWebdavBtn" class="btn-sm flex-1">从WebDAV恢复</button>
           </div>
-          <div id="webdavStatus" class="status" style="display:none;margin-top:8px;"></div>
+          <div id="webdavStatus" class="status" style="display:none;"></div>
         </div>
       </details>
       <div class="footer">
-        <button id="closeBackupDialogBtn" style="background:#777;border-radius:20px;">关闭</button>
+        <button id="closeBackupDialogBtn" class="btn-sm">关闭</button>
       </div>
     </div>
   </div>
 
-
   <script src="libs/exceljs.min.js"></script>
+  <script src="phrase/phrase.js"></script>
+  <script src="Creator/creator.js"></script>
   <script src="popup.js"></script>
 
-  <div style="text-align:center;margin-top:16px;padding:8px;color:#999;font-size:11px;">
+  <div class="footer-text">
     Powered by "电子恐龙" with AI
   </div>
 </body>

@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>达人管理</title>
+  <link rel="stylesheet" href="../styles/base.css">
+  <link rel="stylesheet" href="../styles/components.css">
+  <link rel="stylesheet" href="../styles/utilities.css">
+  <style>
+    body {
+      width: 100%;
+      max-width: 1200px;
+      min-height: auto;
+      margin: 0 auto;
+      padding: 24px;
+      box-sizing: border-box;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 20px;
+      font-weight: 800;
+    }
+    .muted {
+      color: var(--text-muted);
+      font-size: 12px;
+      margin: 6px 0 18px;
+    }
+    .search-section {
+      margin-bottom: 16px;
+    }
+    .search-section input {
+      padding: 10px 14px;
+      font-size: 14px;
+    }
+    .stats-row {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 16px;
+      padding: 12px 16px;
+      background: #f0f7ff;
+      border-radius: 8px;
+    }
+    .stats-row .stat {
+      font-size: 13px;
+      color: #555;
+    }
+    .stats-row .stat strong {
+      color: #1a365d;
+      font-size: 16px;
+    }
+    .creator-list {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+    }
+    .creator-item {
+      background: #fff;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      padding: 14px 16px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+    .creator-info {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+    }
+    .creator-main {
+      width: 100%;
+    }
+    .creator-id {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-color);
+      margin-bottom: 4px;
+      word-break: break-all;
+    }
+    .creator-meta {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .creator-actions {
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0;
+      margin-top: 8px;
+    }
+    .creator-remark {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #eee;
+      font-size: 11px;
+      color: #666;
+      width: 100%;
+      text-align: center;
+    }
+    .dialog {
+      width: 440px;
+      max-width: 90vw;
+    }
+    .creator-tag {
+      display: inline-block;
+      margin-top: 6px;
+      padding: 2px 8px;
+      background: #e0f0ff;
+      color: #1a5fb4;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+    }
+    .creator-tag.performance {
+      background: #ffe0e6;
+      color: #ff0050;
+    }
+    .creator-tag.lost {
+      background: #e7f8ec;
+      color: #117a42;
+    }
+    .creator-tag.hidden {
+      background: #f5f5f5;
+      color: #666;
+    }
+    .tagbar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .tagbar .tag-chip {
+      padding: 6px 12px;
+      border-radius: 5px;
+      background: #8caecd;
+      color: #fff;
+      font-size: 12px;
+      cursor: pointer;
+      border: none;
+    }
+    .tagbar .tag-chip.active {
+      background: #3f6381;
+      font-weight: 700;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 48px 24px;
+      color: var(--text-muted);
+    }
+    .empty-state p {
+      margin: 0;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <h1>达人管理</h1>
+  <div class="muted">查看和管理所有达人信息，支持搜索、编辑和删除。</div>
+
+  <div class="card-actions" style="margin-bottom: 16px;">
+    <button id="importCreatorBtn" class="btn-sm">导入 XLSX</button>
+    <button id="downloadCreatorTemplateBtn" class="btn-sm">下载模板</button>
+    <button id="clearAllCreatorsBtn" class="btn-sm" style="border-color: #dc2626; color: #dc2626;">删除全部</button>
+    <input id="creatorFileInput" type="file" accept=".xlsx" style="display:none;" />
+  </div>
+
+  <div class="search-section">
+    <input id="creatorSearchInput" type="text" placeholder="搜索达人ID、CID、地区或备注..." />
+  </div>
+
+  <div class="stats-row">
+    <div class="stat">总计: <strong id="totalCount">0</strong></div>
+    <div class="stat">已搜索: <strong id="searchCount">0</strong></div>
+  </div>
+
+  <div id="creatorTagBar" class="tagbar"></div>
+
+  <div id="status" class="status info"></div>
+
+  <div id="creatorList" class="creator-list"></div>
+
+  <div id="creatorEditDialog" class="dialog-mask">
+    <div class="dialog">
+      <h3>编辑达人信息</h3>
+      <label for="creatorEditId">达人ID</label>
+      <input id="creatorEditId" type="text" readonly />
+      <label for="creatorEditCid">达人CID（选填）</label>
+      <input id="creatorEditCid" type="text" placeholder="输入达人CID" />
+      <label for="creatorEditRegion">地区代码（选填）</label>
+      <input id="creatorEditRegion" type="text" placeholder="例如：MY/TH/ID/SG/PH/VN" />
+      <label for="creatorEditTag">标签（选填）</label>
+      <input id="creatorEditTag" type="text" placeholder="输入标签名称" />
+      <label for="creatorEditRemark">备注信息（选填）</label>
+      <textarea id="creatorEditRemark" placeholder="输入达人的备注信息" style="min-height: 60px;"></textarea>
+      <div class="footer">
+        <button id="cancelCreatorEditBtn" class="btn-sm">取消</button>
+        <button id="saveCreatorEditBtn" class="btn-sm">保存</button>
+        <button id="deleteCreatorBtn" class="btn-sm">删除</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../libs/exceljs.min.js"></script>
+  <script src="creator.js"></script>
+</body>
+</html>

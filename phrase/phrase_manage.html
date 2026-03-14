@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>短语管理</title>
+  <link rel="stylesheet" href="../styles/base.css">
+  <link rel="stylesheet" href="../styles/components.css">
+  <link rel="stylesheet" href="../styles/utilities.css">
+  <style>
+    body {
+      width: 100%;
+      max-width: 1200px;
+      min-height: auto;
+      margin: 0 auto;
+      padding: 24px;
+      box-sizing: border-box;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 20px;
+      font-weight: 800;
+    }
+    .muted {
+      color: var(--text-muted);
+      font-size: 12px;
+      margin: 6px 0 18px;
+    }
+    .stats-row {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 16px;
+      padding: 12px 16px;
+      background: #f0f7ff;
+      border-radius: 8px;
+    }
+    .stats-row .stat {
+      font-size: 13px;
+      color: #555;
+    }
+    .stats-row .stat strong {
+      color: #1a365d;
+      font-size: 16px;
+    }
+    .tagbar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .tagbar .tag-chip {
+      padding: 6px 12px;
+      border-radius: 5px;
+      background: #8caecd;
+      color: #fff;
+      font-size: 12px;
+      cursor: pointer;
+      border: none;
+    }
+    .tagbar .tag-chip.active {
+      background: #3f6381;
+      font-weight: 700;
+    }
+    .phrase-list {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+    .phrase-item {
+      background: #fff;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      padding: 14px 16px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      display: flex;
+      flex-direction: column;
+    }
+    .phrase-item .phrase-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-color);
+      margin-bottom: 6px;
+    }
+    .phrase-item .phrase-content {
+      font-size: 12px;
+      color: var(--text-muted);
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      margin-bottom: 8px;
+    }
+    .phrase-item .phrase-tag {
+      display: inline-block;
+      margin-bottom: 8px;
+      padding: 2px 8px;
+      background: #e0f0ff;
+      color: #1a5fb4;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      align-self: flex-start;
+    }
+    .phrase-item .phrase-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: auto;
+      padding-top: 8px;
+      border-top: 1px solid #eee;
+    }
+    .dialog {
+      width: 440px;
+      max-width: 90vw;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 48px 24px;
+      color: var(--text-muted);
+    }
+    .empty-state p {
+      margin: 0;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <h1>短语管理</h1>
+  <div class="muted">在独立页管理短语，支持标签切换、添加/编辑/删除。</div>
+
+  <div class="card-actions" style="margin-bottom: 16px;">
+    <button id="addPhraseBtn" class="btn-sm">添加短语</button>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat">总计: <strong id="totalCount">0</strong></div>
+    <div class="stat">当前标签: <strong id="tagCount">0</strong></div>
+  </div>
+
+  <div id="tagBar" class="tagbar"></div>
+
+  <div id="status" class="status info"></div>
+
+  <div id="phraseList" class="phrase-list"></div>
+
+  <div id="tagManageDialog" class="dialog-mask">
+    <div class="dialog">
+      <h3>标签管理</h3>
+      <div id="tagListManage"></div>
+      <div class="footer">
+        <button id="closeTagManageBtn">关闭</button>
+        <button id="addTagBtn">添加标签</button>
+      </div>
+      <p class="muted">提示：删除标签会将该标签下的短语自动转移到"默认"。</p>
+    </div>
+  </div>
+
+  <div id="phraseEditDialog" class="dialog-mask">
+    <div class="dialog">
+      <h3 id="phraseEditTitle">添加短语</h3>
+      <label for="phraseTag">标签（必选）</label>
+      <select id="phraseTag"></select>
+      <label for="phraseTitle">标题</label>
+      <input id="phraseTitle" type="text" placeholder="例如：常用回复" />
+      <label for="phraseContent">内容</label>
+      <textarea id="phraseContent" placeholder="输入要插入的文本"></textarea>
+      <div class="footer">
+        <button id="cancelPhraseBtn">取消</button>
+        <button id="savePhraseBtn">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="phrase.js"></script>
+</body>
+</html>
