@@ -267,139 +267,17 @@
 
     <!-- 综合工具卡片 (订单 & CID) -->
     <div id="toolsCard"
-      style="margin-top:16px;border:1px solid #e0e6ff;border-radius:10px;background:#f0f4ff;box-shadow:0 2px 8px rgba(0,0,0,0.05);box-sizing:border-box;overflow:hidden;">
-      <div id="toolsCardStatus" class="status info" style="display:none;margin-bottom:8px;"></div>
-      <div style="display:flex;border-bottom:1px solid #e0e6ff;background:#eef2ff;">
-        <div id="tabCover"
-          style="flex:1;text-align:center;padding:10px;font-size:13px;font-weight:bold;color:#1a365d;cursor:pointer;background:#fff;border-bottom:2px solid #ff0050;">
-          获取视频封面</div>
-        <div id="tabCid"
-          style="flex:1;text-align:center;padding:10px;font-size:13px;font-weight:bold;color:#666;cursor:pointer;border-bottom:2px solid transparent;">
-          获取头像/CID</div>
-        <div id="tabCidToName"
-          style="flex:1;text-align:center;padding:10px;font-size:13px;font-weight:bold;color:#666;cursor:pointer;border-bottom:2px solid transparent;">
-          通过CID获取达人信息</div>
-        <div id="tabOrder"
-          style="flex:1;text-align:center;padding:10px;font-size:13px;font-weight:bold;color:#666;cursor:pointer;border-bottom:2px solid transparent;">
-          获取订单履约情况</div>
-      </div>
-
-      <!-- 视频封面面板 -->
-      <div id="panelCover" style="padding:14px;display:block;">
-        <div id="coverPanelStatus" class="status info" style="display:none;margin-bottom:8px;"></div>
-        <div style="font-size:12px;color:#666;margin-bottom:8px;">粘贴TikTok视频链接（每行一个）获取封面并导出XLSX</div>
-
-        <div style="margin-bottom:10px;">
-          <textarea id="coverUrlInput"
-            placeholder="https://www.tiktok.com/@user/video/123456...&#10;https://www.tiktok.com/@user/video/789012..."
-            rows="5"
-            style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:monospace;min-height:120px;resize:vertical;box-sizing:border-box;"></textarea>
-        </div>
-
-        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:10px;">
-          <button id="coverFetchBtn"
-            style="flex:1;background:#ff0050;color:#fff;border:none;border-radius:20px;padding:7px 14px;cursor:pointer;font-size:13px;font-weight:600;">获取封面</button>
-          <button id="coverClearBtn"
-            style="flex:none;background:#fff;color:#555;border:1px solid #ddd;border-radius:20px;padding:7px 14px;cursor:pointer;font-size:12px;box-shadow:none;">清空</button>
-          <button id="coverExportBtn"
-            style="display:none;flex:none;background:#28a745;color:#fff;border:none;border-radius:20px;padding:7px 14px;cursor:pointer;font-size:12px;">导出XLSX</button>
-        </div>
-
-        <div id="coverProgressBar" class="hidden"
-          style="display:none; align-items:center; gap:8px; margin-bottom:10px; padding:0 4px;">
-          <div style="flex:1; height:6px; background:rgba(0,0,0,0.08); border-radius:3px; overflow:hidden;">
-            <div id="coverProgressFill"
-              style="height:100%; background:linear-gradient(90deg, #ff0050, #ff6b9d); width:0%; transition:width 0.3s ease;">
-            </div>
-          </div>
-          <span id="coverProgressText" style="font-size:11px; color:#666; white-space:nowrap;">0/0</span>
-        </div>
-
-        <div id="coverStatsRow" style="display:none; align-items:center; gap:6px; margin-bottom:10px; font-size:11px;">
-          <div id="coverStatTotal" style="background:#eef2ff; color:#1a365d; padding:3px 8px; border-radius:10px;">总计: 0</div>
-          <div id="coverStatSuccess" style="background:#e7f8ec; color:#117a42; padding:3px 8px; border-radius:10px;">成功: 0</div>
-          <div id="coverStatError" style="background:#fdecea; color:#c0392b; padding:3px 8px; border-radius:10px;">失败: 0</div>
-        </div>
-
-        <div id="coverResults" class="hidden" style="max-height:150px; overflow-y:auto; display:none;"></div>
-      </div>
-
-      <!-- 批量获取CID面板 -->
-      <div id="panelCid" style="padding:14px;display:none;">
-        <div id="cidPanelStatus" class="status info" style="display:none;margin-bottom:8px;"></div>
-        <div style="font-size:12px;color:#666;margin-bottom:8px;">输入达人ID批量获取头像以及CID，需在达人管理页使用</div>
-        <div style="margin-bottom:10px;">
-          <textarea id="cidCreatorInput" placeholder="输入达人昵称或ID，每行一个&#10;例如：&#10;creator1&#10;creator2" rows="5"
-            style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:monospace;min-height:120px;resize:vertical;box-sizing:border-box;"></textarea>
-        </div>
-        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:8px;">
-          <button id="cidSearchBtn"
-            style="flex:none;background:#28a745;color:#fff;border:none;border-radius:20px;padding:7px 14px;cursor:pointer;font-size:12px;">开始获取</button>
-          <button id="cidStopBtn"
-            style="display:none;flex:none;background:#f59e0b;color:#fff;border:none;border-radius:20px;padding:7px 14px;cursor:pointer;font-size:12px;">停止搜索</button>
-          <button id="cidExportBtn"
-            style="flex:none;background:#0369a1;color:#fff;border:none;border-radius:20px;padding:7px 14px;cursor:pointer;font-size:12px;">导出XLSX</button>
-          <button id="cidClearBtn"
-            style="flex:none;background:#dc2626;color:#fff;border:none;border-radius:20px;padding:7px 14px;cursor:pointer;font-size:12px;">清除暂存数据</button>
-        </div>
-        <div id="cidStatus" style="display:none;padding:8px 10px;border-radius:6px;font-size:12px;margin-bottom:6px;">
-        </div>
-        <div id="cidProgressBar"
-          style="display:none;width:100%;height:6px;background:rgba(0,0,0,0.08);border-radius:3px;margin-bottom:6px;overflow:hidden;">
-          <div id="cidProgressFill" style="height:100%;background:#ff0050;width:0%;transition:width 0.3s ease;"></div>
-        </div>
-        <div id="cidResults"
-          style="display:none;max-height:130px;overflow-y:auto;border:1px solid #e0e6ff;border-radius:6px;background:#fff;">
-        </div>
-      </div>
-
-      <!-- 通过CID查达人面板 -->
-      <div id="panelCidToName" style="padding:14px;display:none;">
-        <div id="cidToNamePanelStatus" class="status info" style="display:none;margin-bottom:8px;"></div>
-        <div style="font-size:12px;color:#666;margin-bottom:8px;">批量输入CID查询达人用户名与头像并导出XLSX</div>
-        <div style="margin-bottom:10px;">
-          <textarea id="cidToNameInput"
-            placeholder="输入批量CID，每行一个&#10;例如：&#10;7494078236625438400&#10;7494078236625438401" rows="5"
-            style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:monospace;min-height:120px;resize:vertical;box-sizing:border-box;"></textarea>
-        </div>
-        <div style="margin-bottom:10px;">
-          <label for="cidToNameRegion" style="font-size:12px;color:#666;margin-right:6px;">地区:</label>
-          <select id="cidToNameRegion" style="padding:6px;border:1px solid #ddd;border-radius:6px;font-size:12px;">
-            <option value="MY">马来西亚 (MY)</option>
-            <option value="SG">新加坡 (SG)</option>
-            <option value="TH">泰国 (TH)</option>
-            <option value="VN">越南 (VN)</option>
-            <option value="PH">菲律宾 (PH)</option>
-            <option value="ID">印尼 (ID)</option>
-          </select>
-        </div>
-        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:8px;">
-          <button id="cidToNameSearchBtn"
-            style="flex:none;background:#28a745;color:#fff;border:none;border-radius:20px;padding:7px 14px;cursor:pointer;font-size:12px;">批量查询</button>
-          <button id="cidToNameExportBtn"
-            style="flex:none;background:#0369a1;color:#fff;border:none;border-radius:20px;padding:7px 14px;cursor:pointer;font-size:12px;">导出XLSX</button>
-          <button id="cidToNameClearBtn"
-            style="flex:none;background:#dc2626;color:#fff;border:none;border-radius:20px;padding:7px 14px;cursor:pointer;font-size:12px;">清空全部数据</button>
-        </div>
-        <div id="cidToNameResults"
-          style="max-height:150px;overflow-y:auto;border:1px solid #e0e6ff;border-radius:6px;background:#fff;margin-top:10px; display:flex; flex-direction:column; gap:8px; padding:8px;">
-        </div>
-      </div>
-
-      <!-- 订单查询面板 -->
-      <div id="panelOrder" style="padding:14px;display:none;">
-        <div id="orderPanelStatus" class="status info" style="display:none;margin-bottom:8px;"></div>
-        <div style="font-size:12px;color:#666;margin-bottom:8px;">通过订单ID查询达人履约情况并导出XLSX</div>
-        <div class="input-group" style="margin-bottom:12px;">
-          <textarea id="orderId" placeholder="请输入订单号，每行一个&#10;例如：&#10;581439468539577962&#10;581813278309582149"
-            style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:monospace;min-height:120px;resize:vertical;box-sizing:border-box;"></textarea>
-        </div>
-        <div style="display:flex;justify-content:center;gap:8px;margin-bottom:8px;">
-          <button id="startOrderQueryBtn"
-            style="flex:none;padding:7px 14px;background:#28a745;color:#fff;border:none;border-radius:20px;cursor:pointer;font-size:12px;">开始查询并下载</button>
-          <button id="stopOrderQueryBtn"
-            style="display:none;flex:none;padding:7px 14px;background:#f59e0b;color:#fff;border:none;border-radius:20px;cursor:pointer;font-size:12px;">停止查询</button>
-        </div>
+      style="margin-top:16px;border:1px solid #e0e6ff;border-radius:10px;background:#f0f4ff;box-shadow:0 2px 8px rgba(0,0,0,0.05);box-sizing:border-box;overflow:hidden;padding:14px;">
+      <div style="font-size:12px;color:#666;margin-bottom:12px;text-align:center;">选择要使用的功能</div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <button id="btnCover"
+          style="padding:12px 16px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;color:#fff;background:#ff0050;box-shadow:0 2px 6px rgba(255,0,80,0.28);transition:transform 0.15s ease,box-shadow 0.15s ease;">📹 获取视频封面</button>
+        <button id="btnCid"
+          style="padding:12px 16px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;color:#fff;background:#1d5fff;box-shadow:0 2px 6px rgba(29,95,255,0.28);transition:transform 0.15s ease,box-shadow 0.15s ease;">👤 获取头像/CID</button>
+        <button id="btnCidToName"
+          style="padding:12px 16px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;color:#fff;background:#28a745;box-shadow:0 2px 6px rgba(40,167,69,0.28);transition:transform 0.15s ease,box-shadow 0.15s ease;">🔍 通过CID获取达人信息</button>
+        <button id="btnOrder"
+          style="padding:12px 16px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;color:#fff;background:#f59e0b;box-shadow:0 2px 6px rgba(245,158,11,0.28);transition:transform 0.15s ease,box-shadow 0.15s ease;">📦 获取订单履约情况</button>
       </div>
     </div>
     <!-- 短语管理卡片 -->

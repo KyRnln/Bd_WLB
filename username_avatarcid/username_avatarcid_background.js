@@ -1,0 +1,456 @@
+// 达人CID批量获取 - 后台模块
+
+class CreatorDatabase {
+  constructor() {
+    this.dbName = 'TikTokShopCreators';
+    this.version = 3;
+    this.storeName = 'creators';
+    this.db = null;
+    this.init();
+  }
+
+  async init() {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(this.dbName, this.version);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        this.db = request.result;
+        resolve();
+      };
+      request.onupgradeneeded = (event) => {
+        const db = event.target.result;
+        const oldVersion = event.oldVersion;
+        if (!db.objectStoreNames.contains(this.storeName)) {
+          const store = db.createObjectStore(this.storeName, { keyPath: 'id' });
+          store.createIndex('cid', 'cid', { unique: false });
+          store.createIndex('timestamp', 'timestamp', { unique: false });
+          store.createIndex('url', 'url', { unique: false });
+        } else {
+          const store = event.target.transaction.objectStore(this.storeName);
+          if (oldVersion < 2 && !store.indexNames.contains('url')) {
+            store.createIndex('url', 'url', { unique: false });
+          }
+        }
+      };
+    });
+  }
+
+  async storeCreator(creatorData) {
+    if (!this.db) await this.init();
+    return new Promise((resolve, reject) => {
+      const tx = this.db.transaction([this.storeName], 'readwrite');
+      const store = tx.objectStore(this.storeName);
+      const data = { ...creatorData, timestamp: Date.now() };
+      const req = store.put(data);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async getAllCreators() {
+    if (!this.db) await this.init();
+    return new Promise((resolve, reject) => {
+      const tx = this.db.transaction([this.storeName], 'readonly');
+      const store = tx.objectStore(this.storeName);
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async clearAllData() {
+    if (!this.db) await this.init();
+    return new Promise((resolve, reject) => {
+      const tx = this.db.transaction([this.storeName], 'readwrite');
+      const store = tx.objectStore(this.storeName);
+      const req = store.clear();
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  }
+}
+
+const cidDb = new CreatorDatabase();
+
+const pendingCidWaitByTab = new Map();
+let isBatchSearchStopped = false;
+
+function normalize(s) {
+  return String(s || '').trim().toLowerCase();
+}
+
+function scoreCandidate(query, candidateName) {
+  const q = normalize(query);
+  const n = normalize(candidateName);
+  if (!q || !n) return 0;
+  if (n === q) return 100;
+  if (n.includes(q) || q.includes(n)) return 50;
+  if (n.replace(/\s+/g, '').includes(q.replace(/\s+/g, ''))) return 30;
+  return 0;
+}
+
+function resolvePendingCid(tabId, cid, sourceUrl = '') {
+  const pending = pendingCidWaitByTab.get(tabId);
+  if (!pending) return false;
+  clearTimeout(pending.timeoutId);
+  pendingCidWaitByTab.delete(tabId);
+  pending.resolve({ cid: String(cid), sourceUrl: String(sourceUrl || '') });
+  return true;
+}
+
+async function updateBatchSearchStatus(status) {
+  await chrome.storage.local.set({ batchSearchStatus: status });
+}
+
+async function executeBatchSearch(tabId, creatorIds) {
+  let successCount = 0;
+  let failCount = 0;
+  const results = [];
+
+  await updateBatchSearchStatus({
+    status: 'running',
+    currentIndex: 0,
+    total: creatorIds.length,
+    successCount: 0,
+    failCount: 0,
+    currentCreatorId: '',
+    results: []
+  });
+
+  for (let i = 0; i < creatorIds.length; i++) {
+    if (isBatchSearchStopped) {
+      break;
+    }
+    const creatorId = creatorIds[i];
+    const currentIndex = i + 1;
+
+    await updateBatchSearchStatus({
+      status: 'running',
+      currentIndex,
+      total: creatorIds.length,
+      successCount,
+      failCount,
+      currentCreatorId: creatorId,
+      results
+    });
+
+    chrome.tabs.sendMessage(tabId, {
+      action: 'showBatchProgress',
+      status: 'running',
+      currentIndex,
+      total: creatorIds.length,
+      successCount,
+      failCount,
+      currentCreatorId: creatorId
+    }).catch(() => { });
+
+    try {
+      const response = await chrome.tabs.sendMessage(tabId, {
+        action: 'searchCreator',
+        creatorId
+      });
+
+      if (response.success) {
+        successCount++;
+        results.push({ id: creatorId, cid: response.cid, url: response.url, success: true });
+        try {
+          await cidDb.storeCreator({ id: creatorId, cid: response.cid, url: response.url, avatarBase64: response.avatarBase64 || '' });
+        } catch (storeError) {
+          console.error(`[批量搜索] ${creatorId} 数据存储失败:`, storeError);
+        }
+      } else {
+        failCount++;
+        results.push({ id: creatorId, error: response.error || '获取失败', success: false });
+      }
+    } catch (error) {
+      failCount++;
+      results.push({ id: creatorId, error: error?.message || String(error), success: false });
+    }
+
+    if (i < creatorIds.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+  }
+
+  await updateBatchSearchStatus({
+    status: 'completed',
+    currentIndex: creatorIds.length,
+    total: creatorIds.length,
+    successCount,
+    failCount,
+    currentCreatorId: '',
+    results
+  });
+
+  chrome.tabs.sendMessage(tabId, {
+    action: 'showBatchProgress',
+    status: 'completed',
+    total: creatorIds.length,
+    successCount,
+    failCount
+  }).catch(() => { });
+}
+
+async function generateXlsx(creators) {
+  const ROW_HT_PT = 20;
+  const strs = ['达人 ID', 'CID', '获取时间'];
+  const strMap = new Map(strs.map((s, i) => [s, i]));
+  function si(s) {
+    const str = String(s || '');
+    if (!strMap.has(str)) { strMap.set(str, strs.length); strs.push(str); }
+    return strMap.get(str);
+  }
+
+  let sheetXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+<sheetFormatPr defaultRowHeight="${ROW_HT_PT}"/>
+<cols><col min="1" max="1" width="25" customWidth="1"/><col min="2" max="2" width="20" customWidth="1"/><col min="3" max="3" width="25" customWidth="1"/></cols>
+<sheetData>`;
+
+  sheetXml += `<row r="1"><c r="A1" t="s"><v>${si('达人 ID')}</v></c><c r="B1" t="s"><v>${si('CID')}</v></c><c r="C1" t="s"><v>${si('获取时间')}</v></c></row>`;
+
+  creators.forEach((c, i) => {
+    const r = i + 2;
+    const ts = new Date(c.timestamp || Date.now()).toLocaleString('zh-CN');
+    sheetXml += `<row r="${r}"><c r="A${r}" t="s"><v>${si(c.id || '')}</v></c><c r="B${r}" t="s"><v>${si(c.cid || '')}</v></c><c r="C${r}" t="s"><v>${si(ts)}</v></c></row>`;
+  });
+  sheetXml += `</sheetData></worksheet>`;
+
+  const ssXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${strs.length}" uniqueCount="${strs.length}">${strs.map(s => `<si><t xml:space="preserve">${xmlEsc(s)}</t></si>`).join('')}</sst>`;
+  const styXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts><font><sz val="11"/><name val="Calibri"/></font></fonts><fills><fill><patternFill patternType="none"/></fill></fills><borders><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/></cellXfs></styleSheet>`;
+  const wbXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="达人CID" sheetId="1" r:id="rId1"/></sheets></workbook>`;
+  const wbRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`;
+  const rels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`;
+  const ctXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`;
+
+  const files = [
+    { name: '[Content_Types].xml', data: s2b(ctXml) },
+    { name: '_rels/.rels', data: s2b(rels) },
+    { name: 'xl/workbook.xml', data: s2b(wbXml) },
+    { name: 'xl/_rels/workbook.xml.rels', data: s2b(wbRels) },
+    { name: 'xl/worksheets/sheet1.xml', data: s2b(sheetXml) },
+    { name: 'xl/sharedStrings.xml', data: s2b(ssXml) },
+    { name: 'xl/styles.xml', data: s2b(styXml) },
+  ];
+
+  return await buildZip(files);
+}
+
+function xmlEsc(s) {
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+}
+
+function s2b(str) {
+  const enc = new TextEncoder();
+  return enc.encode(str);
+}
+
+async function buildZip(files) {
+  const crc32 = (buf) => {
+    let crc = -1;
+    for (let i = 0; i < buf.length; i++) crc = (crc >>> 8) ^ _CRC32[(crc ^ buf[i]) & 0xFF];
+    return (crc ^ -1) >>> 0;
+  };
+  const u16 = (b, o, v) => { b[o] = v & 0xFF; b[o + 1] = (v >> 8) & 0xFF; };
+  const u32 = (b, o, v) => { b[o] = v & 0xFF; b[o + 1] = (v >> 8) & 0xFF; b[o + 2] = (v >> 16) & 0xFF; b[o + 3] = (v >> 24) & 0xFF; };
+
+  const _CRC32 = new Int32Array(256);
+  for (let i = 0; i < 256; i++) {
+    let c = i;
+    for (let j = 0; j < 8; j++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+    _CRC32[i] = c;
+  }
+
+  const deflateRaw = async (data) => {
+    const cs = new CompressionStream('deflate-raw');
+    const w = cs.writable.getWriter();
+    w.write(data); w.close();
+    const chunks = [];
+    const r = cs.readable.getReader();
+    while (true) { const { done, value } = await r.read(); if (done) break; chunks.push(value); }
+    let sz = 0; for (const c of chunks) sz += c.length;
+    const out = new Uint8Array(sz); let off = 0;
+    for (const c of chunks) { out.set(c, off); off += c.length; }
+    return out;
+  };
+
+  const locals = []; const parts = []; let offset = 0;
+  for (const f of files) {
+    const enc = new TextEncoder();
+    const name = enc.encode(f.name);
+    const comp = await deflateRaw(f.data);
+    const useComp = comp.length < f.data.length;
+    const data = useComp ? comp : f.data;
+    const method = useComp ? 8 : 0;
+    const crc = crc32(f.data);
+    const lh = new Uint8Array(30 + name.length);
+    u32(lh, 0, 0x04034B50); u16(lh, 4, 20); u16(lh, 6, 0); u16(lh, 8, method);
+    u16(lh, 10, 0); u16(lh, 12, 0); u32(lh, 14, crc);
+    u32(lh, 18, data.length); u32(lh, 22, f.data.length);
+    u16(lh, 26, name.length); u16(lh, 28, 0);
+    lh.set(name, 30);
+    locals.push({ name, crc, cs: data.length, us: f.data.length, method, offset });
+    offset += lh.length + data.length;
+    parts.push(lh, data);
+  }
+  const cdParts = []; let cdSz = 0; const cdOff = offset;
+  for (const h of locals) {
+    const cd = new Uint8Array(46 + h.name.length);
+    u32(cd, 0, 0x02014B50); u16(cd, 4, 20); u16(cd, 6, 20); u16(cd, 8, 0); u16(cd, 10, h.method);
+    u16(cd, 12, 0); u16(cd, 14, 0); u32(cd, 16, h.crc);
+    u32(cd, 20, h.cs); u32(cd, 24, h.us);
+    u16(cd, 28, h.name.length); u16(cd, 30, 0); u16(cd, 32, 0);
+    u16(cd, 34, 0); u16(cd, 36, 0); u32(cd, 38, 0); u32(cd, 42, h.offset);
+    cd.set(h.name, 46);
+    cdParts.push(cd); cdSz += cd.length;
+  }
+  const eocd = new Uint8Array(22);
+  u32(eocd, 0, 0x06054B50); u16(eocd, 4, 0); u16(eocd, 6, 0);
+  u16(eocd, 8, locals.length); u16(eocd, 10, locals.length);
+  u32(eocd, 12, cdSz); u32(eocd, 16, cdOff); u16(eocd, 20, 0);
+  const all = [...parts, ...cdParts, eocd];
+  let total = 0; for (const p of all) total += p.length;
+  const result = new Uint8Array(total); let pos = 0;
+  for (const p of all) { result.set(p, pos); pos += p.length; }
+  return result;
+}
+
+async function handleUsernameAvatarCidMessage(request, sender, downloadExcel) {
+  switch (request.action) {
+    case 'storeResult': {
+      await cidDb.storeCreator(request.data);
+      return { success: true };
+    }
+    case 'getStoredResults': {
+      const results = await cidDb.getAllCreators();
+      return { success: true, results };
+    }
+    case 'clearData': {
+      await cidDb.clearAllData();
+      return { success: true };
+    }
+    case 'exportExcel': {
+      const creators = await cidDb.getAllCreators();
+      if (!creators.length) return { success: false, error: '没有数据可以导出' };
+      const xlsxBytes = await generateXlsx(creators);
+      const filename = `tiktok_cid_${new Date().toISOString().split('T')[0]}.xlsx`;
+      await downloadExcel(xlsxBytes, filename);
+      return { success: true };
+    }
+    case 'openTab': {
+      const url = String(request.url || '');
+      if (!url.startsWith('https://affiliate.tiktokshopglobalselling.com/')) {
+        return { success: false, error: '非法URL' };
+      }
+      const tab = await chrome.tabs.create({ url, active: true });
+      return { success: true, tabId: tab.id };
+    }
+    case 'closeTab': {
+      const tabId = Number(request.tabId);
+      if (!tabId || tabId <= 0) return { success: false, error: '无效的tabId' };
+      try {
+        await chrome.tabs.remove(tabId);
+        return { success: true };
+      } catch (err) {
+        return { success: false, error: err?.message || '关闭标签页失败' };
+      }
+    }
+    case 'startBatchSearch': {
+      isBatchSearchStopped = false;
+      let tabId = request.tabId || sender?.tab?.id;
+      if (!tabId) {
+        try {
+          const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+          if (tabs && tabs.length > 0) tabId = tabs[0].id;
+        } catch (err) {
+          console.error('[批量搜索] 查询tab失败:', err);
+        }
+      }
+      if (!tabId) return { success: false, error: '无法获取当前tabId，请确保在TikTok Shop页面使用' };
+      const creatorIds = Array.isArray(request.creatorIds) ? request.creatorIds : [];
+      if (creatorIds.length === 0) return { success: false, error: '请输入至少一个达人ID' };
+      executeBatchSearch(tabId, creatorIds).catch(err => {
+        updateBatchSearchStatus({
+          status: 'error',
+          error: err?.message || String(err),
+          currentIndex: creatorIds.length,
+          total: creatorIds.length
+        });
+      });
+      return { success: true, message: '批量搜索已启动' };
+    }
+    case 'getBatchSearchStatus': {
+      const status = await chrome.storage.local.get('batchSearchStatus');
+      return { success: true, status: status.batchSearchStatus || null };
+    }
+    case 'stopBatchSearch': {
+      isBatchSearchStopped = true;
+      return { success: true };
+    }
+    case 'clearBatchSearchStatus': {
+      await chrome.storage.local.remove('batchSearchStatus');
+      return { success: true };
+    }
+    case 'startWaitingForCid': {
+      const tabId = sender?.tab?.id;
+      if (!tabId) return { success: false, error: '无法获取tabId' };
+      const query = String(request.query || '').trim();
+      const timeoutMs = Number(request.timeoutMs || 30000);
+      console.log('[CID后台] 开始等待CID, tabId:', tabId, 'query:', query, 'timeoutMs:', timeoutMs);
+      const old = pendingCidWaitByTab.get(tabId);
+      if (old) {
+        clearTimeout(old.timeoutId);
+        pendingCidWaitByTab.delete(tabId);
+      }
+      const result = await new Promise((resolve, reject) => {
+        const timeoutId = setTimeout(() => {
+          pendingCidWaitByTab.delete(tabId);
+          console.log('[CID后台] 等待CID超时, query:', query);
+          reject(new Error(`搜索达人 "${query}" 超时，可能该达人ID已更改或不存在`));
+        }, timeoutMs);
+        pendingCidWaitByTab.set(tabId, { query, resolve, timeoutId });
+      });
+      return { success: true, cid: result.cid, sourceUrl: result.sourceUrl };
+    }
+    case 'hookCandidates': {
+      const tabId = sender?.tab?.id;
+      if (!tabId) return { success: false, error: '无法获取tabId' };
+      const pending = pendingCidWaitByTab.get(tabId);
+      if (!pending) return { success: true, ignored: true };
+      const candidates = Array.isArray(request.candidates) ? request.candidates : [];
+      console.log('[CID后台] 收到候选数据, tabId:', tabId, 'candidates:', candidates.length, 'query:', pending.query);
+      if (candidates.length === 0) {
+        console.log('[CID后台] 无候选数据，继续等待...');
+        return { success: true, ignored: true };
+      }
+      const sourceUrl = String(request.url || '');
+      let bestCid = '';
+      let bestScore = -1;
+      for (const c of candidates) {
+        const cid = c?.cid ? String(c.cid) : '';
+        if (!cid) continue;
+        const name = c?.name ? String(c.name) : '';
+        const score = scoreCandidate(pending.query, name);
+        console.log('[CID后台] 候选评分:', cid, name, 'score:', score);
+        if (score > bestScore) {
+          bestScore = score;
+          bestCid = cid;
+        }
+      }
+      if (!bestCid) {
+        console.log('[CID后台] 无有效CID候选，继续等待...');
+        return { success: true, ignored: true };
+      }
+      if (bestScore < 1 && candidates.length > 1) {
+        console.log('[CID后台] 最佳评分过低，继续等待...');
+        return { success: true, ignored: true };
+      }
+      console.log('[CID后台] 匹配成功, bestCid:', bestCid, 'bestScore:', bestScore);
+      resolvePendingCid(tabId, bestCid, sourceUrl);
+      return { success: true, resolved: true };
+    }
+  }
+  return null;
+}
+
+export { handleUsernameAvatarCidMessage };

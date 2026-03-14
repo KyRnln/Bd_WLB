@@ -775,1370 +775,302 @@
   document.addEventListener('input', handleInput, true);
 })();
 
-// ===== 订单查询自动化功能 =====
-
-// IndexedDB 数据库管理
-class OrderDatabase {
-  constructor() {
-    this.dbName = 'OrderQueryDB';
-    this.version = 2;
-    this.storeName = 'orders';
-  }
-
-  async init() {
-    return new Promise((resolve, reject) => {
-      const request = indexedDB.open(this.dbName, this.version);
-
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => {
-        this.db = request.result;
-        resolve();
-      };
-
-      request.onupgradeneeded = (event) => {
-        const db = event.target.result;
-        const oldVersion = event.oldVersion;
-
-        console.log(`数据库升级: 从版本 ${oldVersion} 升级到版本 ${this.version}`);
-
-        if (db.objectStoreNames.contains(this.storeName)) {
-          db.deleteObjectStore(this.storeName);
-        }
-
-        const store = db.createObjectStore(this.storeName, { keyPath: 'id' });
-        store.createIndex('orderId', 'orderId', { unique: false });
-        store.createIndex('creatorId', 'creatorId', { unique: false });
-        store.createIndex('productId', 'productId', { unique: false });
-        store.createIndex('orderProduct', ['orderId', 'productId'], { unique: true });
-
-        console.log('数据库结构升级完成');
-      };
-    });
-  }
-
-  async saveOrder(orderData) {
-    return new Promise((resolve, reject) => {
-      const transaction = this.db.transaction([this.storeName], 'readwrite');
-      const store = transaction.objectStore(this.storeName);
-      const request = store.put(orderData);
-
-      request.onsuccess = () => {
-        console.log(`成功保存记录: ${orderData.orderId} - ${orderData.productId}`);
-        resolve();
-      };
-      request.onerror = () => {
-        console.error(`保存记录失败: ${orderData.orderId} - ${orderData.productId}`, request.error);
-        reject(request.error);
-      };
-    });
-  }
-
-  async getAllOrders() {
-    return new Promise((resolve, reject) => {
-      const transaction = this.db.transaction([this.storeName], 'readonly');
-      const store = transaction.objectStore(this.storeName);
-      const request = store.getAll();
-
-      request.onsuccess = () => {
-        const result = request.result;
-        console.log(`从IndexedDB获取到 ${result.length} 条记录:`, result);
-        resolve(result);
-      };
-      request.onerror = () => {
-        console.error('获取所有订单失败:', request.error);
-        reject(request.error);
-      };
-    });
-  }
-
-  async clearAll() {
-    return new Promise((resolve, reject) => {
-      const transaction = this.db.transaction([this.storeName], 'readwrite');
-      const store = transaction.objectStore(this.storeName);
-      const request = store.clear();
-
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-    });
-  }
-}
-
-// DOM选择器和XPath配置
-const ORDER_SELECTORS = {
-  allTab: 'div.m4b-tabs-pane-title-content',
-  creatorSelect: 'span.arco-select-view-value',
-  orderIdOption: 'li.arco-select-option.m4b-select-option',
-  searchInput: 'input[data-tid="m4b_input_search"]',
-  searchButton: 'svg.arco-icon-search',
-  tableRows: 'tbody tr.arco-table-tr',
-  creatorId: '.creator-info__HightBoldText-lfMAmF',
-  productId: '.arco-typography.text-body-s-regular.text-neutral-text3',
-  orderId: 'span[data-e2e].truncate',
-  status: '.product-status-info__StyledTag-hrmRnJ .content .text div'
-};
-
-// XPath选择器已移除，只使用CSS选择器
-
-// 自动化操作类
-class OrderAutomation {
-  constructor() {
-    this.db = new OrderDatabase();
-    this.db.init();
-    this.progressElement = null;
-  }
-
-  // 更新页面进度显示
-  updatePageProgress(message, type = 'info') {
-    // 直接创建全局进度显示，避免XPath查找
-    this.createGlobalProgress(message, type);
-  }
-
-  // 创建全局进度显示（如果找不到指定元素）
-  createGlobalProgress(message = '', type = 'info') {
-    let progressContainer = document.getElementById('order-query-progress');
-    if (!progressContainer) {
-      progressContainer = document.createElement('div');
-      progressContainer.id = 'order-query-progress';
-      progressContainer.style.cssText = `
-        position: fixed;
-        bottom: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: rgba(255, 255, 255, 0.95);
-        border: 2px solid #007bff;
-        border-radius: 8px;
-        padding: 12px 16px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        z-index: 10000;
-        font-family: Arial, sans-serif;
-        font-size: 14px;
-        color: #333;
-        max-width: 400px;
-        text-align: center;
-      `;
-      document.body.appendChild(progressContainer);
-    }
-
-    if (message) {
-      progressContainer.innerHTML = this.createProgressHtml(message, type);
-      progressContainer.style.display = 'block';
-    }
-  }
-
-  // 创建进度显示HTML
-  createProgressHtml(message, type) {
-    const iconMap = {
-      'info': '🔄',
-      'success': '✅',
-      'error': '❌',
-      'warning': '⚠️'
-    };
-
-    const icon = iconMap[type] || iconMap.info;
-
-    return `
-      <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
-        <span style="font-size: 16px;">${icon}</span>
-        <span style="flex: 1; text-align: center;">${message}</span>
-      </div>
-    `;
-  }
-
-  // 隐藏进度显示
-  hidePageProgress() {
-    try {
-      if (this.progressElement) {
-        this.progressElement.style.display = 'none';
-      }
-
-      const globalProgress = document.getElementById('order-query-progress');
-      if (globalProgress) {
-        globalProgress.style.display = 'none';
-      }
-    } catch (error) {
-      console.error('隐藏进度显示失败:', error);
-    }
-  }
-
-  findElement(selector) {
-    return document.querySelector(selector);
-  }
-
-  async waitForElement(selector, timeout = 5000) {
-    const startTime = Date.now();
-    while (Date.now() - startTime < timeout) {
-      const element = this.findElement(selector);
-      if (element) {
-        return element;
-      }
-      await this.sleep(100);
-    }
-    throw new Error(`Element not found: ${selector}`);
-  }
-
-  async waitForClickable(selector, timeout = 5000) {
-    const element = await this.waitForElement(selector, timeout);
-    if (!element) {
-      throw new Error(`Element is null: ${selector}`);
-    }
-
-    let attempts = 0;
-    while (attempts < 50) {
-      if (!element.disabled && element.offsetParent !== null) {
-        return element;
-      }
-      await this.sleep(100);
-      attempts++;
-    }
-    throw new Error(`Element not clickable: ${selector}`);
-  }
-
-  sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
-  async clickElement(selector) {
-    console.log(`Attempting to click element: ${selector}`);
-
-    const element = await this.waitForClickable(selector, 5000);
-
-    if (!element) {
-      throw new Error(`Element is null, cannot click: ${selector}`);
-    }
-
-    if (typeof element.click !== 'function') {
-      throw new Error(`Element.click is not a function. Element type: ${element.constructor.name}, selector: ${selector}`);
-    }
-
-    console.log('Clicking element:', element);
-    element.click();
-    await this.sleep(500);
-  }
-
-  async triggerEnterKey(selector) {
-    console.log(`Triggering Enter key on selector: ${selector}`);
-
-    let element = await this.waitForElement(selector, 3000).catch(() => null);
-
-    // 如果没找到，使用与inputText相同的查找逻辑
-    if (!element) {
-      console.log('原选择器未找到输入框，尝试其他选择器...');
-
-      const searchSelectors = [
-        'input[data-tid="m4b_input_search"]',
-        'input[placeholder*="订单"]',
-        'input[placeholder*="搜索"]',
-        'input[type="text"]',
-        'input:not([type="hidden"])',
-        'input'
-      ];
-
-      for (const searchSelector of searchSelectors) {
-        try {
-          console.log(`尝试选择器: ${searchSelector}`);
-          const elements = document.querySelectorAll(searchSelector);
-
-          for (const el of elements) {
-            if (el.offsetParent !== null && el.clientWidth > 100) {
-              element = el;
-              console.log(`使用选择器 "${searchSelector}" 找到输入框:`, element);
-              break;
-            }
-          }
-
-          if (element) break;
-        } catch (e) {
-          console.log(`选择器 "${searchSelector}" 无效:`, e.message);
-        }
-      }
-
-      // 如果还是没找到，尝试更通用的查找方式
-      if (!element) {
-        console.log('尝试通用输入框查找...');
-        const allInputs = document.querySelectorAll('input[type="text"], input:not([type])');
-
-        const candidates = Array.from(allInputs)
-          .filter(input => {
-            const rect = input.getBoundingClientRect();
-            return input.offsetParent !== null &&
-              rect.width > 150 && rect.height > 20 &&
-              !input.disabled && !input.readOnly;
-          })
-          .sort((a, b) => {
-            const aInForm = a.closest('form') !== null;
-            const bInForm = b.closest('form') !== null;
-            if (aInForm && !bInForm) return -1;
-            if (!aInForm && bInForm) return 1;
-
-            const aArea = a.offsetWidth * a.offsetHeight;
-            const bArea = b.offsetWidth * b.offsetHeight;
-            return bArea - aArea;
-          });
-
-        if (candidates.length > 0) {
-          element = candidates[0];
-          console.log('使用通用查找找到输入框:', element);
-        }
-      }
-    }
-
-    if (!element) {
-      console.log(`未找到输入框用于Enter键: ${selector}，跳过搜索触发`);
-      return; // 不抛出错误，静默返回
-    }
-
-    console.log('Found input element for Enter:', element);
-
-    const enterEvent = new KeyboardEvent('keydown', {
-      key: 'Enter',
-      code: 'Enter',
-      keyCode: 13,
-      which: 13,
-      bubbles: true,
-      cancelable: true
-    });
-
-    element.dispatchEvent(enterEvent);
-    await this.sleep(500);
-
-    console.log('Enter key triggered');
-  }
-
-  async inputText(selector, text) {
-    console.log(`Inputting text "${text}" into selector: ${selector}`);
-
-    let element = await this.waitForElement(selector, 3000).catch(() => null);
-
-    // 如果没找到，尝试更灵活的搜索输入框查找
-    if (!element) {
-      console.log('原选择器未找到搜索输入框，尝试其他选择器...');
-
-      const searchSelectors = [
-        'input[data-tid="m4b_input_search"]', // 原选择器
-        'input[placeholder*="订单"]', // 包含"订单"的placeholder
-        'input[placeholder*="搜索"]', // 包含"搜索"的placeholder
-        'input[placeholder*="order"]', // 英文订单
-        'input[placeholder*="search"]', // 英文搜索
-        'input[type="text"]', // 文本输入框
-        'input:not([type="hidden"])', // 非隐藏的输入框
-        'input' // 任何输入框
-      ];
-
-      for (const searchSelector of searchSelectors) {
-        try {
-          console.log(`尝试选择器: ${searchSelector}`);
-          const elements = document.querySelectorAll(searchSelector);
-
-          // 查找最可能是搜索框的元素
-          for (const el of elements) {
-            if (el.offsetParent !== null && el.clientWidth > 100) { // 可见且有足够宽度的输入框
-              element = el;
-              console.log(`使用选择器 "${searchSelector}" 找到搜索输入框:`, element);
-              break;
-            }
-          }
-
-          if (element) break;
-        } catch (e) {
-          console.log(`选择器 "${searchSelector}" 无效:`, e.message);
-        }
-      }
-
-      // 如果还是没找到，尝试更通用的查找方式
-      if (!element) {
-        console.log('尝试通用输入框查找...');
-        const allInputs = document.querySelectorAll('input[type="text"], input:not([type])');
-
-        // 按优先级排序：可见、足够大、在表单中的输入框
-        const candidates = Array.from(allInputs)
-          .filter(input => {
-            const rect = input.getBoundingClientRect();
-            return input.offsetParent !== null && // 可见
-              rect.width > 150 && rect.height > 20 && // 足够大
-              !input.disabled && !input.readOnly; // 可编辑
-          })
-          .sort((a, b) => {
-            // 优先选择在表单中的输入框
-            const aInForm = a.closest('form') !== null;
-            const bInForm = b.closest('form') !== null;
-            if (aInForm && !bInForm) return -1;
-            if (!aInForm && bInForm) return 1;
-
-            // 然后按面积大小排序
-            const aArea = a.offsetWidth * a.offsetHeight;
-            const bArea = b.offsetWidth * b.offsetHeight;
-            return bArea - aArea;
-          });
-
-        if (candidates.length > 0) {
-          element = candidates[0];
-          console.log('使用通用查找找到输入框:', element);
-        }
-      }
-    }
-
-    if (!element) {
-      console.log(`未找到输入框: ${selector}，跳过输入步骤`);
-      return; // 不抛出错误，静默返回
-    }
-
-    console.log('Found input element:', element);
-
-    element.value = '';
-    element.focus();
-
-    element.value = text;
-
-    element.dispatchEvent(new Event('input', { bubbles: true }));
-    element.dispatchEvent(new Event('change', { bubbles: true }));
-
-    await this.sleep(300);
-  }
-
-  findElementByText(selector, text) {
-    const elements = document.querySelectorAll(selector);
-    for (const element of elements) {
-      if (element.textContent.includes(text)) {
-        return element;
-      }
-    }
-    return null;
-  }
-
-  async getTableData(filterOrderId = null) {
-    console.log('=== 开始获取表格数据 ===');
-    console.log('过滤订单ID:', filterOrderId);
-    console.log('当前页面URL:', window.location.href);
-    console.log('document.readyState:', document.readyState);
-
-    await this.sleep(2000);
-
-    console.log('SELECTORS.tableRows:', ORDER_SELECTORS.tableRows);
-
-    const tables = document.querySelectorAll('table');
-    console.log('页面中的table元素数量:', tables.length);
-
-    const tbodies = document.querySelectorAll('tbody');
-    console.log('页面中的tbody元素数量:', tbodies.length);
-
-    const arcoTables = document.querySelectorAll('.arco-table');
-    console.log('页面中的.arco-table元素数量:', arcoTables.length);
-
-    const rows = document.querySelectorAll(ORDER_SELECTORS.tableRows);
-    console.log('使用选择器查询结果 - rows.length:', rows.length);
-
-    if (rows.length === 0) {
-      console.log('尝试其他选择器...');
-      const altRows1 = document.querySelectorAll('tr.arco-table-tr');
-      console.log('altRows1.length:', altRows1.length);
-
-      const altRows2 = document.querySelectorAll('tbody tr');
-      console.log('altRows2.length:', altRows2.length);
-    }
-
-    console.log('rows:', rows);
-    const orders = [];
-
-    console.log(`发现 ${rows.length} 行数据`);
-
-    const orderGroups = new Map();
-
-    for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
-      const row = rows[rowIndex];
-      console.log(`\n=== 分析第 ${rowIndex + 1} 行 ===`);
-
-      try {
-        const cells = row.querySelectorAll('td');
-        console.log(`该行有 ${cells.length} 个单元格`);
-        cells.forEach((cell, cellIndex) => {
-          const text = cell.textContent.trim();
-          console.log(`单元格 ${cellIndex}: ${text.substring(0, 50)}${text.length > 50 ? '...' : ''}`);
-        });
-
-        let orderElement = row.querySelector('td.arco-table-td:nth-child(3) [class*="creator-product-info__ProductInfoWrap"] [class*="text-neutral-text3"] span[data-e2e].truncate');
-
-        if (!orderElement) {
-          orderElement = row.querySelector('td:nth-child(3) span[data-e2e].truncate');
-        }
-
-        if (!orderElement) {
-          const allOrderSpans = row.querySelectorAll('span[data-e2e].truncate');
-          for (const span of allOrderSpans) {
-            if (span.textContent.includes('订单 ID：') || /^\d{18,}$/.test(span.textContent.trim())) {
-              orderElement = span;
-              break;
-            }
-          }
-        }
-
-        if (orderElement) {
-          let orderId = '';
-          if (orderElement.textContent.includes('订单 ID：')) {
-            orderId = orderElement.textContent.replace('订单 ID：', '').trim();
-          } else {
-            orderId = orderElement.textContent.trim();
-          }
-
-          if (orderId) {
-            if (!orderGroups.has(orderId)) {
-              orderGroups.set(orderId, []);
-            }
-            orderGroups.get(orderId).push(row);
-          }
-        }
-      } catch (error) {
-        console.error(`分析第 ${rowIndex + 1} 行时出错:`, error);
-      }
-    }
-
-    console.log(`分组完成: 发现 ${orderGroups.size} 个不同订单ID`);
-    for (const [orderId, rows] of orderGroups) {
-      console.log(`订单 ${orderId}: ${rows.length} 个产品`);
-    }
-
-    // 如果指定了过滤订单ID，只处理该订单号的数据
-    let filteredGroups = orderGroups;
-    if (filterOrderId) {
-      filteredGroups = new Map();
-      if (orderGroups.has(filterOrderId)) {
-        filteredGroups.set(filterOrderId, orderGroups.get(filterOrderId));
-        console.log(`过滤结果: 找到订单 ${filterOrderId}，包含 ${orderGroups.get(filterOrderId).length} 个产品`);
-      } else {
-        console.log(`过滤结果: 未找到订单 ${filterOrderId}`);
-        return [];
-      }
-    }
-
-    if (filteredGroups.size === 0) {
-      console.log('当前页面未找到订单数据分组，可能数据尚未加载或页面结构不同');
-      return [];
-    }
-
-    for (const [orderId, orderRows] of filteredGroups) {
-      console.log(`处理订单 ${orderId}，包含 ${orderRows.length} 个产品`);
-
-      for (let i = 0; i < orderRows.length; i++) {
-        const row = orderRows[i];
-        const isMultiProduct = orderRows.length > 1;
-
-        try {
-          const creatorElement = row.querySelector('[class*="creator-info__HightBoldText"]');
-
-          let productElement = null;
-          const arcoTypographyElements = row.querySelectorAll('[class*="arco-typography"]');
-          for (const element of arcoTypographyElements) {
-            if (element.textContent.includes('ID:')) {
-              productElement = element;
-              break;
-            }
-          }
-          const statusElement = row.querySelector('[class*="product-status-info__StyledTag"] [class*="text"] div');
-
-          let creatorId = '';
-          let productId = '';
-          let status = '';
-
-          if (creatorElement) {
-            creatorId = creatorElement.textContent.trim();
-          }
-
-          if (productElement) {
-            console.log(`找到产品ID元素: "${productElement.textContent}"`);
-            productId = productElement.textContent.replace('ID: ', '').trim();
-            console.log(`提取的产品ID: "${productId}"`);
-          } else {
-            console.log('未找到产品ID元素');
-          }
-
-          if (statusElement) {
-            status = statusElement.textContent.trim();
-          }
-
-          const orderData = {
-            id: `${orderId}_${productId}`,
-            creatorId,
-            productId,
-            orderId,
-            status,
-            productIndex: isMultiProduct ? i + 1 : null,
-            totalProducts: orderRows.length,
-            timestamp: new Date().toISOString()
-          };
-
-          orders.push(orderData);
-          console.log(`已添加订单记录:`, orderData);
-
-        } catch (error) {
-          console.error(`处理订单 ${orderId} 行 ${i + 1} 时出错:`, error);
-        }
-      }
-    }
-
-    console.log(`总共处理了 ${orders.length} 条记录`);
-
-    if (orders.length === 0) {
-      console.log('未提取到订单数据，可能页面结构或数据格式需要调整');
-    }
-
-    return orders;
-  }
-
-  async clickSampleRequestMenu() {
-    console.log('=== 点击样品申请菜单 ===');
-    console.log('当前URL:', window.location.href);
-    try {
-      const menuSelectors = [
-        '.m4b-menu-title',
-        'div.m4b-menu-title',
-        '[class*="m4b-menu-title"]',
-        'div[class*="menu-title"]',
-        '.side-menu-item',
-        '[class*="side-menu"]'
-      ];
-
-      let menuElement = null;
-      for (const selector of menuSelectors) {
-        const elements = document.querySelectorAll(selector);
-        console.log(`选择器 ${selector} 找到 ${elements.length} 个元素`);
-        for (const el of elements) {
-          if (el.textContent && el.textContent.includes('样品申请')) {
-            console.log('找到样品申请菜单元素:', el);
-            menuElement = el;
-            break;
-          }
-        }
-        if (menuElement) break;
-      }
-
-      if (!menuElement) {
-        console.log('使用通用方式查找...');
-        const allDivs = document.querySelectorAll('div');
-        let count = 0;
-        for (const div of allDivs) {
-          if (div.textContent && div.textContent.trim() === '样品申请') {
-            console.log('找到样品申请菜单元素(通用方式):', div);
-            menuElement = div;
-            break;
-          }
-          count++;
-          if (count > 5000) break;
-        }
-      }
-
-      if (menuElement) {
-        console.log('找到样品申请菜单，正在点击');
-        menuElement.click();
-        await this.sleep(2000);
-
-        let waited = 0;
-        while (!window.location.href.includes('sample-request') && waited < 5000) {
-          await this.sleep(500);
-          waited += 500;
-        }
-
-        return { success: true, message: '已点击样品申请菜单', url: window.location.href };
-      } else {
-        console.warn('未找到样品申请菜单，尝试直接导航');
-        // 直接导航到目标页面
-        const targetUrl = 'https://affiliate.tiktokshopglobalselling.com/product/sample-request';
-        window.location.href = targetUrl;
-        // 等待导航完成
-        await this.sleep(3000);
-        return { success: true, message: '已导航到样品申请页面', url: window.location.href };
-      }
-    } catch (error) {
-      console.error('点击样品申请菜单失败:', error);
-      return { success: false, error: error.message };
-    }
-  }
-
-  async clickCreatorMenu() {
-    console.log('=== 点击达人管理菜单 ===');
-    console.log('当前URL:', window.location.href);
-    try {
-      const menuSelectors = [
-        '.m4b-menu-title',
-        'div.m4b-menu-title',
-        '[class*="m4b-menu-title"]',
-        'div[class*="menu-title"]',
-        '.side-menu-item',
-        '[class*="side-menu"]'
-      ];
-
-      let menuElement = null;
-      for (const selector of menuSelectors) {
-        const elements = document.querySelectorAll(selector);
-        console.log(`选择器 ${selector} 找到 ${elements.length} 个元素`);
-        for (const el of elements) {
-          if (el.textContent && el.textContent.includes('达人管理')) {
-            console.log('找到达人管理菜单元素:', el);
-            menuElement = el;
-            break;
-          }
-        }
-        if (menuElement) break;
-      }
-
-      if (!menuElement) {
-        console.log('使用通用方式查找...');
-        const allDivs = document.querySelectorAll('div');
-        let count = 0;
-        for (const div of allDivs) {
-          if (div.textContent && div.textContent.trim() === '达人管理') {
-            console.log('找到达人管理菜单元素(通用方式):', div);
-            menuElement = div;
-            break;
-          }
-          count++;
-          if (count > 5000) break; // 限制遍历数量
-        }
-      }
-
-      if (menuElement) {
-        console.log('找到达人管理菜单，正在点击');
-        menuElement.click();
-        await this.sleep(2000);
-
-        let waited = 0;
-        const targetPatterns = ['connection/creator-management', '/creator', 'influencer'];
-        while (waited < 5000) {
-          const currentHref = window.location.href;
-          const isTarget = targetPatterns.some(p => currentHref.includes(p));
-          if (isTarget) {
-            console.log('页面切换成功:', currentHref);
-            break;
-          }
-          await this.sleep(500);
-          waited += 500;
-        }
-
-        return { success: true, message: '已点击达人管理菜单', url: window.location.href };
-      } else {
-        console.warn('未找到达人管理菜单，尝试直接导航');
-        // 直接导航到目标页面
-        const targetUrl = 'https://affiliate.tiktokshopglobalselling.com/connection/creator-management';
-        window.location.href = targetUrl;
-        // 等待导航完成
-        await this.sleep(3000);
-        return { success: true, message: '已导航到达人管理页面', url: window.location.href };
-      }
-    } catch (error) {
-      console.error('点击达人管理菜单失败:', error);
-      return { success: false, error: error.message };
-    }
-  }
-
-  async executeAutomation(orderId) {
-    console.log(`=== 开始执行自动化流程，订单ID: ${orderId} ===`);
-    try {
-      // 显示开始进度
-      this.updatePageProgress(`开始查询订单: ${orderId}`, 'info');
-
-      console.log('步骤1：点击"全部"标签');
-      this.updatePageProgress('正在切换到全部标签...', 'info');
-
-      // 尝试查找"全部"标签，但不强制要求找到
-      let allTabElement = null;
-
-      try {
-        // 多重策略查找"全部"标签
-        allTabElement = this.findElementByText(ORDER_SELECTORS.allTab, '全部');
-
-        // 如果没找到，尝试更宽泛的选择器
-        if (!allTabElement) {
-          const allSelectors = [
-            'div[role="tab"]', // 标签页通用选择器
-            '.arco-tabs-tab-title', // Arco Design标签页
-            'span', // 更宽泛的span选择器
-            'div' // 最宽泛的div选择器
-          ];
-
-          for (const selector of allSelectors) {
-            const elements = document.querySelectorAll(selector);
-            for (const element of elements) {
-              if (element.textContent && element.textContent.trim() === '全部') {
-                allTabElement = element;
-                break;
-              }
-            }
-            if (allTabElement) break;
-          }
-        }
-
-        // 如果还是没找到，尝试查找包含"全部"的任何元素
-        if (!allTabElement) {
-          const allElements = document.querySelectorAll('*');
-          for (const element of allElements) {
-            if (element.textContent && element.textContent.trim() === '全部') {
-              allTabElement = element;
-              break;
-            }
-          }
-        }
-
-        if (allTabElement) {
-          console.log('找到"全部"标签元素，正在点击');
-          if (typeof allTabElement.click === 'function') {
-            allTabElement.click();
-            await this.sleep(500);
-          } else {
-            allTabElement.dispatchEvent(new Event('click', { bubbles: true }));
-            await this.sleep(500);
-          }
-        } else {
-          // 只记录调试信息，不显示警告
-          console.log('未找到"全部"标签，可能已在正确页面，继续执行查询');
-        }
-      } catch (tabError) {
-        console.log('查找"全部"标签时出错，但继续执行查询:', tabError.message);
-      }
-
-      console.log('步骤2：点击"达人昵称"选择框');
-      this.updatePageProgress('正在选择达人昵称字段...', 'info');
-      const creatorSelectElement = this.findElementByText(ORDER_SELECTORS.creatorSelect, '达人昵称');
-      if (creatorSelectElement) {
-        if (typeof creatorSelectElement.click === 'function') {
-          creatorSelectElement.click();
-          await this.sleep(500);
-        } else {
-          creatorSelectElement.dispatchEvent(new Event('click', { bubbles: true }));
-          await this.sleep(500);
-        }
-      }
-
-      console.log('步骤3：选择"订单ID"选项');
-      this.updatePageProgress('正在选择订单ID搜索方式...', 'info');
-      const orderIdOptionElement = this.findElementByText(ORDER_SELECTORS.orderIdOption, '订单 ID');
-      if (orderIdOptionElement) {
-        if (typeof orderIdOptionElement.click === 'function') {
-          orderIdOptionElement.click();
-          await this.sleep(500);
-        } else {
-          orderIdOptionElement.dispatchEvent(new Event('click', { bubbles: true }));
-          await this.sleep(500);
-        }
-      }
-
-      console.log('步骤4：在输入框输入订单号');
-      this.updatePageProgress('正在输入订单号...', 'info');
-      try {
-        await this.inputText(ORDER_SELECTORS.searchInput, orderId);
-        console.log('订单号输入完成');
-      } catch (inputError) {
-        console.log('订单号输入失败，使用备选方案直接查询数据');
-        this.updatePageProgress('直接查询数据...', 'info');
-      }
-
-      console.log('步骤5：触发Enter键进行搜索');
-      this.updatePageProgress('正在执行搜索...', 'info');
-      let searchTriggered = false;
-
-      try {
-        await this.triggerEnterKey(ORDER_SELECTORS.searchInput);
-        searchTriggered = true;
-        console.log('搜索触发完成');
-      } catch (enterError) {
-        console.log('Enter键搜索失败，尝试搜索按钮');
-
-        // 尝试点击搜索按钮
-        try {
-          const searchButton = this.findElement(ORDER_SELECTORS.searchButton);
-          if (searchButton) {
-            searchButton.click();
-            await this.sleep(500);
-            searchTriggered = true;
-            console.log('搜索按钮点击完成');
-          } else {
-            console.log('未找到搜索按钮，直接获取数据');
-          }
-        } catch (buttonError) {
-          console.log('搜索按钮点击失败，直接获取数据');
-        }
-      }
-
-      // 如果搜索触发成功或失败，都继续获取数据
-      if (!searchTriggered) {
-        this.updatePageProgress('正在获取数据...', 'info');
-      }
-
-      console.log('步骤6：获取数据');
-      this.updatePageProgress('正在获取查询结果...', 'info');
-      const orders = await this.getTableData(orderId);
-
-      console.log(`正在保存 ${orders.length} 条订单数据到IndexedDB`);
-      this.updatePageProgress(`正在保存 ${orders.length} 条数据...`, 'info');
-      for (const order of orders) {
-        try {
-          await this.db.saveOrder(order);
-          console.log(`已保存订单: ${order.orderId} - ${order.productId}`);
-        } catch (saveError) {
-          console.error(`保存订单失败: ${order.orderId}`, saveError);
-          throw saveError;
-        }
-      }
-      console.log('所有订单数据保存完成');
-      this.updatePageProgress(`查询完成！获取到 ${orders.length} 条数据`, 'success');
-
-      // 5秒后自动隐藏进度显示
-      setTimeout(() => {
-        this.hidePageProgress();
-      }, 5000);
-
-      return { success: true, data: orders };
-    } catch (error) {
-      console.error('Automation failed:', error);
-      this.updatePageProgress(`查询失败: ${error.message}`, 'error');
-
-      // 5秒后自动隐藏进度显示
-      setTimeout(() => {
-        this.hidePageProgress();
-      }, 5000);
-
-      return { success: false, error: error.message };
-    }
-  }
-
-  async clearData() {
-    try {
-      await this.db.clearAll();
-      console.log('所有订单数据已清空');
-      return { success: true };
-    } catch (error) {
-      console.error('清空数据失败:', error);
-      return { success: false, error: error.message };
-    }
-  }
-
-  async getDataForExport() {
-    try {
-      const orders = await this.db.getAllOrders();
-      console.log(`获取到 ${orders.length} 条数据用于导出:`, orders);
-
-      if (orders.length === 0) {
-        return { success: false, error: '没有数据可导出' };
-      }
-
-      return { success: true, data: orders };
-    } catch (error) {
-      console.error('获取导出数据失败:', error);
-      return { success: false, error: error.message };
-    }
-  }
-}
-
-// 初始化订单自动化实例
-const orderAutomation = new OrderAutomation();
-
-console.log('=== 订单查询功能已加载 ===');
-console.log('当前页面URL:', window.location.href);
-
-// 监听来自popup的消息（订单查询相关）
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  console.log('收到订单查询消息:', request.action, request);
-  if (request.action === 'clickSampleRequestMenu') {
-    orderAutomation.clickSampleRequestMenu().then(sendResponse);
-    return true;
-  } else if (request.action === 'clickCreatorMenu') {
-    orderAutomation.clickCreatorMenu().then(sendResponse);
-    return true;
-  } else if (request.action === 'startOrderAutomation') {
-    orderAutomation.executeAutomation(request.orderId).then(sendResponse);
-    return true;
-  } else if (request.action === 'exportOrderData') {
-    orderAutomation.getDataForExport().then(sendResponse);
-    return true;
-  } else if (request.action === 'clearOrderData') {
-    orderAutomation.clearData().then(sendResponse);
-    return true;
-  }
-});
-
-// ===== 批量获取CID功能（TikTokShopCidExtractor）=====
-
-class TikTokShopCidExtractor {
-  constructor() {
-    this.pending = null;
-    this.init();
-    console.log('[CID] content script 已加载');
-  }
-
-  init() {
-    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-      if (request.action === 'searchCreator') {
-        this.searchCreator(request.creatorId)
-          .then((res) => sendResponse(res))
-          .catch((err) => sendResponse({ success: false, error: err?.message || String(err) }));
-        return true;
-      }
-      if (request.action === 'showBatchProgress') {
-        this.showBatchProgress(request);
-        sendResponse({ success: true });
-        return false;
-      }
-    });
-
-    window.addEventListener('message', (event) => {
-      if (event.source !== window) return;
-      const data = event.data;
-      if (!data || data.source !== 'tt-cid-hook') return;
-      if (data.type !== 'candidates') return;
-      this.safeSendMessage({
-        action: 'hookCandidates',
-        url: data.url,
-        candidates: data.candidates
-      });
-    });
-  }
-
-  safeSendMessage(message) {
-    try {
-      if (!chrome.runtime?.id) {
-        console.warn('[CID] 扩展上下文已失效');
-        return;
-      }
-      chrome.runtime.sendMessage(message);
-    } catch (e) {
-      console.warn('[CID] 扩展上下文失效，消息发送失败:', e.message);
-    }
-  }
-
-  safeSendMessagePromise(message) {
-    try {
-      if (!chrome.runtime?.id) {
-        console.warn('[CID] 扩展上下文已失效');
-        return Promise.resolve({ success: false, error: '扩展上下文失效' });
-      }
-      return chrome.runtime.sendMessage(message);
-    } catch (e) {
-      console.warn('[CID] 扩展上下文失效，消息发送失败:', e.message);
-      return Promise.resolve({ success: false, error: '扩展上下文失效' });
-    }
-  }
-
-  async searchCreator(creatorIdRaw) {
-    const creatorId = String(creatorIdRaw || '').trim();
-    if (!creatorId) throw new Error('请输入达人ID');
-
-    // 1) 安装网络 hook
-    const hookRes = await this.safeSendMessagePromise({ action: 'installNetworkHook' });
-    console.log('[CID] installNetworkHook 返回:', hookRes);
-
-    // 2) 查找搜索输入框
-    const input = await this.findInputElement();
-    if (!input) throw new Error('找不到搜索输入框，请确保页面已正确加载');
-
-    // 3) 先让后台开始等待 cid，再触发搜索
-    const waitCidPromise = this.safeSendMessagePromise({
-      action: 'startWaitingForCid',
-      query: creatorId,
-      timeoutMs: 20000
-    });
-
-    // 清空输入框
-    this.setNativeInputValue(input, '');
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-    input.dispatchEvent(new Event('change', { bubbles: true }));
-    await this.delay(100);
-
-    // 设置新的搜索值
-    this.setNativeInputValue(input, creatorId);
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-    input.dispatchEvent(new Event('change', { bubbles: true }));
-    await this.delay(100);
-
-    // 触发 Enter
-    const keyInit = { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true };
-    input.dispatchEvent(new KeyboardEvent('keydown', keyInit));
-    input.dispatchEvent(new KeyboardEvent('keypress', keyInit));
-    input.dispatchEvent(new KeyboardEvent('keyup', keyInit));
-
-    try {
-      if (input.form?.requestSubmit) input.form.requestSubmit();
-    } catch (_) { }
-
-    const waitRes = await waitCidPromise;
-    if (!waitRes?.success || !waitRes.cid) {
-      throw new Error(waitRes?.error || '等待CID失败');
-    }
-    const cid = String(waitRes.cid);
-    console.log('[CID] 已获取CID:', cid, 'sourceUrl:', waitRes.sourceUrl);
-
-    const url = this.buildDetailUrl(cid);
-
-    // 等待搜索结果DOM渲染，抓取头像
-    await this.delay(1500);
-    const avatarBase64 = await this.getAvatarBase64();
-    console.log('[CID] 头像抓取:', avatarBase64 ? '成功' : '未获取到');
-
-    await this.safeSendMessagePromise({ action: 'storeResult', data: { id: creatorId, cid, url, avatarBase64 } });
-    const openRes = await this.safeSendMessagePromise({ action: 'openTab', url });
-    if (openRes?.success && openRes?.tabId) {
-      await this.safeSendMessagePromise({ action: 'closeTab', tabId: openRes.tabId });
-    }
-
-    return { success: true, cid, url, avatarBase64 };
-  }
-
-  async getAvatarBase64() {
-    const XPATH = '/html/body/div[1]/div/div[2]/main/div/div/div/div/div/div[2]/div[4]/div[4]/div/div/div[1]/div/div/div[3]/table/tbody/tr/td[1]/div/div/div/div/div/div[1]/span/img';
-    const CSS_FALLBACKS = [
-      'table tbody tr:first-child td:first-child span img',
-      'table tbody tr:first-child td:first-child img',
-      '.arco-table-body tr:first-child td:first-child img'
-    ];
-    for (let attempt = 0; attempt < 5; attempt++) {
-      if (attempt > 0) await this.delay(500);
-      let imgSrc = '';
-      try {
-        const node = document.evaluate(XPATH, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-        if (node && node.src && node.src.startsWith('http')) imgSrc = node.src;
-      } catch (_) { }
-      if (!imgSrc) {
-        for (const sel of CSS_FALLBACKS) {
-          const img = document.querySelector(sel);
-          if (img && img.src && img.src.startsWith('http')) { imgSrc = img.src; break; }
-        }
-      }
-      if (imgSrc) {
-        const b64 = await this.fetchImageAsBase64(imgSrc);
-        if (b64) return b64;
-      }
-    }
-    return '';
-  }
-
-  async fetchImageAsBase64(url) {
-    try {
-      const resp = await fetch(url);
-      if (!resp.ok) return '';
-      const buf = await resp.arrayBuffer();
-      const bytes = new Uint8Array(buf);
-      let bin = '';
-      for (let i = 0; i < bytes.length; i += 8192) {
-        bin += String.fromCharCode(...bytes.subarray(i, i + 8192));
-      }
-      const mime = resp.headers.get('content-type') || 'image/jpeg';
-      return `data:${mime};base64,${btoa(bin)}`;
-    } catch (e) {
-      console.warn('[CID] 头像fetch失败:', e.message);
-      return '';
-    }
-  }
-
-  buildDetailUrl(cid) {
-    const base = 'https://affiliate.tiktokshopglobalselling.com/connection/creator/detail';
-    const params = new URLSearchParams(window.location.search);
-    const shopRegion = params.get('shop_region') || 'MY';
-    const enterFrom = params.get('enter_from') || 'affiliate_crm';
-    return `${base}?cid=${encodeURIComponent(cid)}&enter_from=${encodeURIComponent(enterFrom)}&shop_region=${encodeURIComponent(shopRegion)}`;
-  }
-
-  setNativeInputValue(input, value) {
-    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
-    if (setter) setter.call(input, value);
-    else input.value = value;
-  }
-
-  async findInputElement() {
-    const selectors = [
-      '#keyword_input',
-      'input[placeholder*="搜索达人"]',
-      'input[placeholder*="搜索"]',
-      'input[data-tid="m4b_input_search"]'
-    ];
-    for (const sel of selectors) {
-      const el = document.querySelector(sel);
-      if (el) return el;
-    }
-    for (let i = 0; i < 10; i++) {
-      await this.delay(500);
-      for (const sel of selectors) {
-        const el = document.querySelector(sel);
-        if (el) return el;
-      }
-    }
-    return null;
-  }
-
-  delay(ms) {
-    return new Promise((r) => setTimeout(r, ms));
-  }
-
-  showBatchProgress(data) {
-    let container = document.getElementById('tt-cid-batch-progress');
-    if (!container) {
-      container = document.createElement('div');
-      container.id = 'tt-cid-batch-progress';
-      container.style.cssText = `
-        position: fixed;
-        bottom: 24px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: rgba(0, 0, 0, 0.3);
-        backdrop-filter: blur(8px);
-        -webkit-backdrop-filter: blur(8px);
-        color: white;
-        padding: 16px 24px;
-        border-radius: 8px;
-        z-index: 2147483647;
-        font-size: 14px;
-        font-family: sans-serif;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 8px;
-        pointer-events: none;
-        min-width: 320px;
-      `;
-      document.body.appendChild(container);
-    }
-
-    if (data.status === 'running') {
-      const pct = data.total > 0 ? Math.round((data.currentIndex / data.total) * 100) : 0;
-      container.innerHTML = `
-        <div style="font-weight: bold; font-size: 16px; color: #ff0050; margin-bottom: 4px;">⚠️ 正在批量获取CID，请勿操作浏览器！</div>
-        <div style="font-size: 15px;">进度: ${data.currentIndex} / ${data.total} (${pct}%)</div>
-        <div style="font-size: 13px; color: #ccc;">正在处理: ${data.currentCreatorId || ''}</div>
-        <div style="display: flex; gap: 16px; font-size: 13px; margin-top: 4px;">
-          <span style="color: #4ade80;">✅ 成功: ${data.successCount}</span>
-          <span style="color: #f87171;">❌ 失败: ${data.failCount}</span>
-        </div>
-        <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.2); border-radius: 3px; margin-top: 6px; overflow: hidden;">
-          <div style="width: ${pct}%; height: 100%; background: #ff0050; transition: width 0.3s ease-out;"></div>
-        </div>
-      `;
-    } else if (data.status === 'completed') {
-      container.innerHTML = `
-        <div style="font-weight: bold; font-size: 18px; color: #4ade80;">✅ 批量获取CID完成</div>
-        <div style="display: flex; gap: 16px; font-size: 14px; margin-top: 8px;">
-          <span style="color: #4ade80;">成功: ${data.successCount}</span>
-          <span style="color: #f87171;">失败: ${data.failCount}</span>
-        </div>
-        <div style="font-size: 12px; color: #ccc; margin-top: 8px;">此提示将在 5 秒后消失...</div>
-      `;
-      setTimeout(() => {
-        if (container && container.parentNode) {
-          container.parentNode.removeChild(container);
-        }
-      }, 5000);
-    }
-  }
-}
-
-// 初始化 CID 抓取器
-new TikTokShopCidExtractor();
-
 // ==========================================================
-// 通过CID查达人 内容抓取区 (移植自 CID_NAME)
+// 达人ID隐藏功能
 // ==========================================================
 (function () {
-  function createStatusDisplay() {
-    let statusDiv = document.getElementById('tiktok-cidtoname-status-display');
-    if (!statusDiv) {
-      statusDiv = document.createElement('div');
-      statusDiv.id = 'tiktok-cidtoname-status-display';
-      statusDiv.style.cssText = `
-        position: fixed; bottom: 20px; left: 20px; z-index: 10000;
-        background: #007bff; color: white; padding: 10px 15px; border-radius: 5px;
-        font-size: 14px; box-shadow: 0 2px 10px rgba(0,0,0,0.3); max-width: 300px; word-wrap: break-word;
-      `;
-      document.body.appendChild(statusDiv);
-    }
-    return statusDiv;
-  }
+  const BLACKLIST_STORAGE_KEY = 'creatorBlacklist';
 
-  function updateStatus(message) {
-    let statusDiv = createStatusDisplay();
-    statusDiv.textContent = message;
-    setTimeout(() => {
-      if (statusDiv.parentNode) statusDiv.parentNode.removeChild(statusDiv);
-    }, 3000);
-  }
-
-  function isValidUsername(text) {
-    if (!text) return false;
-    const trimmedText = text.trim();
-    return trimmedText.length >= 3 && trimmedText.length <= 50 &&
-      /^[a-zA-Z0-9_@.-]+$/.test(trimmedText) && /[a-zA-Z]/.test(trimmedText);
-  }
-
-  function extractUsername() {
-    try {
-      updateStatus('开始搜索达人ID...');
-      const selectors = [
-        'span[data-e2e="b7f56c3b-f013-3448"]',
-        '[data-e2e*="username"]', '[data-testid*="username"]',
-        '.text-head-l.mr-8', '.text-head-l', 'h1 span:first-child', '.profile-username',
-        '.creator-name', '.username', '.display-name', 'span:not(:empty)[class*="text"]:first-child',
-        'div > span:last-child', '.ant-typography'
-      ];
-      for (const selector of selectors) {
-        try {
-          const element = document.querySelector(selector);
-          if (element && element.textContent && isValidUsername(element.textContent)) {
-            const txt = element.textContent.trim();
-            updateStatus(`找到达人ID: ${txt}`);
-            return txt;
-          }
-        } catch (e) { continue; }
+  // 注入样式
+  function injectBlacklistStyles() {
+    if (document.getElementById('creator-blacklist-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'creator-blacklist-styles';
+    style.textContent = `
+      .creator-blacklist-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 50px;
+        height: 24px;
+        margin-left: 8px;
+        padding: 0 6px;
+        background: #ffe0e6;
+        border: 1px solid #ff0050;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        color: #ff0050;
+        white-space: nowrap;
       }
-      updateStatus('尝试广泛搜索...');
-      const allElements = document.querySelectorAll('span, div, h1, h2, h3, p, a, li');
-      for (const element of allElements) {
-        const text = element.textContent && element.textContent.trim();
-        if (text && isValidUsername(text)) {
-          if (element.closest('.profile, .user, .creator, .detail')) {
-            updateStatus(`找到达人ID: ${text}`);
-            return text;
-          }
+      .creator-blacklist-btn:hover {
+        background: #ffc9d9;
+        border-color: #ff0050;
+        color: #ff0050;
+      }
+      .creator-blacklist-btn.blacklisted {
+        background: #f5f5f5;
+        border-color: #d9d9d9;
+        color: #666;
+      }
+      .creator-id-blacklisted {
+        text-decoration: line-through !important;
+        opacity: 0.25 !important;
+        color: inherit !important;
+      }
+      /* 确保即使有悬浮效果也保持隐藏样式 */
+      .creator-id-blacklisted:hover {
+        text-decoration: line-through !important;
+        opacity: 0.25 !important;
+      }
+    `;
+    document.documentElement.appendChild(style);
+  }
+
+  // 加载黑名单
+  function loadBlacklist() {
+    return new Promise(resolve => {
+      try {
+        if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) {
+          resolve([]);
+          return;
         }
+        chrome.storage.local.get([BLACKLIST_STORAGE_KEY], result => {
+          try {
+            const blacklist = result[BLACKLIST_STORAGE_KEY] || [];
+            const converted = blacklist.map(item => {
+              if (typeof item === 'string') {
+                return { id: item, blacklistedAt: Date.now() };
+              }
+              return item;
+            });
+            resolve(converted);
+          } catch (parseError) {
+            console.debug('黑名单数据转换失败', parseError);
+            resolve([]);
+          }
+        });
+      } catch (error) {
+        console.debug('加载黑名单失败', error);
+        resolve([]);
       }
-      for (const element of allElements) {
-        const text = element.textContent && element.textContent.trim();
-        if (text) {
-          const matches = text.match(/@?([a-zA-Z0-9._]{3,30})/);
-          if (matches && matches[1]) {
-            const username = matches[1].replace('@', '');
-            if (isValidUsername(username)) {
-              updateStatus(`找到达人ID: ${username}`);
-              return username;
+    });
+  }
+
+  // 保存黑名单
+  function saveBlacklist(blacklist) {
+    if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) {
+      return Promise.resolve();
+    }
+    return new Promise(resolve => {
+      try {
+        chrome.storage.local.set({ [BLACKLIST_STORAGE_KEY]: blacklist }, () => {
+          try {
+            if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
+              chrome.runtime.sendMessage({ action: 'blacklistUpdated', blacklistCount: blacklist.length }).catch(() => {});
             }
+          } catch (msgError) {
+            console.debug('黑名单更新消息发送失败', msgError);
           }
+          resolve();
+        });
+      } catch (storageError) {
+        console.debug('黑名单保存失败', storageError);
+        resolve();
+      }
+    });
+  }
+
+  // 获取达人ID文本
+  function getCreatorIdFromElement(element) {
+    const textContent = element.textContent || '';
+    return textContent.trim();
+  }
+
+  // 创建隐藏按钮
+  function createBlacklistButton(creatorIdElement, creatorId) {
+    const btn = document.createElement('button');
+    btn.className = 'creator-blacklist-btn';
+    btn.textContent = '隐藏';
+    btn.title = '点击隐藏此达人';
+    btn.type = 'button';
+
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      try {
+        const blacklist = await loadBlacklist();
+        const isBlacklisted = blacklist.some(item => item.id === creatorId);
+
+        if (isBlacklisted) {
+          const index = blacklist.findIndex(item => item.id === creatorId);
+          if (index !== -1) {
+            blacklist.splice(index, 1);
+          }
+          creatorIdElement.classList.remove('creator-id-blacklisted');
+          btn.classList.remove('blacklisted');
+          btn.textContent = '隐藏';
+          btn.title = '点击隐藏此达人';
+        } else {
+          blacklist.push({
+            id: creatorId,
+            blacklistedAt: Date.now()
+          });
+          creatorIdElement.classList.add('creator-id-blacklisted');
+          btn.classList.add('blacklisted');
+          btn.textContent = '解除';
+          btn.title = '点击取消隐藏';
+        }
+
+        await saveBlacklist(blacklist);
+      } catch (error) {
+        if (!error.message.includes('Extension context invalidated')) {
+          console.error('隐藏操作出错', error);
         }
       }
-      updateStatus('未能找到达人ID');
-      return null;
-    } catch (error) {
-      updateStatus('提取过程中发生错误');
-      return null;
+    });
+
+    return btn;
+  }
+
+  // 初始化隐藏功能
+  async function initBlacklistFeature() {
+    try {
+      injectBlacklistStyles();
+
+      const blacklist = await loadBlacklist();
+
+      const observer = new MutationObserver(mutations => {
+        try {
+          mutations.forEach(mutation => {
+            if (mutation.addedNodes.length > 0) {
+              mutation.addedNodes.forEach(node => {
+                try {
+                  if (node.nodeType === Node.ELEMENT_NODE) {
+                    const idElements = node.querySelectorAll ?
+                      node.querySelectorAll('[class*="creator-info__HightBoldText"]') :
+                      [];
+
+                    idElements.forEach(el => {
+                      try {
+                        const text = getCreatorIdFromElement(el);
+                        if (text && (text.startsWith('@') || /[a-zA-Z]/.test(text))) {
+                          processCreatorIdElement(el, blacklist);
+                        }
+                      } catch (eErr) {}
+                    });
+                  }
+                } catch (nodeErr) {}
+              });
+            }
+          });
+        } catch (mutationErr) {
+          console.debug('MutationObserver 处理出错', mutationErr);
+        }
+      });
+
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+        attributes: false,
+        characterData: false
+      });
+
+      const allIdElements = document.querySelectorAll('[class*="creator-info__HightBoldText"]');
+      allIdElements.forEach(el => {
+        try {
+          const text = getCreatorIdFromElement(el);
+          if (text && (text.startsWith('@') || /[a-zA-Z]/.test(text))) {
+            processCreatorIdElement(el, blacklist);
+          }
+        } catch (elErr) {}
+      });
+    } catch (initError) {
+      console.debug('隐藏功能初始化失败', initError);
     }
   }
 
-  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (window !== window.top) return;
+  // 处理达人ID元素
+  function processCreatorIdElement(idElement, blacklist) {
+    const creatorId = getCreatorIdFromElement(idElement);
 
-    if (request.action === 'extractUsername') {
-      updateStatus('正在提取达人ID...');
-      const username = extractUsername();
-      if (username) {
-        let avatarUrl = '';
-        const imgElements = document.querySelectorAll('img');
-        for (const img of imgElements) {
-          if (img.src && img.src.includes('tiktokcdn.com') && img.src.includes('avt-')) {
-            avatarUrl = img.src;
-            break;
-          }
-        }
+    if (!creatorId) return;
 
-        sendResponse({ username: username, cid: request.cid, avatarUrl: avatarUrl });
-      } else {
-        updateStatus('未能提取到达人ID');
-        sendResponse({ username: null, cid: request.cid });
-      }
-      return true;
+    let parentContainer = idElement.parentNode;
+    const existingBtn = parentContainer?.querySelector('.creator-blacklist-btn');
+
+    if (!existingBtn && parentContainer) {
+      const btn = createBlacklistButton(idElement, creatorId);
+      parentContainer.appendChild(btn);
     }
-  });
+
+    if (blacklist.some(item => item.id === creatorId)) {
+      idElement.classList.add('creator-id-blacklisted');
+      idElement.style.textDecoration = 'line-through';
+      idElement.style.opacity = '0.25';
+
+      const btn = idElement.parentNode?.querySelector('.creator-blacklist-btn');
+      if (btn) {
+        btn.classList.add('blacklisted');
+        btn.textContent = '解除';
+      }
+
+      const styleObserver = new MutationObserver(() => {
+        try {
+          if (!idElement.style.textDecoration.includes('line-through')) {
+            idElement.style.textDecoration = 'line-through';
+          }
+          if (idElement.style.opacity !== '0.25') {
+            idElement.style.opacity = '0.25';
+          }
+        } catch (e) {}
+      });
+
+      styleObserver.observe(idElement, {
+        attributes: true,
+        attributeFilter: ['style'],
+        subtree: false
+      });
+
+      idElement.addEventListener('mouseenter', () => {
+        idElement.style.textDecoration = 'line-through';
+        idElement.style.opacity = '0.25';
+      }, true);
+
+      idElement.addEventListener('mouseleave', () => {
+        idElement.style.textDecoration = 'line-through';
+        idElement.style.opacity = '0.25';
+      }, true);
+    }
+  }
+
+  // 页面加载完成后初始化
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      try {
+        initBlacklistFeature();
+      } catch (e) {
+        console.debug('隐藏功能初始化失败', e);
+      }
+    });
+  } else {
+    try {
+      initBlacklistFeature();
+    } catch (e) {
+      console.debug('隐藏功能初始化失败', e);
+    }
+  }
+
+  // 全局错误处理：捕获未处理的上下文失效错误
+  window.addEventListener('unhandledrejection', event => {
+    if (event.reason && event.reason.message &&
+      event.reason.message.includes('Extension context invalidated')) {
+      event.preventDefault();
+    }
+  }, { passive: false });
 })();
 
 // ==========================================================

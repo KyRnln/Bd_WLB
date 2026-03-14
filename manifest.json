@@ -4,10 +4,10 @@
   "version": "1.2",
   "description": "工作是为了更好的生活",
   "icons": {
-    "16": "icon16.png",
-    "32": "icon32.png",
-    "48": "icon48.png",
-    "128": "icon128.png"
+    "16": "icon/icon16.png",
+    "32": "icon/icon32.png",
+    "48": "icon/icon48.png",
+    "128": "icon/icon128.png"
   },
   "permissions": [
     "activeTab",
@@ -46,20 +46,48 @@
       ],
       "run_at": "document_start",
       "all_frames": true
+    },
+    {
+      "matches": [
+        "https://affiliate.tiktokshopglobalselling.com/*"
+      ],
+      "js": [
+        "username_avatarcid/username_avatarcid_content.js"
+      ],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://affiliate.tiktokshopglobalselling.com/*"
+      ],
+      "js": [
+        "order/order_content.js"
+      ],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://affiliate.tiktokshopglobalselling.com/connection/creator/detail*"
+      ],
+      "js": [
+        "cid_to_name/cid_to_name_content.js"
+      ],
+      "run_at": "document_end"
     }
   ],
   "action": {
     "default_popup": "popup.html",
     "default_title": "商务WLB插件",
     "default_icon": {
-      "16": "icon16.png",
-      "32": "icon32.png",
-      "48": "icon48.png",
-      "128": "icon128.png"
+      "16": "icon/icon16.png",
+      "32": "icon/icon32.png",
+      "48": "icon/icon48.png",
+      "128": "icon/icon128.png"
     }
   },
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
   "web_accessible_resources": [
     {
