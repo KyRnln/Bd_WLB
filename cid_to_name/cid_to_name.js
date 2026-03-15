@@ -270,7 +270,7 @@
     statusPollInterval = setInterval(async () => {
       try {
         const response = await chrome.runtime.sendMessage({ action: 'getBatchQueryStatus_cidToName' });
-        if (response.success && response.status) {
+        if (response && response.success && response.status) {
           updateBatchQueryUI(response.status);
           if (!response.status.isRunning) {
             clearInterval(statusPollInterval);
@@ -295,8 +295,12 @@
             }
             await chrome.runtime.sendMessage({ action: 'clearBatchQueryStatus_cidToName' });
             showStatus(`✅ 批量查询完成！成功 ${response.status.successCount} 个，失败 ${response.status.failCount} 个`, 'success');
-            document.getElementById('cidToNameSearchBtn').disabled = false;
-            document.getElementById('cidToNameSearchBtn').textContent = '批量查询';
+            const searchBtn = document.getElementById('cidToNameSearchBtn');
+            const stopBtn = document.getElementById('cidToNameStopBtn');
+            searchBtn.disabled = false;
+            searchBtn.textContent = '批量查询';
+            searchBtn.style.display = 'inline-block';
+            stopBtn.style.display = 'none';
           }
         }
       } catch (error) {
@@ -307,6 +311,7 @@
 
   document.addEventListener('DOMContentLoaded', async () => {
     const searchBtn = document.getElementById('cidToNameSearchBtn');
+    const stopBtn = document.getElementById('cidToNameStopBtn');
     const exportBtn = document.getElementById('cidToNameExportBtn');
     const clearBtn = document.getElementById('cidToNameClearBtn');
     const inputArea = document.getElementById('cidToNameInput');
@@ -334,6 +339,28 @@
       }
     });
 
+    async function stopBatchQuery() {
+      try {
+        await chrome.runtime.sendMessage({ action: 'stopBatchQuery_cidToName' });
+        showStatus('正在停止...', 'info');
+        stopBtn.disabled = true;
+        stopBtn.textContent = '停止中...';
+      } catch (e) {
+        console.error('停止失败:', e);
+      }
+    }
+
+    if (stopBtn) stopBtn.addEventListener('click', stopBatchQuery);
+
+    function resetQueryUI() {
+      searchBtn.disabled = false;
+      searchBtn.textContent = '批量查询';
+      searchBtn.style.display = 'inline-block';
+      stopBtn.style.display = 'none';
+      stopBtn.disabled = false;
+      stopBtn.textContent = '停止';
+    }
+
     if (searchBtn) searchBtn.addEventListener('click', async () => {
       if (batchQueryInProgress) {
         alert('批量查询正在进行中，请等待完成。');
@@ -349,8 +376,8 @@
       }
 
       batchQueryInProgress = true;
-      searchBtn.disabled = true;
-      searchBtn.textContent = '查询中...';
+      searchBtn.style.display = 'none';
+      stopBtn.style.display = 'inline-block';
 
       try {
         const response = await chrome.runtime.sendMessage({
@@ -359,20 +386,18 @@
           region: region
         });
 
-        if (response.success) {
+        if (response && response.success) {
           startStatusPolling();
         } else {
-          showStatus('❌ 批量查询启动失败: ' + response.error, 'error');
+          showStatus('❌ 批量查询启动失败: ' + (response?.error || '未知错误'), 'error');
           batchQueryInProgress = false;
-          searchBtn.disabled = false;
-          searchBtn.textContent = '批量查询';
+          resetQueryUI();
         }
       } catch (error) {
         console.error('batch query start error', error);
         showStatus('❌ 批量查询发生错误', 'error');
         batchQueryInProgress = false;
-        searchBtn.disabled = false;
-        searchBtn.textContent = '批量查询';
+        resetQueryUI();
       }
     });
 
@@ -382,6 +407,44 @@
         await loadResults();
       } catch (e) { }
     });
+
+    // 初始化：检查是否有正在运行的任务或已完成的结果
+    async function checkRunningTask() {
+      try {
+        const response = await chrome.runtime.sendMessage({ action: 'getBatchQueryStatus_cidToName' });
+        if (response && response.success && response.status) {
+          const status = response.status;
+          if (status.isRunning) {
+            batchQueryInProgress = true;
+            searchBtn.style.display = 'none';
+            stopBtn.style.display = 'inline-block';
+            startStatusPolling();
+          } else if (Array.isArray(status.results) && status.results.length > 0) {
+            // 任务已完成但有未处理的结果
+            const uniqueResults = new Map();
+            for (const result of status.results) {
+              if (result.username && result.username !== '查询失败') {
+                uniqueResults.set(result.cid, {
+                  cid: result.cid,
+                  region: result.region,
+                  username: result.username,
+                  avatarUrl: result.avatarUrl || ''
+                });
+              }
+            }
+            for (const [cid, result] of uniqueResults) {
+              await addResult(result.cid, result.region, result.username, result.avatarUrl);
+            }
+            showStatus(`✅ 已恢复 ${uniqueResults.size} 条查询结果`, 'success');
+            await chrome.runtime.sendMessage({ action: 'clearBatchQueryStatus_cidToName' });
+          }
+        }
+      } catch (e) {
+        console.error('检查任务状态失败:', e);
+      }
+    }
+
+    checkRunningTask();
 
     backBtn.addEventListener('click', () => {
       window.location.href = '../popup.html';

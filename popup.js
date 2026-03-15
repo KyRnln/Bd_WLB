@@ -18,6 +18,118 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnCidToName = document.getElementById('btnCidToName');
   const btnOrder = document.getElementById('btnOrder');
 
+  const btnCoverOriginalText = btnCover ? btnCover.textContent : '📹 获取视频封面';
+  const btnCidOriginalText = btnCid ? btnCid.textContent : '👤 获取头像/CID';
+  const btnCidToNameOriginalText = btnCidToName ? btnCidToName.textContent : '🔍 通过CID获取达人信息';
+  const btnOrderOriginalText = btnOrder ? btnOrder.textContent : '📦 获取订单履约情况';
+
+  // 更新按钮状态样式
+  function setButtonRunning(btn, text) {
+    if (!btn) return;
+    btn.textContent = text;
+    btn.style.background = '#3b82f6';
+    btn.style.color = '#fff';
+  }
+
+  function resetButton(btn, originalText) {
+    if (!btn) return;
+    btn.textContent = originalText;
+    btn.style.background = '';
+    btn.style.color = '';
+  }
+
+  // 监听获取封面状态
+  async function updateCoverButtonStatus() {
+    if (!btnCover) return;
+    try {
+      const result = await new Promise(resolve => 
+        storageAPI.get(['coverFetchStatus'], resolve)
+      );
+      const status = result.coverFetchStatus;
+      if (status && status.status === 'running') {
+        const { currentIndex, total, successCount, failCount } = status;
+        setButtonRunning(btnCover, `${currentIndex}/${total} ✅${successCount} ❌${failCount}`);
+      } else {
+        resetButton(btnCover, btnCoverOriginalText);
+      }
+    } catch (e) {
+      resetButton(btnCover, btnCoverOriginalText);
+    }
+  }
+
+  // 监听获取CID状态
+  async function updateCidButtonStatus() {
+    if (!btnCid) return;
+    try {
+      const result = await new Promise(resolve => 
+        storageAPI.get(['batchSearchStatus'], resolve)
+      );
+      const status = result.batchSearchStatus;
+      if (status && status.status === 'running') {
+        const { currentIndex, total, successCount, failCount } = status;
+        setButtonRunning(btnCid, `${currentIndex}/${total} ✅${successCount} ❌${failCount}`);
+      } else {
+        resetButton(btnCid, btnCidOriginalText);
+      }
+    } catch (e) {
+      resetButton(btnCid, btnCidOriginalText);
+    }
+  }
+
+  // 监听通过CID获取达人状态
+  async function updateCidToNameButtonStatus() {
+    if (!btnCidToName) return;
+    try {
+      const result = await new Promise(resolve => 
+        storageAPI.get(['batchQueryState_cidToName'], resolve)
+      );
+      const status = result.batchQueryState_cidToName;
+      if (status && status.isRunning) {
+        const { currentIndex, total, successCount, failCount } = status;
+        setButtonRunning(btnCidToName, `${currentIndex}/${total} ✅${successCount} ❌${failCount}`);
+      } else {
+        resetButton(btnCidToName, btnCidToNameOriginalText);
+      }
+    } catch (e) {
+      resetButton(btnCidToName, btnCidToNameOriginalText);
+    }
+  }
+
+  // 监听订单查询状态
+  async function updateOrderButtonStatus() {
+    if (!btnOrder) return;
+    try {
+      const result = await new Promise(resolve => 
+        storageAPI.get(['orderQueryState'], resolve)
+      );
+      const status = result.orderQueryState;
+      if (status && status.isRunning) {
+        const { currentIndex, total, processedCount, failedCount } = status;
+        setButtonRunning(btnOrder, `${currentIndex}/${total} ✅${processedCount || 0} ❌${failedCount || 0}`);
+      } else {
+        resetButton(btnOrder, btnOrderOriginalText);
+      }
+    } catch (e) {
+      resetButton(btnOrder, btnOrderOriginalText);
+    }
+  }
+
+  // 初始化时检查所有状态
+  updateCoverButtonStatus();
+  updateCidButtonStatus();
+  updateCidToNameButtonStatus();
+  updateOrderButtonStatus();
+
+  // 监听存储变化
+  storageAPI.onChanged.addListener((changes, area) => {
+    if (area === 'local') {
+      if (changes.coverFetchStatus) updateCoverButtonStatus();
+      if (changes.batchSearchStatus) updateCidButtonStatus();
+      if (changes.batchQueryState_cidToName) updateCidToNameButtonStatus();
+      if (changes.orderQueryState) updateOrderButtonStatus();
+    }
+  });
+
   if (btnCover) {
     btnCover.addEventListener('click', () => {
       window.location.href = 'cover/cover.html';
@@ -72,7 +184,7 @@ document.addEventListener('DOMContentLoaded', () => {
     statusDiv.style.display = 'block';
     setTimeout(() => {
       statusDiv.style.display = 'none';
-    }, 1800);
+    }, 20000);
   }
 
   // 加载WebDAV配置

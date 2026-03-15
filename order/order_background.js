@@ -14,6 +14,15 @@ let orderQueryState = {
   failedOrders: []
 };
 
+// 初始化：从 storage 恢复状态
+async function initOrderQueryState() {
+  const stored = await chrome.storage.local.get('orderQueryState');
+  if (stored.orderQueryState) {
+    orderQueryState = { ...orderQueryState, ...stored.orderQueryState };
+  }
+}
+initOrderQueryState();
+
 async function executeOrderQuery(tabId, orderIds) {
   for (let i = 0; i < orderIds.length; i++) {
     if (orderQueryState.shouldStop) {
@@ -164,7 +173,12 @@ async function handleOrderMessage(request, downloadExcel) {
     }
     case 'getOrderQueryStatus': {
       const state = await chrome.storage.local.get('orderQueryState');
-      return { success: true, state: state.orderQueryState || null };
+      const orders = await chrome.storage.local.get('orderQueryOrders');
+      const stateData = state.orderQueryState || null;
+      if (stateData && !stateData.isRunning && stateData.allOrders.length === 0) {
+        stateData.allOrders = orders.orderQueryOrders || [];
+      }
+      return { success: true, state: stateData };
     }
     case 'stopOrderQuery': {
       orderQueryState.shouldStop = true;
@@ -185,7 +199,7 @@ async function handleOrderMessage(request, downloadExcel) {
         allOrders: [],
         failedOrders: []
       };
-      await chrome.storage.local.remove('orderQueryState');
+      await chrome.storage.local.remove(['orderQueryState', 'orderQueryOrders']);
       return { success: true };
     }
     case 'exportOrderData': {

@@ -2,6 +2,7 @@
 import { handleCidToNameMessage } from './cid_to_name/cid_to_name_background.js';
 import { handleOrderMessage } from './order/order_background.js';
 import { handleUsernameAvatarCidMessage } from './username_avatarcid/username_avatarcid_background.js';
+import { handleCoverMessage } from './cover/cover_background.js';
 
 chrome.runtime.onInstalled.addListener(() => {
   console.log('商务WLB扩展已安装');
@@ -138,9 +139,14 @@ async function handleMessage(request, sender) {
           };
         }
       });
+      return { success: true };
     }
     default: {
-      const cidToNameResult = handleCidToNameMessage(request);
+      const coverResult = await handleCoverMessage(request);
+      if (coverResult) {
+        return coverResult;
+      }
+      const cidToNameResult = await handleCidToNameMessage(request);
       if (cidToNameResult) {
         return cidToNameResult;
       }

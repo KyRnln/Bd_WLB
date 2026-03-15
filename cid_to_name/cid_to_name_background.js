@@ -10,6 +10,15 @@ let batchQueryState_cidToName = {
   results: []
 };
 
+// 初始化：从 storage 恢复状态
+async function initBatchQueryState_cidToName() {
+  const stored = await chrome.storage.local.get('batchQueryState_cidToName');
+  if (stored.batchQueryState_cidToName) {
+    batchQueryState_cidToName = { ...batchQueryState_cidToName, ...stored.batchQueryState_cidToName };
+  }
+}
+initBatchQueryState_cidToName();
+
 async function executeBatchQuery_cidToName(cids, region) {
   for (let i = 0; i < cids.length; i++) {
     if (!batchQueryState_cidToName.isRunning) break;
@@ -68,7 +77,7 @@ async function executeBatchQuery_cidToName(cids, region) {
   await chrome.storage.local.set({ batchQueryState_cidToName });
 }
 
-function handleCidToNameMessage(request) {
+async function handleCidToNameMessage(request) {
   switch (request.action) {
     case 'startBatchQuery_cidToName': {
       if (batchQueryState_cidToName.isRunning) {
@@ -91,7 +100,9 @@ function handleCidToNameMessage(request) {
       return { success: true, message: '批量查询已启动' };
     }
     case 'getBatchQueryStatus_cidToName': {
-      return { success: true, status: batchQueryState_cidToName };
+      const stored = await chrome.storage.local.get('batchQueryState_cidToName');
+      const status = stored.batchQueryState_cidToName || batchQueryState_cidToName;
+      return { success: true, status };
     }
     case 'clearBatchQueryStatus_cidToName': {
       batchQueryState_cidToName = {
@@ -99,6 +110,11 @@ function handleCidToNameMessage(request) {
       };
       chrome.storage.local.set({ batchQueryState_cidToName });
       return Promise.resolve({ success: true });
+    }
+    case 'stopBatchQuery_cidToName': {
+      batchQueryState_cidToName.isRunning = false;
+      await chrome.storage.local.set({ batchQueryState_cidToName });
+      return { success: true };
     }
   }
   return null;

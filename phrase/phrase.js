@@ -34,7 +34,7 @@
     statusDiv.style.display = 'block';
     setTimeout(() => {
       statusDiv.style.display = 'none';
-    }, 1800);
+    }, 20000);
   }
 
   async function loadData() {

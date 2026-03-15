@@ -58,7 +58,6 @@ Bd_WLB/
 ├── popup.js                         # 弹窗逻辑 - 短语管理、达人管理
 ├── phrase_manage.html               # 短语管理页面
 ├── page_bridge.js                   # 页面桥接脚本
-├── migrate.js                       # 数据迁移工具
 │
 ├── username_avatarcid/              # 达人CID批量获取模块
 │   ├── README.md

@@ -2,6 +2,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const coverUrlInput = document.getElementById('coverUrlInput');
   const coverFetchBtn = document.getElementById('coverFetchBtn');
   const coverClearBtn = document.getElementById('coverClearBtn');
+  const coverStopBtn = document.getElementById('coverStopBtn');
   const coverExportBtn = document.getElementById('coverExportBtn');
   const coverProgressBar = document.getElementById('coverProgressBar');
   const coverProgressFill = document.getElementById('coverProgressFill');
@@ -14,7 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const backBtn = document.getElementById('backBtn');
 
   let coverDataList = [];
-  const CONCURRENT_REQUESTS = 3;
+  let statusPollInterval = null;
 
   function showStatus(message, type = 'info') {
     const statusDiv = document.getElementById('coverPanelStatus');
@@ -25,107 +26,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 3000);
   }
 
-  function isValidTikTokUrl(url) {
-    try {
-      const u = new URL(url);
-      return u.hostname.includes('tiktok.com');
-    } catch {
-      return false;
-    }
-  }
-
   function parseCoverUrls(text) {
     return text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
-  }
-
-  async function fetchTikTokCover(videoUrl) {
-    if (!isValidTikTokUrl(videoUrl)) {
-      return { url: videoUrl, thumbnailUrl: '', title: '', status: 'error', error: '无效格式', errorDetail: 'URL格式不正确，必须是有效的TikTok链接' };
-    }
-    const apiUrl = `https://www.tiktok.com/oembed?url=${encodeURIComponent(videoUrl)}`;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-    try {
-      console.log('[Cover] 正在请求:', apiUrl);
-      const response = await fetch(apiUrl, { signal: controller.signal });
-      clearTimeout(timeoutId);
-      
-      console.log('[Cover] 响应状态:', response.status, response.statusText);
-      console.log('[Cover] Content-Type:', response.headers.get('content-type'));
-      
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => '');
-        console.error('[Cover] HTTP错误响应:', errorText);
-        throw new Error(`HTTP ${response.status}: ${response.statusText}${errorText ? ' - ' + errorText.substring(0, 200) : ''}`);
-      }
-      
-      const contentType = response.headers.get('content-type') || '';
-      const responseText = await response.text();
-      
-      if (contentType.includes('text/html') || responseText.trim().startsWith('<!DOCTYPE') || responseText.trim().startsWith('<html')) {
-        console.error('[Cover] 返回HTML而非JSON:', responseText.substring(0, 500));
-        
-        let regionError = 'TikTok返回了HTML页面而非数据';
-        if (responseText.includes('discontinued operating TikTok in Hong Kong')) {
-          regionError = 'TikTok已停止在香港地区的服务，无法获取视频信息';
-        } else if (responseText.includes('not available') || responseText.includes('不可用')) {
-          regionError = 'TikTok在当前地区不可用';
-        }
-        
-        throw new Error(`地区限制: ${regionError}。请尝试使用VPN切换到其他地区（如美国、日本等）后重试。`);
-      }
-      
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (parseErr) {
-        console.error('[Cover] JSON解析失败，原始内容:', responseText.substring(0, 500));
-        throw new Error(`JSON解析失败: 服务器返回了非JSON格式的内容`);
-      }
-      
-      console.log('[Cover] API返回数据:', data);
-      
-      return {
-        url: videoUrl,
-        thumbnailUrl: data.thumbnail_url || '',
-        title: data.title || '(无标题)',
-        author: data.author_name || '',
-        status: 'success'
-      };
-    } catch (err) {
-      clearTimeout(timeoutId);
-      console.error('[Cover] 请求失败:', err);
-      
-      let message = err.message;
-      let detail = err.stack || String(err);
-      
-      if (err.name === 'AbortError') {
-        message = '请求超时 (10秒)';
-        detail = 'TikTok API响应时间过长，请检查网络连接或稍后重试';
-      } else if (err.message.includes('地区限制')) {
-        message = err.message;
-        detail = '您当前所在的地区可能无法访问TikTok服务。\n\n解决方案:\n1. 使用VPN切换到美国、日本、新加坡等地区\n2. 确保网络可以正常访问TikTok\n3. 尝试使用代理服务器';
-      } else if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
-        message = '网络请求失败';
-        detail = '可能是CORS限制或网络问题。TikTok oEmbed API可能需要在特定环境下访问。\n错误详情: ' + err.message;
-      } else if (err.message.includes('CORS')) {
-        message = 'CORS跨域错误';
-        detail = '浏览器安全策略阻止了请求。TikTok API可能不允许从此扩展直接访问。';
-      } else if (err.message.includes('JSON解析失败')) {
-        message = '数据格式错误';
-        detail = err.message + '\n\n这通常表示TikTok返回了错误页面而非数据，可能是地区限制导致。';
-      }
-      
-      return { 
-        url: videoUrl, 
-        thumbnailUrl: '', 
-        title: '', 
-        status: 'error', 
-        error: message,
-        errorDetail: detail
-      };
-    }
   }
 
   function updateCoverProgress(current, total) {
@@ -205,6 +107,26 @@ document.addEventListener('DOMContentLoaded', () => {
     coverExportBtn.style.display = successCount > 0 ? 'inline-block' : 'none';
   }
 
+  async function loadResultsFromStorage() {
+    try {
+      const result = await chrome.storage.local.get('coverFetchResults');
+      if (result.coverFetchResults && result.coverFetchResults.length > 0) {
+        coverDataList = result.coverFetchResults;
+        coverResults.innerHTML = '';
+        coverDataList.forEach((item, index) => {
+          renderCoverCard(item, index);
+        });
+        updateCoverStats();
+        if (coverDataList.length > 0) {
+          coverStatsRow.classList.add('show');
+          coverExportBtn.style.display = coverDataList.some(r => r.status === 'success') ? 'inline-block' : 'none';
+        }
+      }
+    } catch (e) {
+      console.error('[Cover] 加载结果失败:', e);
+    }
+  }
+
   async function startFetchCover() {
     const rawText = coverUrlInput.value.trim();
     if (!rawText) {
@@ -219,53 +141,105 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     console.log('[Cover] 开始批量获取，共', urls.length, '个链接');
-    console.log('[Cover] 链接列表:', urls);
 
     coverDataList = [];
     coverResults.innerHTML = '';
     coverFetchBtn.disabled = true;
     coverFetchBtn.textContent = '正在获取...';
     coverFetchBtn.style.opacity = '0.7';
+    coverClearBtn.style.display = 'none';
+    coverStopBtn.style.display = 'inline-block';
     coverProgressBar.classList.add('show');
     coverStatsRow.classList.add('show');
     coverExportBtn.style.display = 'none';
     updateCoverProgress(0, urls.length);
 
-    let completed = 0;
-    for (let i = 0; i < urls.length; i += CONCURRENT_REQUESTS) {
-      const batch = urls.slice(i, i + CONCURRENT_REQUESTS);
-      console.log('[Cover] 处理批次', Math.floor(i / CONCURRENT_REQUESTS) + 1, ':', batch);
-      
-      const batchResults = await Promise.all(batch.map(url => fetchTikTokCover(url)));
-
-      batchResults.forEach((res, j) => {
-        coverDataList.push(res);
-        completed++;
-        updateCoverProgress(completed, urls.length);
-        renderCoverCard(res, coverDataList.length - 1);
-        updateCoverStats();
+    try {
+      const response = await chrome.runtime.sendMessage({
+        action: 'startCoverFetch',
+        urls: urls
       });
-    }
 
+      if (response && response.success) {
+        startStatusPolling(urls.length);
+      } else {
+        showStatus('启动失败: ' + (response?.error || '未知错误'), 'error');
+        resetFetchUI();
+      }
+    } catch (error) {
+      console.error('[Cover] 启动失败:', error);
+      showStatus('启动失败: ' + error.message, 'error');
+      resetFetchUI();
+    }
+  }
+
+  async function stopFetchCover() {
+    try {
+      await chrome.runtime.sendMessage({ action: 'stopCoverFetch' });
+      showStatus('正在停止...', 'info');
+      coverStopBtn.disabled = true;
+      coverStopBtn.textContent = '停止中...';
+    } catch (e) {
+      console.error('[Cover] 停止失败:', e);
+    }
+  }
+
+  function startStatusPolling(total) {
+    if (statusPollInterval) clearInterval(statusPollInterval);
+    
+    statusPollInterval = setInterval(async () => {
+      try {
+        const response = await chrome.runtime.sendMessage({ action: 'getCoverFetchStatus' });
+        if (response && response.success && response.status) {
+          const status = response.status;
+          
+          updateCoverProgress(status.currentIndex, status.total);
+          
+          if (status.status === 'running') {
+            coverFetchBtn.textContent = `${status.currentIndex}/${status.total} ✅${status.successCount} ❌${status.failCount}`;
+          } else if (status.status === 'completed' || status.status === 'error') {
+            clearInterval(statusPollInterval);
+            statusPollInterval = null;
+            
+            const resultsResponse = await chrome.runtime.sendMessage({ action: 'getCoverFetchResults' });
+            if (resultsResponse && resultsResponse.success && resultsResponse.results) {
+              coverDataList = resultsResponse.results;
+              coverResults.innerHTML = '';
+              coverDataList.forEach((item, index) => {
+                renderCoverCard(item, index);
+              });
+              updateCoverStats();
+            }
+            
+            if (status.status === 'error') {
+              showStatus('获取失败: ' + (status.error || '未知错误'), 'error');
+            } else {
+              const errorCount = coverDataList.filter(r => r.status === 'error').length;
+              const successCount = coverDataList.filter(r => r.status === 'success').length;
+              if (errorCount > 0) {
+                showStatus(`完成！成功${successCount}个，失败${errorCount}个`, successCount > 0 ? 'info' : 'error');
+              } else {
+                showStatus(`全部成功！共${successCount}个`, 'success');
+              }
+            }
+            
+            resetFetchUI();
+          }
+        }
+      } catch (error) {
+        console.error('[Cover] 轮询状态失败:', error);
+      }
+    }, 500);
+  }
+
+  function resetFetchUI() {
     coverFetchBtn.disabled = false;
     coverFetchBtn.textContent = '再次获取';
     coverFetchBtn.style.opacity = '1';
-    
-    const successCount = coverDataList.filter(r => r.status === 'success').length;
-    const errorCount = coverDataList.length - successCount;
-    
-    if (errorCount > 0) {
-      const errorTypes = {};
-      coverDataList.filter(r => r.status === 'error').forEach(r => {
-        const key = r.error || '未知错误';
-        errorTypes[key] = (errorTypes[key] || 0) + 1;
-      });
-      const errorSummary = Object.entries(errorTypes).map(([k, v]) => `${k}(${v}个)`).join(', ');
-      showStatus(`完成！成功${successCount}个，失败${errorCount}个: ${errorSummary}`, successCount > 0 ? 'info' : 'error');
-      console.log('[Cover] 错误汇总:', errorTypes);
-    } else {
-      showStatus(`全部成功！共${successCount}个`, 'success');
-    }
+    coverClearBtn.style.display = 'inline-block';
+    coverStopBtn.style.display = 'none';
+    coverStopBtn.disabled = false;
+    coverStopBtn.textContent = '停止';
   }
 
   async function fetchImageAsBuffer(url) {
@@ -404,7 +378,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   coverFetchBtn.addEventListener('click', startFetchCover);
   coverExportBtn.addEventListener('click', exportCoverExcel);
-  coverClearBtn.addEventListener('click', () => {
+  coverStopBtn.addEventListener('click', stopFetchCover);
+  coverClearBtn.addEventListener('click', async () => {
     coverUrlInput.value = '';
     coverDataList = [];
     coverResults.innerHTML = '';
@@ -413,6 +388,7 @@ document.addEventListener('DOMContentLoaded', () => {
     coverExportBtn.style.display = 'none';
     coverFetchBtn.textContent = '获取封面';
     coverFetchBtn.style.opacity = '1';
+    await chrome.runtime.sendMessage({ action: 'clearCoverFetchStatus' });
   });
 
   coverUrlInput.addEventListener('keydown', (e) => {
@@ -425,4 +401,44 @@ document.addEventListener('DOMContentLoaded', () => {
   backBtn.addEventListener('click', () => {
     window.location.href = '../popup.html';
   });
+
+  // 初始化：检查是否有正在运行的任务或已完成的结果
+  async function checkRunningTask() {
+    try {
+      const response = await chrome.runtime.sendMessage({ action: 'getCoverFetchStatus' });
+      if (response && response.success && response.status) {
+        const status = response.status;
+        if (status.status === 'running') {
+          coverFetchBtn.disabled = true;
+          coverFetchBtn.style.opacity = '0.7';
+          coverClearBtn.style.display = 'none';
+          coverStopBtn.style.display = 'inline-block';
+          coverProgressBar.classList.add('show');
+          coverStatsRow.classList.add('show');
+          startStatusPolling(status.total);
+        } else if (status.status === 'completed' && Array.isArray(status.results) && status.results.length > 0) {
+          // 任务已完成但有未处理的结果
+          coverDataList = status.results;
+          coverResults.innerHTML = '';
+          coverDataList.forEach((item, index) => {
+            renderCoverCard(item, index);
+          });
+          updateCoverStats();
+          coverStatsRow.classList.add('show');
+          coverExportBtn.style.display = coverDataList.some(r => r.status === 'success') ? 'inline-block' : 'none';
+          showStatus(`✅ 已恢复 ${coverDataList.length} 条获取结果`, 'success');
+          await chrome.runtime.sendMessage({ action: 'clearCoverFetchStatus' });
+        } else {
+          await loadResultsFromStorage();
+        }
+      } else {
+        await loadResultsFromStorage();
+      }
+    } catch (e) {
+      console.error('[Cover] 检查任务状态失败:', e);
+      await loadResultsFromStorage();
+    }
+  }
+
+  checkRunningTask();
 });

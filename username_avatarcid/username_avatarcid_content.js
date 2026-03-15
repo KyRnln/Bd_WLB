@@ -246,7 +246,7 @@ class TikTokShopCidExtractor {
         <div style="font-weight:600;">批量获取完成</div>
         <div style="font-size:12px;opacity:0.9;">共 ${total} 个 · 成功 ${successCount} · 失败 ${failCount}</div>
       `;
-      setTimeout(() => { container.style.display = 'none'; }, 3000);
+      setTimeout(() => { container.style.display = 'none'; }, 20000);
     }
   }
 }

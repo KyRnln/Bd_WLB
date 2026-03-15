@@ -3,6 +3,10 @@
 (function () {
   'use strict';
 
+  if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) return;
+
+  let creators = [];
+
   function injectBlacklistStyles() {
     if (document.getElementById('creator-blacklist-styles')) return;
     const style = document.createElement('style');
@@ -49,44 +53,60 @@
     document.documentElement.appendChild(style);
   }
 
-  async function loadSavedCreators() {
-    return new Promise(resolve => {
-      try {
-        if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) {
-          resolve([]);
-          return;
-        }
-        chrome.storage.local.get(['savedCreators'], result => {
-          resolve(Array.isArray(result.savedCreators) ? result.savedCreators : []);
-        });
-      } catch (error) {
-        console.debug('加载达人数据失败', error);
-        resolve([]);
-      }
-    });
+  async function loadCreators() {
+    try {
+      const result = await new Promise(resolve =>
+        chrome.storage.local.get(['savedCreators'], resolve)
+      );
+      creators = Array.isArray(result.savedCreators) ? result.savedCreators : [];
+    } catch (e) {
+      creators = [];
+    }
   }
 
-  async function saveSavedCreators(creators) {
-    if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) {
-      return;
-    }
-    return new Promise(resolve => {
+  async function saveCreators() {
+    try {
+      await new Promise(resolve =>
+        chrome.storage.local.set({ savedCreators: creators }, resolve)
+      );
       try {
-        chrome.storage.local.set({ savedCreators: creators }, () => {
-          try {
-            if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
-              chrome.runtime.sendMessage({ action: 'creatorDataUpdated' }).catch(() => {});
-            }
-          } catch (msgError) {
-            console.debug('达人数据更新消息发送失败', msgError);
-          }
-          resolve();
-        });
-      } catch (storageError) {
-        console.debug('达人数据保存失败', storageError);
-        resolve();
+        if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
+          chrome.runtime.sendMessage({ action: 'creatorDataUpdated' }).catch(() => {});
+        }
+      } catch (msgError) {}
+    } catch (storageError) {
+      console.debug('达人数据保存失败', storageError);
+    }
+  }
+
+  function normalizeCreatorId(text) {
+    return (text || '')
+      .trim()
+      .replace(/^[@＠]+/, '')
+      .trim();
+  }
+
+  function getHiddenCreatorIdSet() {
+    const ids = new Set();
+    if (!Array.isArray(creators)) return ids;
+    for (const c of creators) {
+      if (c && c.tag === '隐藏达人') {
+        const raw = c.id ? String(c.id) : '';
+        const norm = normalizeCreatorId(raw);
+        if (norm) ids.add(norm);
       }
-    });
+    }
+    return ids;
+  }
+
+  function getCreatorByNormalizedId(normalizedId) {
+    if (!Array.isArray(creators)) return null;
+    for (const c of creators) {
+      const raw = c && c.id ? String(c.id) : '';
+      const norm = normalizeCreatorId(raw);
+      if (norm === normalizedId) return c;
+    }
+    return null;
   }
 
   function getCreatorIdFromElement(element) {
@@ -106,22 +126,23 @@
       e.stopPropagation();
 
       try {
-        const creators = await loadSavedCreators();
-        const existingIndex = creators.findIndex(c => c.id === creatorId);
-        const isHidden = existingIndex >= 0 && creators[existingIndex].tag === '隐藏达人';
+        await loadCreators();
+        const normId = normalizeCreatorId(creatorId);
+        const existingCreator = getCreatorByNormalizedId(normId);
+        const isHidden = existingCreator && existingCreator.tag === '隐藏达人';
 
         if (isHidden) {
-          creators[existingIndex].tag = '';
+          existingCreator.tag = '';
           creatorIdElement.classList.remove('creator-id-blacklisted');
           btn.classList.remove('blacklisted');
           btn.textContent = '隐藏';
           btn.title = '点击隐藏此达人';
         } else {
-          if (existingIndex >= 0) {
-            creators[existingIndex].tag = '隐藏达人';
+          if (existingCreator) {
+            existingCreator.tag = '隐藏达人';
           } else {
             creators.push({
-              id: creatorId,
+              id: normId,
               cid: '',
               region: '',
               tag: '隐藏达人',
@@ -135,7 +156,7 @@
           btn.title = '点击取消隐藏';
         }
 
-        await saveSavedCreators(creators);
+        await saveCreators();
       } catch (error) {
         if (!error.message.includes('Extension context invalidated')) {
           console.error('隐藏操作出错', error);
@@ -146,21 +167,22 @@
     return btn;
   }
 
-  async function processCreatorIdElement(idElement, creators) {
-    const creatorId = getCreatorIdFromElement(idElement);
+  async function processCreatorIdElement(idElement) {
+    const rawCreatorId = getCreatorIdFromElement(idElement);
+    if (!rawCreatorId) return;
 
-    if (!creatorId) return;
+    const normId = normalizeCreatorId(rawCreatorId);
 
     let parentContainer = idElement.parentNode;
     const existingBtn = parentContainer?.querySelector('.creator-blacklist-btn');
 
     if (!existingBtn && parentContainer) {
-      const btn = createBlacklistButton(idElement, creatorId);
+      const btn = createBlacklistButton(idElement, rawCreatorId);
       parentContainer.appendChild(btn);
     }
 
-    const creator = creators.find(c => c.id === creatorId);
-    if (creator && creator.tag === '隐藏达人') {
+    const hiddenIds = getHiddenCreatorIdSet();
+    if (hiddenIds.has(normId)) {
       idElement.classList.add('creator-id-blacklisted');
       idElement.style.textDecoration = 'line-through';
       idElement.style.opacity = '0.25';
@@ -203,12 +225,11 @@
   async function initBlacklistFeature() {
     try {
       injectBlacklistStyles();
-
-      const creators = await loadSavedCreators();
+      await loadCreators();
 
       const observer = new MutationObserver(async mutations => {
         try {
-          const latestCreators = await loadSavedCreators();
+          await loadCreators();
           mutations.forEach(mutation => {
             if (mutation.addedNodes.length > 0) {
               mutation.addedNodes.forEach(node => {
@@ -221,8 +242,9 @@
                     idElements.forEach(el => {
                       try {
                         const text = getCreatorIdFromElement(el);
-                        if (text && (text.startsWith('@') || /[a-zA-Z]/.test(text))) {
-                          processCreatorIdElement(el, latestCreators);
+                        const norm = normalizeCreatorId(text);
+                        if (norm && (text.startsWith('@') || /[a-zA-Z]/.test(text))) {
+                          processCreatorIdElement(el);
                         }
                       } catch (eErr) {}
                     });
@@ -247,8 +269,9 @@
       for (const el of allIdElements) {
         try {
           const text = getCreatorIdFromElement(el);
-          if (text && (text.startsWith('@') || /[a-zA-Z]/.test(text))) {
-            await processCreatorIdElement(el, creators);
+          const norm = normalizeCreatorId(text);
+          if (norm && (text.startsWith('@') || /[a-zA-Z]/.test(text))) {
+            await processCreatorIdElement(el);
           }
         } catch (elErr) {}
       }
@@ -256,6 +279,13 @@
       console.debug('隐藏功能初始化失败', initError);
     }
   }
+
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local') return;
+    if (changes.savedCreators) {
+      creators = Array.isArray(changes.savedCreators.newValue) ? changes.savedCreators.newValue : [];
+    }
+  });
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {

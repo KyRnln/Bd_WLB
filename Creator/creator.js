@@ -32,7 +32,7 @@
     statusDiv.style.display = 'block';
     setTimeout(() => {
       statusDiv.style.display = 'none';
-    }, 1800);
+    }, 20000);
   }
 
   async function loadData() {
@@ -99,7 +99,7 @@
 
   function getFilteredCreators() {
     if (activeCreatorTagId === 'all') {
-      return creators;
+      return creators.filter(c => c.tag && c.tag.trim() !== '');
     }
     return creators.filter(c => c.tag === activeCreatorTagId);
   }
@@ -175,7 +175,7 @@
     const baseList = getFilteredCreators();
     const displayList = query ? searchResults : baseList;
 
-    if (totalCount) totalCount.textContent = creators.length;
+    if (totalCount) totalCount.textContent = creators.filter(c => c.tag && c.tag.trim() !== '').length;
     if (searchCount) searchCount.textContent = query ? searchResults.length : '-';
 
     if (displayList.length === 0) {
@@ -418,13 +418,35 @@
             }
           });
 
-          const existingIds = new Set(creators.map(c => c.id));
-          const uniqueNew = newCreators.filter(c => !existingIds.has(c.id));
-          creators = [...creators, ...uniqueNew];
+          let updatedCount = 0;
+          let addedCount = 0;
+
+          for (const newCreator of newCreators) {
+            const existingIndex = creators.findIndex(c => c.id === newCreator.id);
+            if (existingIndex >= 0) {
+              creators[existingIndex] = { ...creators[existingIndex], ...newCreator };
+              updatedCount++;
+            } else {
+              creators.push(newCreator);
+              addedCount++;
+            }
+          }
 
           await new Promise(resolve => storageAPI.set({ savedCreators: creators }, resolve));
+          renderTags();
           renderCreators();
-          showStatus(`✅ 已导入 ${uniqueNew.length} 个新达人`, 'success', 'creatorCardStatus');
+          
+          let statusMsg = '';
+          if (addedCount > 0 && updatedCount > 0) {
+            statusMsg = `✅ 新增 ${addedCount} 个，更新 ${updatedCount} 个达人`;
+          } else if (addedCount > 0) {
+            statusMsg = `✅ 已导入 ${addedCount} 个新达人`;
+          } else if (updatedCount > 0) {
+            statusMsg = `✅ 已更新 ${updatedCount} 个达人`;
+          } else {
+            statusMsg = `✅ 导入完成`;
+          }
+          showStatus(statusMsg, 'success', 'creatorCardStatus');
         } catch (err) {
           console.error('导入失败', err);
           showStatus('导入失败，请检查文件格式', 'error', 'creatorCardStatus');

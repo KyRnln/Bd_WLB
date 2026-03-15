@@ -277,4 +277,37 @@ document.addEventListener('DOMContentLoaded', async () => {
   backBtn.addEventListener('click', () => {
     window.location.href = '../popup.html';
   });
+
+  // 初始化：检查是否有正在运行的任务或已完成的结果
+  async function checkRunningTask() {
+    try {
+      const response = await chrome.runtime.sendMessage({ action: 'getOrderQueryStatus' });
+      if (response && response.success && response.state) {
+        const state = response.state;
+        if (state.isRunning) {
+          shouldStopOrderQuery = false;
+          startOrderQueryBtn.disabled = true;
+          startOrderQueryBtn.textContent = '查询中...';
+          if (stopOrderQueryBtn) {
+            stopOrderQueryBtn.style.display = 'flex';
+          }
+          switchToProgressMode();
+          const progressPercent = Math.round((state.currentIndex / (state.total || 1)) * 100);
+          orderProgressFill.style.width = `${progressPercent}%`;
+          updateProgressDisplay(`查询进度: ${progressPercent}% (${state.currentIndex}/${state.total || 0})\n当前处理: ${state.currentOrderId}\n${state.message || '请稍候...'}`);
+        } else if (state.allOrders && state.allOrders.length > 0) {
+          // 任务已完成但有未处理的结果
+          showStatus(`✅ 已恢复 ${state.allOrders.length} 条查询结果，正在导出...`, 'success');
+          switchToProgressMode();
+          updateProgressDisplay('正在恢复结果并导出...\n请稍候...');
+          await downloadAndCleanup(state.allOrders, null, state.failedOrders);
+          await chrome.runtime.sendMessage({ action: 'clearOrderQueryState' });
+        }
+      }
+    } catch (e) {
+      console.error('检查任务状态失败:', e);
+    }
+  }
+
+  checkRunningTask();
 });
