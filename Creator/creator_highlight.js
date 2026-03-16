@@ -115,12 +115,69 @@
     });
   }
 
+  function replaceCreatorNameWithTag() {
+    const allCreators = new Map();
+    if (Array.isArray(creators)) {
+      for (const c of creators) {
+        if (c && c.id && c.tag) {
+          const norm = normalizeCreatorId(String(c.id));
+          if (norm) allCreators.set(norm, c.tag);
+        }
+      }
+    }
+    if (allCreators.size === 0) return;
+
+    const container =
+      document.querySelector('.arco-table-body') ||
+      document.querySelector('#root') ||
+      document.body;
+
+    const flexContainers = container.querySelectorAll('.flex.flex-col.flex-1');
+
+    flexContainers.forEach(flexCol => {
+      const creatorIdDiv = flexCol.querySelector('[class*="HightBoldText"]');
+      if (!creatorIdDiv) return;
+
+      const creatorId = normalizeCreatorId(creatorIdDiv.textContent || '');
+      if (!creatorId) return;
+
+      const tag = allCreators.get(creatorId);
+      if (!tag) return;
+
+      const nameDiv = flexCol.querySelector('.text-neutral-text2.truncate:not([class*="HightBoldText"])');
+      if (!nameDiv) return;
+
+      if (nameDiv.dataset.tagReplaced === 'true') return;
+
+      nameDiv.dataset.tagReplaced = 'true';
+
+      const tagColors = {
+        '绩效达人': { bg: '#ffebee', color: '#c62828' },
+        '流失达人': { bg: '#e8f5e9', color: '#2e7d32' },
+        '隐藏达人': { bg: '#f5f5f5', color: '#616161' }
+      };
+
+      const tagStyle = tagColors[tag] || { bg: '#f0f0f0', color: '#333' };
+
+      nameDiv.innerHTML = `<span style="
+        display: inline-block;
+        padding: 2px 8px;
+        background: ${tagStyle.bg};
+        color: ${tagStyle.color};
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 500;
+      ">${tag}</span>`;
+    });
+  }
+
   function scheduleHighlightCreators() {
     if (highlightScheduled) return;
     highlightScheduled = true;
     requestAnimationFrame(() => {
       highlightScheduled = false;
       highlightCreators();
+      replaceCreatorNameWithTag();
     });
   }
 
