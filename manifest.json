@@ -61,15 +61,6 @@
         "https://affiliate.tiktokshopglobalselling.com/*"
       ],
       "js": [
-        "Creator/creator_hide.js"
-      ],
-      "run_at": "document_end"
-    },
-    {
-      "matches": [
-        "https://affiliate.tiktokshopglobalselling.com/*"
-      ],
-      "js": [
         "username_avatarcid/username_avatarcid_content.js"
       ],
       "run_at": "document_start"

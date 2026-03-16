@@ -1,4 +1,4 @@
-// 达人ID高亮功能
+// 达人ID高亮与隐藏功能
 
 (function () {
   'use strict';
@@ -24,6 +24,43 @@
         font-weight: 700;
         opacity: 0.5;
       }
+      .creator-blacklist-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 32px;
+        height: 18px;
+        margin-left: 6px;
+        padding: 0 4px;
+        background: #ffe0e6;
+        border: 1px solid #ff0050;
+        border-radius: 100px;
+        cursor: pointer;
+        font-size: 10px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        color: #ff0050;
+        white-space: nowrap;
+      }
+      .creator-blacklist-btn:hover {
+        background: #ffc9d9;
+        border-color: #ff0050;
+        color: #ff0050;
+      }
+      .creator-blacklist-btn.blacklisted {
+        background: #f5f5f5;
+        border-color: #d9d9d9;
+        color: #666;
+      }
+      .creator-id-blacklisted {
+        text-decoration: line-through !important;
+        opacity: 0.5 !important;
+        color: #999 !important;
+      }
+      .creator-id-blacklisted:hover {
+        text-decoration: line-through !important;
+        opacity: 0.5 !important;
+      }
     `;
     document.documentElement.appendChild(style);
   }
@@ -37,6 +74,21 @@
       scheduleHighlightCreators();
     } catch (e) {
       creators = [];
+    }
+  }
+
+  async function saveCreators() {
+    try {
+      await new Promise(resolve =>
+        chrome.storage.local.set({ savedCreators: creators }, resolve)
+      );
+      try {
+        if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
+          chrome.runtime.sendMessage({ action: 'creatorDataUpdated' }).catch(() => {});
+        }
+      } catch (msgError) {}
+    } catch (storageError) {
+      console.debug('达人数据保存失败', storageError);
     }
   }
 
@@ -73,6 +125,19 @@
     return ids;
   }
 
+  function getHiddenCreatorIdSet() {
+    const ids = new Set();
+    if (!Array.isArray(creators)) return ids;
+    for (const c of creators) {
+      if (c && c.tag === '隐藏达人') {
+        const raw = c.id ? String(c.id) : '';
+        const norm = normalizeCreatorId(raw);
+        if (norm) ids.add(norm);
+      }
+    }
+    return ids;
+  }
+
   function getCreatorById(normalizedId) {
     if (!Array.isArray(creators)) return null;
     for (const c of creators) {
@@ -83,10 +148,95 @@
     return null;
   }
 
+  function createBlacklistButton(creatorIdElement, creatorId) {
+    const btn = document.createElement('button');
+    btn.className = 'creator-blacklist-btn';
+    btn.textContent = '隐藏';
+    btn.title = '点击隐藏此达人';
+    btn.type = 'button';
+
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      try {
+        await loadCreators();
+        const normId = normalizeCreatorId(creatorId);
+        const existingCreator = getCreatorById(normId);
+        const isHidden = existingCreator && existingCreator.tag === '隐藏达人';
+
+        if (isHidden) {
+          existingCreator.tag = '';
+          creatorIdElement.classList.remove('creator-id-blacklisted');
+          btn.classList.remove('blacklisted');
+          btn.textContent = '隐藏';
+          btn.title = '点击隐藏此达人';
+        } else {
+          if (existingCreator) {
+            existingCreator.tag = '隐藏达人';
+          } else {
+            creators.push({
+              id: normId,
+              cid: '',
+              region: '',
+              tag: '隐藏达人',
+              remark: '',
+              hiddenAt: Date.now()
+            });
+          }
+          creatorIdElement.classList.add('creator-id-blacklisted');
+          btn.classList.add('blacklisted');
+          btn.textContent = '解除';
+          btn.title = '点击取消隐藏';
+        }
+
+        await saveCreators();
+        scheduleHighlightCreators();
+      } catch (error) {
+        if (!error.message.includes('Extension context invalidated')) {
+          console.error('隐藏操作出错', error);
+        }
+      }
+    });
+
+    return btn;
+  }
+
+  function processCreatorIdHideButton(idElement) {
+    const rawCreatorId = (idElement.textContent || '').trim();
+    if (!rawCreatorId) return;
+
+    const normId = normalizeCreatorId(rawCreatorId);
+    if (!normId || !rawCreatorId.startsWith('@') && !/[a-zA-Z]/.test(rawCreatorId)) return;
+
+    let parentContainer = idElement.parentNode;
+    const existingBtn = parentContainer?.querySelector('.creator-blacklist-btn');
+
+    if (!existingBtn && parentContainer) {
+      const btn = createBlacklistButton(idElement, rawCreatorId);
+      parentContainer.appendChild(btn);
+    }
+
+    const hiddenIds = getHiddenCreatorIdSet();
+    if (hiddenIds.has(normId)) {
+      idElement.classList.add('creator-id-blacklisted');
+      idElement.style.textDecoration = 'line-through';
+      idElement.style.opacity = '0.5';
+      idElement.style.color = '#999';
+
+      const btn = idElement.parentNode?.querySelector('.creator-blacklist-btn');
+      if (btn) {
+        btn.classList.add('blacklisted');
+        btn.textContent = '解除';
+      }
+    }
+  }
+
   function highlightCreators() {
     const performanceIds = getCreatorIdSet();
     const lostIds = getLostCreatorIdSet();
-    if (!performanceIds.size && !lostIds.size) return;
+    const hiddenIds = getHiddenCreatorIdSet();
+    if (!performanceIds.size && !lostIds.size && !hiddenIds.size) return;
 
     const container =
       document.querySelector('.arco-table-body') ||
@@ -100,18 +250,31 @@
 
     candidates.forEach(node => {
       if (!(node instanceof HTMLElement)) return;
-      if (node.classList.contains(CREATOR_HIT_CLASS) || node.classList.contains('quick-creator-lost')) return;
+      if (node.classList.contains(CREATOR_HIT_CLASS) || 
+          node.classList.contains('quick-creator-lost') || 
+          node.classList.contains('creator-id-blacklisted')) return;
 
       const rawText = (node.textContent || '').trim();
       if (!rawText) return;
       const norm = normalizeCreatorId(rawText);
       if (!norm) return;
 
-      if (performanceIds.has(norm)) {
+      if (hiddenIds.has(norm)) {
+        node.classList.add('creator-id-blacklisted');
+        node.style.textDecoration = 'line-through';
+        node.style.opacity = '0.5';
+        node.style.color = '#999';
+      } else if (performanceIds.has(norm)) {
         node.classList.add(CREATOR_HIT_CLASS);
       } else if (lostIds.has(norm)) {
         node.classList.add('quick-creator-lost');
       }
+    });
+
+    // 处理隐藏按钮
+    const creatorIdElements = container.querySelectorAll('[class*="creator-info__HightBoldText"]');
+    creatorIdElements.forEach(el => {
+      processCreatorIdHideButton(el);
     });
   }
 
@@ -132,6 +295,7 @@
       document.querySelector('#root') ||
       document.body;
 
+    // 处理达人列表页面
     const flexContainers = container.querySelectorAll('.flex.flex-col.flex-1');
 
     flexContainers.forEach(flexCol => {
@@ -167,7 +331,99 @@
         border-radius: 4px;
         font-size: 12px;
         font-weight: 500;
-      ">${tag}</span>`;
+      ">${tag.replace('达人', '')}</span>`;
+    });
+
+    // 处理 IM 页面达人名称列表
+    const imNameDivs = container.querySelectorAll('div[style*="-webkit-line-clamp: 1"]');
+    imNameDivs.forEach(nameDiv => {
+      const nameText = (nameDiv.textContent || '').trim();
+      if (!nameText) return;
+
+      let creatorId = null;
+      let tag = null;
+
+      for (const [cId, cTag] of allCreators.entries()) {
+        const creator = getCreatorById(cId);
+        if (creator && creator.cid) {
+          const cidName = (creator.cid || '').trim();
+          if (cidName === nameText) {
+            creatorId = cId;
+            tag = cTag;
+            break;
+          }
+        }
+      }
+
+      if (!tag) return;
+
+      if (nameDiv.dataset.nameTagAdded === 'true') return;
+      nameDiv.dataset.nameTagAdded = 'true';
+
+      const isHidden = tag === '隐藏达人';
+      if (isHidden) {
+        nameDiv.style.textDecoration = 'line-through';
+        nameDiv.style.opacity = '0.5';
+        nameDiv.style.color = '#999';
+      }
+    });
+
+    // 处理 IM 页面达人ID旁边显示标签
+    const imUnameDivs = container.querySelectorAll('[class*="uname-"]');
+    imUnameDivs.forEach(unameDiv => {
+      const creatorId = normalizeCreatorId(unameDiv.textContent || '');
+      if (!creatorId) return;
+
+      const tag = allCreators.get(creatorId);
+      const isHidden = tag === '隐藏达人';
+
+      if (isHidden && !unameDiv.dataset.hiddenStyled) {
+        unameDiv.dataset.hiddenStyled = 'true';
+        unameDiv.style.textDecoration = 'line-through';
+        unameDiv.style.opacity = '0.5';
+        unameDiv.style.color = '#999';
+      }
+
+      if (!tag) return;
+
+      if (unameDiv.dataset.tagAdded === 'true') return;
+      unameDiv.dataset.tagAdded = 'true';
+
+      const tagColors = {
+        '绩效达人': { bg: '#ffebee', color: '#c62828' },
+        '流失达人': { bg: '#e8f5e9', color: '#2e7d32' },
+        '隐藏达人': { bg: '#f5f5f5', color: '#616161' }
+      };
+
+      const tagStyle = tagColors[tag] || { bg: '#f0f0f0', color: '#333' };
+
+      const tagSpan = document.createElement('span');
+      tagSpan.style.cssText = `
+        display: inline-block;
+        margin-right: 8px;
+        padding: 2px 8px;
+        background: ${tagStyle.bg};
+        color: ${tagStyle.color};
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 500;
+        vertical-align: middle;
+        flex-shrink: 0;
+        white-space: nowrap;
+      `;
+      tagSpan.textContent = tag.replace('达人', '');
+
+      const parentDiv = unameDiv.parentElement;
+      if (parentDiv) {
+        parentDiv.style.display = 'flex';
+        parentDiv.style.alignItems = 'center';
+        parentDiv.style.overflow = 'hidden';
+        unameDiv.style.minWidth = '0';
+        unameDiv.style.flex = '1';
+        unameDiv.style.overflow = 'hidden';
+        unameDiv.style.textOverflow = 'ellipsis';
+        parentDiv.insertBefore(tagSpan, unameDiv);
+      }
     });
   }
 
@@ -285,7 +541,8 @@
             if (node.nodeType === Node.ELEMENT_NODE) {
               return node.querySelector && (
                 node.querySelector('[data-e2e="8a94f9b6-1a48-fe57"]') ||
-                node.matches && node.matches('[data-e2e="8a94f9b6-1a48-fe57"]')
+                node.querySelector('[class*="creator-info__HightBoldText"]') ||
+                (node.matches && node.matches('[data-e2e="8a94f9b6-1a48-fe57"]'))
               );
             }
             return false;
@@ -332,4 +589,11 @@
   }
 
   init();
+
+  window.addEventListener('unhandledrejection', event => {
+    if (event.reason && event.reason.message &&
+      event.reason.message.includes('Extension context invalidated')) {
+      event.preventDefault();
+    }
+  }, { passive: false });
 })();
