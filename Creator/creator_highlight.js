@@ -243,16 +243,18 @@
       document.querySelector('#root') ||
       document.body;
 
-    const candidates = container.querySelectorAll(
-      'td .arco-table-cell-wrap-value, td .arco-table-cell, td div,' +
-      'a, span, div'
-    );
+    const candidates = container.querySelectorAll('div');
 
     candidates.forEach(node => {
       if (!(node instanceof HTMLElement)) return;
       if (node.classList.contains(CREATOR_HIT_CLASS) || 
           node.classList.contains('quick-creator-lost') || 
           node.classList.contains('creator-id-blacklisted')) return;
+
+      if (node.tagName === 'INPUT' || node.tagName === 'TEXTAREA') return;
+      if (node.isContentEditable) return;
+
+      if (node.querySelector('input, textarea, [contenteditable="true"]')) return;
 
       const rawText = (node.textContent || '').trim();
       if (!rawText) return;
