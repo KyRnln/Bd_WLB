@@ -150,6 +150,49 @@ document.addEventListener('DOMContentLoaded', () => {
       window.location.href = 'order/order.html';
     });
   }
+  const btnTranslate = document.getElementById('btnTranslate');
+  if (btnTranslate) {
+    btnTranslate.addEventListener('click', () => {
+      chrome.tabs.create({ url: chrome.runtime.getURL('translate/translate.html') });
+    });
+  }
+
+  // 加载翻译模型信息
+  async function loadTranslateModelInfo() {
+    const modelInfoEl = document.getElementById('translateModelInfo');
+    if (!modelInfoEl) return;
+
+    try {
+      const result = await storageAPI.get(['translateConfig']);
+      const config = result.translateConfig;
+      
+      if (config && config.apiKey && config.modelName) {
+        const providerNames = {
+          qwen: '通义千问',
+          openai: 'OpenAI',
+          deepseek: 'DeepSeek',
+          custom: '自定义'
+        };
+        const providerName = providerNames[config.provider] || config.provider;
+        modelInfoEl.textContent = `${providerName} - ${config.modelName}`;
+        modelInfoEl.style.color = '#1890ff';
+      } else {
+        modelInfoEl.textContent = '未配置';
+        modelInfoEl.style.color = '#999';
+      }
+    } catch (e) {
+      modelInfoEl.textContent = '未配置';
+      modelInfoEl.style.color = '#999';
+    }
+  }
+  loadTranslateModelInfo();
+
+  // 监听翻译配置变化
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes.translateConfig) {
+      loadTranslateModelInfo();
+    }
+  });
 
   // 界面元素
   const clearAllDataBtn = document.getElementById('clearAllDataBtn');

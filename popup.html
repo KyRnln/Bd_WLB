@@ -33,11 +33,21 @@
 
     <div id="toolsCard" class="card">
       <div class="text-base text-muted text-center mb-3">选择要使用的功能</div>
-      <div class="flex flex-col gap-3">
-        <button id="btnCover" class="tool-btn">📹 获取视频封面</button>
-        <button id="btnCid" class="tool-btn">👤 获取头像/CID</button>
-        <button id="btnCidToName" class="tool-btn">🔍 通过CID获取达人信息</button>
-        <button id="btnOrder" class="tool-btn">📦 获取订单履约情况</button>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+        <button id="btnCover" class="tool-btn" style="padding: 6px 8px; font-size: 13px;">📹 获取视频封面</button>
+        <button id="btnCid" class="tool-btn" style="padding: 6px 8px; font-size: 13px;">👤 获取头像/CID</button>
+        <button id="btnCidToName" class="tool-btn" style="padding: 6px 8px; font-size: 13px;">🔍 CID获取达人</button>
+        <button id="btnOrder" class="tool-btn" style="padding: 6px 8px; font-size: 13px;">📦 订单履约情况</button>
+      </div>
+    </div>
+
+    <div id="translateCard" class="card">
+      <div class="card-header">
+        <div class="card-title">AI翻译</div>
+        <span id="translateModelInfo" class="card-desc">未配置</span>
+      </div>
+      <div class="card-actions">
+        <button id="btnTranslate" class="btn-sm">🌐 翻译配置</button>
       </div>
     </div>
 

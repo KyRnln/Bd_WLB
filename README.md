@@ -8,10 +8,27 @@
 
 ## 主要功能
 
+### 达人管理
+- 通过XLSX文件批量导入达人数据（ID、CID、地区、标签、备注）
+- 达人标签管理：绩效达人、流失达人、隐藏达人
+- 达人列表页面自动高亮显示：
+  - 绩效达人：红色高亮
+  - 流失达人：绿色半透明
+  - 隐藏达人：灰色删除线
+- IM页面达人ID旁显示标签
+- 支持数据导出和云同步
+
 ### 快捷短语
 - 在任意输入框输入 `/` 即可快速唤起短语选择器
 - 支持短语分类标签管理
 - 常用短语一键插入，提高回复效率
+
+### AI翻译助手
+- 点击IM页面输入框自动弹出翻译浮动框
+- 支持多种大模型服务：通义千问、OpenAI、DeepSeek等
+- 自定义目标语言
+- 翻译结果自动复制到剪贴板
+- 支持自定义翻译提示词
 
 ### 达人CID批量获取
 - 输入达人ID（username）批量获取对应的CID
@@ -33,15 +50,6 @@
 - 支持将查询结果导出为XLSX文件
 - 方便数据分析和记录
 
-### 达人隐藏管理
-- 在达人列表中点击达人ID旁的隐藏按钮
-- 隐藏后达人ID显示中间划线且透明度为25%
-- 隐藏信息数据持久化保存，支持云同步
-
-### 创作者管理
-- 记录和管理TikTok创作者信息
-- 快速查看和调用创作者数据
-
 ### 本地数据存储
 - 所有数据保存在浏览器本地存储中
 - 支持数据导出和导入备份
@@ -53,11 +61,24 @@
 Bd_WLB/
 ├── manifest.json                    # Chrome扩展配置文件 (Manifest V3)
 ├── background.js                    # 后台服务 Worker
-├── content.js                       # 内容脚本 - 快捷短语、达人隐藏功能
+├── content.js                       # 内容脚本 - 快捷短语功能
 ├── popup.html                       # 扩展弹窗界面
-├── popup.js                         # 弹窗逻辑 - 短语管理、达人管理
-├── phrase_manage.html               # 短语管理页面
+├── popup.js                         # 弹窗逻辑
 ├── page_bridge.js                   # 页面桥接脚本
+│
+├── Creator/                         # 达人管理模块
+│   ├── creator.html                 # 达人管理页面
+│   ├── creator.js                   # 达人管理逻辑
+│   └── creator_highlight.js         # 达人高亮与隐藏内容脚本
+│
+├── translate/                       # AI翻译模块
+│   ├── translate.html               # 翻译配置页面
+│   ├── translate.js                 # 配置页面逻辑
+│   └── translate_content.js         # 翻译浮动框内容脚本
+│
+├── phrase/                          # 短语管理模块
+│   ├── phrase_manage.html           # 短语管理页面
+│   └── phrase.js                    # 短语管理逻辑
 │
 ├── username_avatarcid/              # 达人CID批量获取模块
 │   ├── README.md
@@ -76,7 +97,8 @@ Bd_WLB/
 ├── cover/                           # 视频封面获取模块
 │   ├── README.md
 │   ├── cover.html
-│   └── cover.js
+│   ├── cover.js
+│   └── cover_background.js
 │
 ├── order/                           # 订单查询模块
 │   ├── README.md
@@ -84,6 +106,11 @@ Bd_WLB/
 │   ├── order.js
 │   ├── order_background.js
 │   └── order_content.js
+│
+├── styles/                          # 样式文件
+│   ├── base.css
+│   ├── components.css
+│   └── utilities.css
 │
 ├── libs/                            # 第三方库
 │   └── exceljs.min.js              # ExcelJS库
@@ -108,8 +135,13 @@ Bd_WLB/
 │  │  popup.html │ │  cover.html │ │username_    │ │  order.html │           │
 │  │  popup.js   │ │  cover.js   │ │avatarcid.js │ │  order.js   │           │
 │  │             │ │             │ │cid_to_name  │ │             │           │
-│  │ 快捷短语    │ │ 封面获取    │ │ CID获取/查询│ │ 订单查询    │           │
+│  │ 主界面      │ │ 封面获取    │ │ CID获取/查询│ │ 订单查询    │           │
 │  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘           │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐                           │
+│  │creator.html │ │translate.   │ │phrase_      │                           │
+│  │ creator.js  │ │html/js      │ │manage.html  │                           │
+│  │ 达人管理    │ │ 翻译配置    │ │ 短语管理    │                           │
+│  └─────────────┘ └─────────────┘ └─────────────┘                           │
 └─────────────────────────────────────────────────────────────────────────────┘
                                       │
                                       ▼
@@ -126,6 +158,7 @@ Bd_WLB/
 │  │  - username_avatarcid_background.js                                  │   │
 │  │  - cid_to_name_background.js                                         │   │
 │  │  - order_background.js                                               │   │
+│  │  - cover_background.js                                               │   │
 │  └─────────────────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────────────────┘
                                       │
@@ -135,10 +168,11 @@ Bd_WLB/
 │  ┌─────────────────────────────────────────────────────────────────────┐   │
 │  │  content.js (主内容脚本)                                              │   │
 │  │  - 快捷短语浮动选择器                                                 │   │
-│  │  - 达人隐藏功能                                                       │   │
 │  └─────────────────────────────────────────────────────────────────────┘   │
 │  ┌─────────────────────────────────────────────────────────────────────┐   │
 │  │  *_content.js (模块内容脚本)                                          │   │
+│  │  - creator_highlight.js (达人高亮与隐藏)                              │   │
+│  │  - translate_content.js (翻译浮动框)                                  │   │
 │  │  - username_avatarcid_content.js                                     │   │
 │  │  - cid_to_name_content.js                                            │   │
 │  │  - order_content.js                                                  │   │
@@ -150,7 +184,10 @@ Bd_WLB/
 
 | 模块 | 功能 | 文件 |
 |------|------|------|
-| **popup** | 主界面、快捷短语管理、达人管理 | popup.html, popup.js |
+| **popup** | 主界面、数据管理 | popup.html, popup.js |
+| **Creator** | 达人管理、高亮、隐藏 | Creator/* |
+| **translate** | AI翻译助手配置与使用 | translate/* |
+| **phrase** | 快捷短语管理 | phrase/* |
 | **username_avatarcid** | 达人ID→CID批量获取 | username_avatarcid/* |
 | **cid_to_name** | CID→达人ID批量查询 | cid_to_name/* |
 | **cover** | TikTok视频封面获取 | cover/* |
@@ -161,52 +198,41 @@ Bd_WLB/
 - **Chrome扩展 API (Manifest V3)** - 使用最新的扩展规范
 - **原生JavaScript ES6+** - 无框架依赖
 - **HTML5 + CSS3** - 响应式界面设计
-- **IndexedDB** - 浏览器内置数据库
 - **chrome.storage.local** - Chrome扩展本地存储API
 - **ExcelJS** - 用于生成xlsx格式的Excel文件
 - **MutationObserver** - 监听页面DOM变化
 
 ## 数据流
 
+### 达人管理功能
+
+```
+用户导入XLSX → creator.js解析数据 → 存储到chrome.storage.local
+                                              ↓
+页面加载 → creator_highlight.js读取数据 → 匹配达人ID
+                                              ↓
+                                    应用高亮/隐藏样式
+                                              ↓
+                                    显示标签信息
+```
+
+### AI翻译功能
+
+```
+用户点击输入框 → translate_content.js监听 → 显示翻译浮动框
+                                              ↓
+用户输入文本 → 调用大模型API → 返回翻译结果
+                                              ↓
+                                    自动复制到剪贴板
+```
+
 ### 快捷短语功能
 
 ```
 用户输入 "/" → content.js监听 → 显示浮动选择器 → 用户选择 → 插入文本
                     ↑
-              popup.js管理数据
+              phrase.js管理数据
               (chrome.storage.local)
-```
-
-### CID批量获取功能
-
-```
-用户输入达人ID → username_avatarcid.js
-                      ↓
-              background.js创建标签页
-                      ↓
-              username_avatarcid_content.js操作页面
-                      ↓
-              网络Hook捕获API响应
-                      ↓
-              提取CID并保存
-                      ↓
-              导出Excel
-```
-
-### 订单查询功能
-
-```
-用户输入订单ID → order.js
-                      ↓
-              background.js创建标签页
-                      ↓
-              order_content.js自动化操作
-                      ↓
-              抓取表格数据
-                      ↓
-              保存到IndexedDB
-                      ↓
-              导出Excel
 ```
 
 ## 消息通信
@@ -236,10 +262,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 | `startBatchQuery` | 开始CID批量查询 |
 | `startBatchQuery_cidToName` | 开始CID→达人ID查询 |
 | `startOrderAutomation` | 开始订单查询 |
+| `startCoverFetch` | 开始封面获取 |
 | `exportExcel` | 导出达人数据 |
 | `exportOrderData` | 导出订单数据 |
 | `openTab` | 打开新标签页 |
 | `closeTab` | 关闭标签页 |
+| `creatorDataUpdated` | 达人数据更新通知 |
 
 ## 开发指南
 
@@ -276,6 +304,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 - 模块间通过消息通信，避免直接依赖
 
 ## 版本历史
+
+### v1.5
+- 新增AI翻译助手功能，支持多种大模型服务
+- 达人管理：新增标签功能（绩效达人、流失达人、隐藏达人）
+- 达人高亮：IM页面显示达人标签
+- 达人隐藏：优化隐藏样式，支持通过标签管理
+- 优化后台任务持久化，支持离开popup后继续执行
 
 ### v1.2
 - 重构项目架构，模块化各功能

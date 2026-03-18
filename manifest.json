@@ -30,7 +30,7 @@
     "*://*/*"
   ],
   "content_security_policy": {
-    "extension_pages": "default-src 'self'; connect-src https://*.tiktok.com https://*.tiktokcdn.com https://*.tiktokcdn-us.com https://*.tiktokv.com https://dav.jianguoyun.com; img-src 'self' https: data:; style-src 'self' 'unsafe-inline'; script-src 'self'"
+    "extension_pages": "default-src 'self'; connect-src https://*.tiktok.com https://*.tiktokcdn.com https://*.tiktokcdn-us.com https://*.tiktokv.com https://dav.jianguoyun.com https://*.aliyuncs.com https://api.openai.com https://api.deepseek.com https://*; img-src 'self' https: data:; style-src 'self' 'unsafe-inline'; script-src 'self'"
   },
   "content_scripts": [
     {
@@ -82,6 +82,15 @@
         "cid_to_name/cid_to_name_content.js"
       ],
       "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "https://affiliate.tiktokshopglobalselling.com/seller/im*"
+      ],
+      "js": [
+        "translate/translate_content.js"
+      ],
+      "run_at": "document_end"
     }
   ],
   "action": {
@@ -101,7 +110,8 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "page_bridge.js"
+        "page_bridge.js",
+        "translate/translate.html"
       ],
       "matches": [
         "https://*.tiktok.com/*",
