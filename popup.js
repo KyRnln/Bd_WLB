@@ -259,16 +259,17 @@ document.addEventListener('DOMContentLoaded', () => {
     exportDataBtn.addEventListener('click', async () => {
       try {
         const result = await new Promise(resolve => 
-          storageAPI.get(['savedPhrases', 'savedTags', 'activeTagId', 'savedCreators', 'creatorBlacklist'], resolve)
+          storageAPI.get(['savedPhrases', 'savedTags', 'activeTagId', 'savedCreators', 'creatorBlacklist', 'translateConfig'], resolve)
         );
         const data = {
-          version: '1.0',
+          version: '1.1',
           exportTime: new Date().toISOString(),
           phrases: result.savedPhrases || [],
           tags: result.savedTags || [],
           activeTagId: result.activeTagId || '__ALL__',
           creators: result.savedCreators || [],
-          creatorBlacklist: result.creatorBlacklist || []
+          creatorBlacklist: result.creatorBlacklist || [],
+          translateConfig: result.translateConfig || null
         };
 
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -304,7 +305,8 @@ document.addEventListener('DOMContentLoaded', () => {
           savedTags: data.tags || [],
           activeTagId: data.activeTagId || '__ALL__',
           savedCreators: data.creators || [],
-          creatorBlacklist: data.creatorBlacklist || []
+          creatorBlacklist: data.creatorBlacklist || [],
+          translateConfig: data.translateConfig || null
         }, resolve));
 
         showStatus('✅ 数据已导入，正在刷新...', 'success', 'webdavStatus');
@@ -330,16 +332,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
       try {
         const result = await new Promise(resolve => 
-          storageAPI.get(['savedPhrases', 'savedTags', 'activeTagId', 'savedCreators', 'creatorBlacklist'], resolve)
+          storageAPI.get(['savedPhrases', 'savedTags', 'activeTagId', 'savedCreators', 'creatorBlacklist', 'translateConfig'], resolve)
         );
         const data = {
-          version: '1.0',
+          version: '1.1',
           exportTime: new Date().toISOString(),
           phrases: result.savedPhrases || [],
           tags: result.savedTags || [],
           activeTagId: result.activeTagId || '__ALL__',
           creators: result.savedCreators || [],
-          creatorBlacklist: result.creatorBlacklist || []
+          creatorBlacklist: result.creatorBlacklist || [],
+          translateConfig: result.translateConfig || null
         };
 
         const response = await fetch(url + 'wlb_backup.json', {
@@ -393,6 +396,7 @@ document.addEventListener('DOMContentLoaded', () => {
             activeTagId: data.activeTagId || '__ALL__',
             savedCreators: data.creators || [],
             creatorBlacklist: data.creatorBlacklist || [],
+            translateConfig: data.translateConfig || null,
             webdavConfig: { url, username, password }
           }, resolve));
 
