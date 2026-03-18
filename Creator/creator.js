@@ -289,7 +289,7 @@
         const index = parseInt(btn.dataset.index, 10);
         const creator = searchResults[index];
         if (creator && creator.cid && creator.region) {
-          const url = `https://affiliate.tiktokshopglobalselling.com/connection/creator/detail?rid=${creator.cid}&region=${creator.region}`;
+          const url = `https://affiliate.tiktokshopglobalselling.com/connection/creator/detail?cid=${creator.cid}&region=${creator.region}`;
           chrome.tabs.create({ url });
         }
       });
@@ -380,8 +380,8 @@
           return;
         }
 
-        const baseList = getFilteredCreators();
-        searchResults = baseList.filter(c => {
+        searchResults = creators.filter(c => {
+          if (c.tag === '隐藏达人') return false;
           return (c.id && c.id.toLowerCase().includes(query)) ||
                  (c.cid && c.cid.toLowerCase().includes(query)) ||
                  (c.region && c.region.toLowerCase().includes(query)) ||
