@@ -150,6 +150,12 @@ document.addEventListener('DOMContentLoaded', () => {
       window.location.href = 'order/order.html';
     });
   }
+  const btnTranslateNow = document.getElementById('btnTranslateNow');
+  if (btnTranslateNow) {
+    btnTranslateNow.addEventListener('click', () => {
+      chrome.tabs.create({ url: chrome.runtime.getURL('translate/translate_now.html') });
+    });
+  }
   const btnTranslate = document.getElementById('btnTranslate');
   if (btnTranslate) {
     btnTranslate.addEventListener('click', () => {
