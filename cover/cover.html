@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,40 +7,16 @@
   <link rel="stylesheet" href="../styles/base.css">
   <link rel="stylesheet" href="../styles/components.css">
   <link rel="stylesheet" href="../styles/utilities.css">
-  <style>
-    body {
-      width: 480px;
-      padding: 16px 20px 24px;
-    }
-    .progress-bar {
-      align-items: center;
-      gap: 8px;
-      padding: 0 4px;
-    }
-    .result-card {
-      display: flex;
-      padding: 8px;
-      border: 1px solid var(--card-border);
-      border-radius: var(--radius-sm);
-      background: #fff;
-      gap: 10px;
-      margin-bottom: 8px;
-    }
-    .result-card.error {
-      background: #fdecea;
-      border-color: #f5c6cb;
-    }
-  </style>
+  <link rel="stylesheet" href="../styles/modules.css">
 </head>
-
-<body>
+<body class="page-tool">
   <div class="page-header">
     <button class="back-btn" id="backBtn">← 返回</button>
     <h1>获取视频封面</h1>
   </div>
 
   <div class="card">
-    <div id="coverPanelStatus" class="status info"></div>
+    <div id="coverPanelStatus" class="panel-status info"></div>
     <div class="description">粘贴TikTok视频链接（每行一个）获取封面并导出XLSX</div>
 
     <div>
@@ -50,7 +25,7 @@
         rows="5"></textarea>
     </div>
 
-    <div class="button-group flex gap-2 justify-center flex-wrap mb-2">
+    <div class="button-group">
       <button id="coverFetchBtn">获取封面</button>
       <button id="coverClearBtn">清空</button>
       <button id="coverStopBtn" style="display:none;background:#ef4444;color:#fff;">停止</button>
@@ -76,5 +51,4 @@
   <script src="../libs/exceljs.min.js"></script>
   <script src="cover.js"></script>
 </body>
-
 </html>

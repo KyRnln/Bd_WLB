@@ -24,7 +24,7 @@
       position: fixed;
       z-index: 999999;
       background: #fff;
-      border: 2px solid #1890ff;
+      border: 1px solid #1890ff;
       border-radius: 999px;
       box-shadow: 0 4px 20px rgba(24, 144, 255, 0.3);
       padding: 6px;
@@ -237,25 +237,31 @@
   }
 
   function handleClick(e) {
-    const target = e.target;
-
-    if (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT') {
-      if (target.id === 'imTextarea' || target.placeholder?.includes('发送消息')) {
-        loadConfig().then(() => {
-          showTranslateBox(e.clientX, e.clientY, target);
-        });
-      }
-    }
-
     if (isVisible && translateBox && !translateBox.contains(e.target)) {
       hideTranslateBox();
     }
+  }
+
+  function handleKeydown(e) {
+    if (e.key !== 'ArrowUp') return;
+    if (isVisible) return;
+
+    const target = e.target;
+    if (target.tagName !== 'TEXTAREA' && target.tagName !== 'INPUT') return;
+    if (target.id !== 'imTextarea' && !target.placeholder?.includes('发送消息')) return;
+
+    e.preventDefault();
+    loadConfig().then(() => {
+      const rect = target.getBoundingClientRect();
+      showTranslateBox(rect.left, rect.top, target);
+    });
   }
 
   function init() {
     loadConfig();
 
     document.addEventListener('click', handleClick, true);
+    document.addEventListener('keydown', handleKeydown, true);
 
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area === 'local' && changes.translateConfig) {

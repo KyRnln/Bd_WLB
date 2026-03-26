@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,22 +7,16 @@
   <link rel="stylesheet" href="../styles/base.css">
   <link rel="stylesheet" href="../styles/components.css">
   <link rel="stylesheet" href="../styles/utilities.css">
-  <style>
-    body {
-      width: 480px;
-      padding: 16px 20px 24px;
-    }
-  </style>
+  <link rel="stylesheet" href="../styles/modules.css">
 </head>
-
-<body>
+<body class="page-tool">
   <div class="page-header">
     <button class="back-btn" id="backBtn">← 返回</button>
     <h1>获取订单履约情况</h1>
   </div>
 
   <div class="card">
-    <div id="orderPanelStatus" class="status info"></div>
+    <div id="orderPanelStatus" class="panel-status info"></div>
     <div class="description">通过订单ID查询达人履约情况并导出XLSX</div>
 
     <div id="inputArea" class="input-area">
@@ -36,7 +29,7 @@
       <div id="orderProgressFill" class="progress-fill"></div>
     </div>
 
-    <div class="button-group flex gap-2 justify-center flex-wrap mb-2">
+    <div class="button-group">
       <button class="btn-sm" id="startOrderQueryBtn">开始查询并下载</button>
       <button class="btn-sm" id="stopOrderQueryBtn" style="display:none;">停止查询</button>
     </div>
@@ -45,5 +38,4 @@
   <script src="../libs/exceljs.min.js"></script>
   <script src="order.js"></script>
 </body>
-
 </html>

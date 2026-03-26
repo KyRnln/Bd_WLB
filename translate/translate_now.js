@@ -77,7 +77,7 @@
   }
 
   async function translate() {
-    const inputText = document.getElementById('inputText').value.trim();
+    const inputText = document.getElementById('sourceText').value.trim();
     
     if (!inputText) {
       showStatus('请输入要翻译的内容', 'error');
@@ -143,8 +143,8 @@
   }
 
   function showResult(lang, text) {
-    const resultSection = document.getElementById('resultSection');
-    const resultsContainer = document.getElementById('results');
+    const resultSection = document.getElementById('resultArea');
+    const resultsContainer = document.getElementById('translatedText');
 
     const card = document.createElement('div');
     card.className = 'result-card';
@@ -180,9 +180,9 @@
   }
 
   function clearAll() {
-    document.getElementById('inputText').value = '';
-    document.getElementById('results').innerHTML = '';
-    document.getElementById('resultSection').style.display = 'none';
+    document.getElementById('sourceText').value = '';
+    document.getElementById('translatedText').innerHTML = '';
+    document.getElementById('resultArea').style.display = 'none';
     hideStatus();
   }
 
@@ -192,7 +192,7 @@
     document.getElementById('translateBtn').addEventListener('click', translate);
     document.getElementById('clearBtn').addEventListener('click', clearAll);
 
-    document.getElementById('inputText').addEventListener('keydown', (e) => {
+    document.getElementById('sourceText').addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
         translate();

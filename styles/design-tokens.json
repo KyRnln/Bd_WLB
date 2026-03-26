@@ -1,0 +1,211 @@
+{
+  "$schema": "https://design-tokens.github.io/community-group/format/",
+  "designTokens": {
+    "color": {
+      "primary": {
+        "value": "#ff0050",
+        "type": "color",
+        "description": "主题主色，用于按钮、高亮等"
+      },
+      "primaryHover": {
+        "value": "#e6004a",
+        "type": "color",
+        "description": "主色悬停状态"
+      },
+      "secondary": {
+        "value": "#1d5fff",
+        "type": "color",
+        "description": "次要强调色"
+      },
+      "success": {
+        "value": "#28a745",
+        "type": "color",
+        "description": "成功状态色"
+      },
+      "warning": {
+        "value": "#f59e0b",
+        "type": "color"
+      },
+      "danger": {
+        "value": "#dc2626",
+        "type": "color",
+        "description": "危险/错误状态"
+      },
+      "info": {
+        "value": "#0369a1",
+        "type": "color"
+      },
+      "muted": {
+        "value": "#6c757d",
+        "type": "color",
+        "description": "弱化文本"
+      },
+      "btn": {
+        "value": "#5a8db8",
+        "type": "color",
+        "description": "按钮默认色"
+      },
+      "btnHover": {
+        "value": "#4a7da8",
+        "type": "color"
+      },
+      "btnGlow": {
+        "value": "rgba(90, 141, 184, 0.5)",
+        "type": "color",
+        "description": "按钮悬停光晕颜色"
+      }
+    },
+    "background": {
+      "base": {
+        "value": "#f7f7f9",
+        "type": "color"
+      },
+      "card": {
+        "value": "#f0f4ff",
+        "type": "color"
+      },
+      "input": {
+        "value": "#ffffff",
+        "type": "color"
+      }
+    },
+    "border": {
+      "color": {
+        "value": "#e0e6ff",
+        "type": "color"
+      },
+      "input": {
+        "value": "#ddd",
+        "type": "color"
+      }
+    },
+    "text": {
+      "color": {
+        "value": "#222222",
+        "type": "color"
+      },
+      "muted": {
+        "value": "#666666",
+        "type": "color"
+      }
+    },
+    "shadow": {
+      "sm": {
+        "value": "0 2px 8px rgba(0, 0, 0, 0.05)",
+        "type": "shadow"
+      },
+      "md": {
+        "value": "0 4px 10px rgba(255, 0, 80, 0.28)",
+        "type": "shadow"
+      },
+      "lg": {
+        "value": "0 10px 30px rgba(0, 0, 0, 0.15)",
+        "type": "shadow"
+      }
+    },
+    "spacing": {
+      "xs": { "value": "4px", "type": "dimension" },
+      "sm": { "value": "8px", "type": "dimension" },
+      "md": { "value": "12px", "type": "dimension" },
+      "lg": { "value": "16px", "type": "dimension" },
+      "xl": { "value": "20px", "type": "dimension" },
+      "2xl": { "value": "24px", "type": "dimension" }
+    },
+    "radius": {
+      "sm": { "value": "6px", "type": "dimension" },
+      "md": { "value": "8px", "type": "dimension" },
+      "lg": { "value": "10px", "type": "dimension" },
+      "xl": { "value": "12px", "type": "dimension" },
+      "full": { "value": "999px", "type": "dimension" }
+    },
+    "font": {
+      "family": {
+        "value": "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+        "type": "fontFamily"
+      },
+      "size": {
+        "xs": { "value": "10px", "type": "dimension" },
+        "sm": { "value": "12px", "type": "dimension" },
+        "base": { "value": "13px", "type": "dimension" },
+        "md": { "value": "14px", "type": "dimension" },
+        "lg": { "value": "16px", "type": "dimension" },
+        "xl": { "value": "18px", "type": "dimension" },
+        "2xl": { "value": "20px", "type": "dimension" }
+      },
+      "weight": {
+        "normal": { "value": "400", "type": "fontWeight" },
+        "medium": { "value": "500", "type": "fontWeight" },
+        "semibold": { "value": "600", "type": "fontWeight" },
+        "bold": { "value": "700", "type": "fontWeight" }
+      }
+    },
+    "creator": {
+      "tag": {
+        "performance": {
+          "bg": { "value": "#ffe0e6", "type": "color" },
+          "color": { "value": "#ff0050", "type": "color" }
+        },
+        "lost": {
+          "bg": { "value": "#e8f5e9", "type": "color" },
+          "color": { "value": "#117a42", "type": "color" }
+        },
+        "hidden": {
+          "bg": { "value": "#f5f5f5", "type": "color" },
+          "color": { "value": "#666666", "type": "color" }
+        }
+      }
+    },
+    "translate": {
+      "gradient": {
+        "value": "linear-gradient(135deg, #ff0050, #ff3366)",
+        "type": "gradient"
+      }
+    },
+    "status": {
+      "success": {
+        "bg": { "value": "#e7f8ec", "type": "color" },
+        "color": { "value": "#117a42", "type": "color" }
+      },
+      "error": {
+        "bg": { "value": "#fdecea", "type": "color" },
+        "color": { "value": "#c0392b", "type": "color" }
+      },
+      "info": {
+        "bg": { "value": "#eef4ff", "type": "color" },
+        "color": { "value": "#2b4acb", "type": "color" }
+      }
+    },
+    "zIndex": {
+      "dropdown": { "value": "100", "type": "dimension" },
+      "modal": { "value": "1000", "type": "dimension" },
+      "tooltip": { "value": "9999", "type": "dimension" },
+      "notification": { "value": "10000", "type": "dimension" }
+    },
+    "component": {
+      "button": {
+        "padding": { "value": "10px 12px", "type": "dimension" },
+        "borderRadius": { "value": "30px", "type": "dimension" },
+        "fontSize": { "value": "14px", "type": "dimension" }
+      },
+      "input": {
+        "padding": { "value": "8px 12px", "type": "dimension" },
+        "borderRadius": { "value": "6px", "type": "dimension" },
+        "fontSize": { "value": "13px", "type": "dimension" }
+      },
+      "card": {
+        "padding": { "value": "14px", "type": "dimension" },
+        "borderRadius": { "value": "10px", "type": "dimension" }
+      },
+      "dialog": {
+        "padding": { "value": "18px 20px", "type": "dimension" },
+        "width": { "value": "360px", "type": "dimension" },
+        "borderRadius": { "value": "12px", "type": "dimension" }
+      },
+      "tagChip": {
+        "padding": { "value": "6px 12px", "type": "dimension" },
+        "borderRadius": { "value": "5px", "type": "dimension" },
+        "fontSize": { "value": "12px", "type": "dimension" }
+      }
+    }
+  }
+}

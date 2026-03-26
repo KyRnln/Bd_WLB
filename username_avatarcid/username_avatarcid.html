@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,52 +7,36 @@
   <link rel="stylesheet" href="../styles/base.css">
   <link rel="stylesheet" href="../styles/components.css">
   <link rel="stylesheet" href="../styles/utilities.css">
-  <style>
-    body {
-      width: 480px;
-      padding: 16px 20px 24px;
-    }
-    .progress-bar {
-      margin-bottom: 6px;
-    }
-    .results {
-      max-height: 130px;
-    }
-    #cidStatus {
-      display: none;
-      padding: 8px 10px;
-      border-radius: var(--radius-sm);
-      font-size: 12px;
-      margin-bottom: 6px;
-    }
-  </style>
+  <link rel="stylesheet" href="../styles/modules.css">
 </head>
-
-<body>
+<body class="page-tool">
   <div class="page-header">
     <button class="back-btn" id="backBtn">← 返回</button>
     <h1>获取头像/CID</h1>
   </div>
 
   <div class="card">
-    <div id="cidPanelStatus" class="status info"></div>
+    <div id="cidPanelStatus" class="panel-status info"></div>
     <div class="description">输入达人ID批量获取头像以及CID，需在达人管理页使用</div>
 
     <div>
       <textarea id="cidCreatorInput" placeholder="输入达人昵称或ID，每行一个&#10;例如：&#10;creator1&#10;creator2" rows="5"></textarea>
     </div>
 
-    <div class="button-group flex gap-2 justify-center flex-wrap mb-2">
+    <div class="button-group">
       <button class="btn-sm" id="cidSearchBtn">开始获取</button>
       <button class="btn-sm" id="cidStopBtn" style="display:none;">停止搜索</button>
       <button class="btn-sm" id="cidExportBtn">导出XLSX</button>
       <button class="btn-sm" id="cidClearBtn">清除暂存数据</button>
     </div>
 
-    <div id="cidStatus"></div>
+    <div id="cidStatus" class="panel-status"></div>
 
     <div id="cidProgressBar" class="progress-bar">
-      <div id="cidProgressFill" class="progress-fill"></div>
+      <div class="progress-track">
+        <div id="cidProgressFill" class="progress-fill"></div>
+      </div>
+      <span id="cidProgressText" class="progress-text">0/0</span>
     </div>
 
     <div id="cidResults" class="results"></div>
@@ -62,5 +45,4 @@
   <script src="../libs/exceljs.min.js"></script>
   <script src="username_avatarcid.js"></script>
 </body>
-
 </html>

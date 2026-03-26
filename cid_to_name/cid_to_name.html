@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,25 +7,16 @@
   <link rel="stylesheet" href="../styles/base.css">
   <link rel="stylesheet" href="../styles/components.css">
   <link rel="stylesheet" href="../styles/utilities.css">
-  <style>
-    body {
-      width: 480px;
-      padding: 16px 20px 24px;
-    }
-    .results {
-      max-height: 150px;
-    }
-  </style>
+  <link rel="stylesheet" href="../styles/modules.css">
 </head>
-
-<body>
+<body class="page-tool">
   <div class="page-header">
     <button class="back-btn" id="backBtn">← 返回</button>
     <h1>通过CID获取达人信息</h1>
   </div>
 
   <div class="card">
-    <div id="cidToNamePanelStatus" class="status info"></div>
+    <div id="cidToNamePanelStatus" class="panel-status info"></div>
     <div class="description">批量输入CID查询达人用户名与头像并导出XLSX</div>
 
     <div>
@@ -46,7 +36,7 @@
       </select>
     </div>
 
-    <div class="button-group flex gap-2 justify-center flex-wrap mb-2">
+    <div class="button-group">
       <button class="btn-sm" id="cidToNameSearchBtn">批量查询</button>
       <button class="btn-sm" id="cidToNameStopBtn" style="display:none;background:#ef4444;color:#fff;">停止</button>
       <button class="btn-sm" id="cidToNameExportBtn">导出XLSX</button>
@@ -61,5 +51,4 @@
   <script src="../libs/exceljs.min.js"></script>
   <script src="cid_to_name.js"></script>
 </body>
-
 </html>

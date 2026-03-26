@@ -5,8 +5,16 @@
 
   if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) return;
 
-  let creators = [];
   const CREATOR_HIT_CLASS = 'quick-creator-hit';
+  const TAG_COLORS = {
+    '绩效达人': { bg: '#ffebee', color: '#c62828' },
+    '流失达人': { bg: '#e8f5e9', color: '#2e7d32' },
+    '隐藏达人': { bg: '#f5f5f5', color: '#616161' }
+  };
+
+  let creators = [];
+  let creatorSets = { performance: new Set(), lost: new Set(), hidden: new Set() };
+  let allCreatorMap = new Map();
   let creatorObserver = null;
   let highlightScheduled = false;
 
@@ -15,65 +23,63 @@
     const style = document.createElement('style');
     style.id = 'creator-highlight-styles';
     style.textContent = `
-      .${CREATOR_HIT_CLASS} {
-        color: #ff0050 !important;
-        font-weight: 700;
-      }
-      .quick-creator-lost {
-        color: #117a42 !important;
-        font-weight: 700;
-        opacity: 0.5;
-      }
+      .${CREATOR_HIT_CLASS} { color: #ff0050 !important; font-weight: 700; }
+      .quick-creator-lost { color: #117a42 !important; font-weight: 700; opacity: 0.5; }
       .creator-blacklist-btn {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-width: 32px;
-        height: 18px;
-        margin-left: 6px;
-        padding: 0 4px;
-        background: #ffe0e6;
-        border: 1px solid #ff0050;
-        border-radius: 100px;
-        cursor: pointer;
-        font-size: 10px;
-        font-weight: 500;
-        transition: all 0.3s ease;
-        color: #ff0050;
-        white-space: nowrap;
+        display: inline-flex; align-items: center; justify-content: center;
+        min-width: 32px; height: 18px; margin-left: 6px; padding: 0 4px;
+        background: #ffe0e6; border: 1px solid #ff0050; border-radius: 100px;
+        cursor: pointer; font-size: 10px; font-weight: 500; transition: all 0.3s ease;
+        color: #ff0050; white-space: nowrap;
       }
-      .creator-blacklist-btn:hover {
-        background: #ffc9d9;
-        border-color: #ff0050;
-        color: #ff0050;
-      }
-      .creator-blacklist-btn.blacklisted {
-        background: #f5f5f5;
-        border-color: #d9d9d9;
-        color: #666;
-      }
-      .creator-id-blacklisted {
-        text-decoration: line-through !important;
-        opacity: 0.5 !important;
-        color: #999 !important;
-      }
-      .creator-id-blacklisted:hover {
-        text-decoration: line-through !important;
-        opacity: 0.5 !important;
-      }
+      .creator-blacklist-btn:hover { background: #ffc9d9; border-color: #ff0050; color: #ff0050; }
+      .creator-blacklist-btn.blacklisted { background: #f5f5f5; border-color: #d9d9d9; color: #666; }
+      .creator-id-blacklisted { text-decoration: line-through !important; opacity: 0.5 !important; color: #999 !important; }
     `;
     document.documentElement.appendChild(style);
   }
 
+  function normalizeCreatorId(text) {
+    return (text || '').trim().replace(/^[@＠]+/, '').trim();
+  }
+
+  function buildCreatorSets() {
+    const performance = new Set();
+    const lost = new Set();
+    const hidden = new Set();
+    const map = new Map();
+
+    for (const c of creators) {
+      if (!c || !c.id) continue;
+      const norm = normalizeCreatorId(String(c.id));
+      if (!norm) continue;
+
+      map.set(norm, c);
+
+      if (c.tag === '绩效达人') performance.add(norm);
+      else if (c.tag === '流失达人') lost.add(norm);
+      else if (c.tag === '隐藏达人') hidden.add(norm);
+    }
+
+    creatorSets = { performance, lost, hidden };
+    allCreatorMap = map;
+  }
+
+  function getCreatorById(normalizedId) {
+    return allCreatorMap.get(normalizedId) || null;
+  }
+
   async function loadCreators() {
     try {
-      const result = await new Promise(resolve => 
+      const result = await new Promise(resolve =>
         chrome.storage.local.get(['savedCreators'], resolve)
       );
       creators = Array.isArray(result.savedCreators) ? result.savedCreators : [];
+      buildCreatorSets();
       scheduleHighlightCreators();
     } catch (e) {
       creators = [];
+      buildCreatorSets();
     }
   }
 
@@ -83,69 +89,11 @@
         chrome.storage.local.set({ savedCreators: creators }, resolve)
       );
       try {
-        if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
-          chrome.runtime.sendMessage({ action: 'creatorDataUpdated' }).catch(() => {});
-        }
+        chrome.runtime.sendMessage({ action: 'creatorDataUpdated' }).catch(() => {});
       } catch (msgError) {}
     } catch (storageError) {
       console.debug('达人数据保存失败', storageError);
     }
-  }
-
-  function normalizeCreatorId(text) {
-    return (text || '')
-      .trim()
-      .replace(/^[@＠]+/, '')
-      .trim();
-  }
-
-  function getCreatorIdSet() {
-    const ids = new Set();
-    if (!Array.isArray(creators)) return ids;
-    for (const c of creators) {
-      if (c && c.tag === '绩效达人') {
-        const raw = c.id ? String(c.id) : '';
-        const norm = normalizeCreatorId(raw);
-        if (norm) ids.add(norm);
-      }
-    }
-    return ids;
-  }
-
-  function getLostCreatorIdSet() {
-    const ids = new Set();
-    if (!Array.isArray(creators)) return ids;
-    for (const c of creators) {
-      if (c && c.tag === '流失达人') {
-        const raw = c.id ? String(c.id) : '';
-        const norm = normalizeCreatorId(raw);
-        if (norm) ids.add(norm);
-      }
-    }
-    return ids;
-  }
-
-  function getHiddenCreatorIdSet() {
-    const ids = new Set();
-    if (!Array.isArray(creators)) return ids;
-    for (const c of creators) {
-      if (c && c.tag === '隐藏达人') {
-        const raw = c.id ? String(c.id) : '';
-        const norm = normalizeCreatorId(raw);
-        if (norm) ids.add(norm);
-      }
-    }
-    return ids;
-  }
-
-  function getCreatorById(normalizedId) {
-    if (!Array.isArray(creators)) return null;
-    for (const c of creators) {
-      const raw = c && c.id ? String(c.id) : '';
-      const norm = normalizeCreatorId(raw);
-      if (norm === normalizedId) return c;
-    }
-    return null;
   }
 
   function createBlacklistButton(creatorIdElement, creatorId) {
@@ -176,12 +124,7 @@
             existingCreator.tag = '隐藏达人';
           } else {
             creators.push({
-              id: normId,
-              cid: '',
-              region: '',
-              tag: '隐藏达人',
-              remark: '',
-              hiddenAt: Date.now()
+              id: normId, cid: '', region: '', tag: '隐藏达人', remark: '', hiddenAt: Date.now()
             });
           }
           creatorIdElement.classList.add('creator-id-blacklisted');
@@ -191,6 +134,7 @@
         }
 
         await saveCreators();
+        buildCreatorSets();
         scheduleHighlightCreators();
       } catch (error) {
         if (!error.message.includes('Extension context invalidated')) {
@@ -209,22 +153,20 @@
     const normId = normalizeCreatorId(rawCreatorId);
     if (!normId || !rawCreatorId.startsWith('@') && !/[a-zA-Z]/.test(rawCreatorId)) return;
 
-    let parentContainer = idElement.parentNode;
-    const existingBtn = parentContainer?.querySelector('.creator-blacklist-btn');
+    const parentContainer = idElement.parentNode;
+    if (!parentContainer) return;
 
-    if (!existingBtn && parentContainer) {
-      const btn = createBlacklistButton(idElement, rawCreatorId);
-      parentContainer.appendChild(btn);
+    if (!parentContainer.querySelector('.creator-blacklist-btn')) {
+      parentContainer.appendChild(createBlacklistButton(idElement, rawCreatorId));
     }
 
-    const hiddenIds = getHiddenCreatorIdSet();
-    if (hiddenIds.has(normId)) {
+    if (creatorSets.hidden.has(normId)) {
       idElement.classList.add('creator-id-blacklisted');
       idElement.style.textDecoration = 'line-through';
       idElement.style.opacity = '0.5';
       idElement.style.color = '#999';
 
-      const btn = idElement.parentNode?.querySelector('.creator-blacklist-btn');
+      const btn = parentContainer.querySelector('.creator-blacklist-btn');
       if (btn) {
         btn.classList.add('blacklisted');
         btn.textContent = '解除';
@@ -232,188 +174,134 @@
     }
   }
 
-  function highlightCreators() {
-    const performanceIds = getCreatorIdSet();
-    const lostIds = getLostCreatorIdSet();
-    const hiddenIds = getHiddenCreatorIdSet();
-    if (!performanceIds.size && !lostIds.size && !hiddenIds.size) return;
+  function applyHighlight(node, norm) {
+    if (creatorSets.hidden.has(norm)) {
+      node.classList.add('creator-id-blacklisted');
+      node.style.textDecoration = 'line-through';
+      node.style.opacity = '0.5';
+      node.style.color = '#999';
+    } else if (creatorSets.performance.has(norm)) {
+      node.classList.add(CREATOR_HIT_CLASS);
+    } else if (creatorSets.lost.has(norm)) {
+      node.classList.add('quick-creator-lost');
+    }
+  }
 
-    const container =
-      document.querySelector('.arco-table-body') ||
-      document.querySelector('#root') ||
-      document.body;
+  function highlightAndTag() {
+    const { performance, lost, hidden } = creatorSets;
+    if (!performance.size && !lost.size && !hidden.size) return;
 
-    const candidates = container.querySelectorAll('div');
+    const container = document.querySelector('.arco-table-body') ||
+      document.querySelector('#root') || document.body;
 
-    candidates.forEach(node => {
-      if (!(node instanceof HTMLElement)) return;
-      if (node.classList.contains(CREATOR_HIT_CLASS) || 
-          node.classList.contains('quick-creator-lost') || 
-          node.classList.contains('creator-id-blacklisted')) return;
+    const targetContainers = container.querySelectorAll('.flex.flex-col.flex-1, [class*="creator-info__HightBoldText"]');
+    const relevantNodes = [];
 
-      if (node.tagName === 'INPUT' || node.tagName === 'TEXTAREA') return;
-      if (node.isContentEditable) return;
+    targetContainers.forEach(el => {
+      if (el.classList.contains(CREATOR_HIT_CLASS) ||
+          el.classList.contains('quick-creator-lost') ||
+          el.classList.contains('creator-id-blacklisted')) return;
 
-      if (node.querySelector('input, textarea, [contenteditable="true"]')) return;
+      if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable) return;
+      if (el.querySelector('input, textarea, [contenteditable="true"]')) return;
 
-      const rawText = (node.textContent || '').trim();
+      const rawText = (el.textContent || '').trim();
       if (!rawText) return;
+
       const norm = normalizeCreatorId(rawText);
       if (!norm) return;
 
-      if (hiddenIds.has(norm)) {
-        node.classList.add('creator-id-blacklisted');
-        node.style.textDecoration = 'line-through';
-        node.style.opacity = '0.5';
-        node.style.color = '#999';
-      } else if (performanceIds.has(norm)) {
-        node.classList.add(CREATOR_HIT_CLASS);
-      } else if (lostIds.has(norm)) {
-        node.classList.add('quick-creator-lost');
-      }
+      relevantNodes.push({ node: el, norm });
     });
 
-    // 处理隐藏按钮
-    const creatorIdElements = container.querySelectorAll('[class*="creator-info__HightBoldText"]');
-    creatorIdElements.forEach(el => {
-      processCreatorIdHideButton(el);
+    relevantNodes.forEach(({ node, norm }) => {
+      applyHighlight(node, norm);
     });
+
+    const creatorIdElements = container.querySelectorAll('[class*="creator-info__HightBoldText"]');
+    creatorIdElements.forEach(processCreatorIdHideButton);
+
+    flexContainersLoop(container);
+    imNameDivsLoop(container);
+    imUnameDivsLoop(container);
   }
 
-  function replaceCreatorNameWithTag() {
-    const allCreators = new Map();
-    if (Array.isArray(creators)) {
-      for (const c of creators) {
-        if (c && c.id && c.tag) {
-          const norm = normalizeCreatorId(String(c.id));
-          if (norm) allCreators.set(norm, c.tag);
-        }
-      }
-    }
-    if (allCreators.size === 0) return;
+  function flexContainersLoop(container) {
+    if (!allCreatorMap.size) return;
 
-    const container =
-      document.querySelector('.arco-table-body') ||
-      document.querySelector('#root') ||
-      document.body;
-
-    // 处理达人列表页面
-    const flexContainers = container.querySelectorAll('.flex.flex-col.flex-1');
-
-    flexContainers.forEach(flexCol => {
+    container.querySelectorAll('.flex.flex-col.flex-1').forEach(flexCol => {
       const creatorIdDiv = flexCol.querySelector('[class*="HightBoldText"]');
       if (!creatorIdDiv) return;
 
       const creatorId = normalizeCreatorId(creatorIdDiv.textContent || '');
       if (!creatorId) return;
 
-      const tag = allCreators.get(creatorId);
-      if (!tag) return;
+      const creator = getCreatorById(creatorId);
+      if (!creator || !creator.tag) return;
 
       const nameDiv = flexCol.querySelector('.text-neutral-text2.truncate:not([class*="HightBoldText"])');
-      if (!nameDiv) return;
-
-      if (nameDiv.dataset.tagReplaced === 'true') return;
+      if (!nameDiv || nameDiv.dataset.tagReplaced === 'true') return;
 
       nameDiv.dataset.tagReplaced = 'true';
+      const tagStyle = TAG_COLORS[creator.tag] || { bg: '#f0f0f0', color: '#333' };
 
-      const tagColors = {
-        '绩效达人': { bg: '#ffebee', color: '#c62828' },
-        '流失达人': { bg: '#e8f5e9', color: '#2e7d32' },
-        '隐藏达人': { bg: '#f5f5f5', color: '#616161' }
-      };
-
-      const tagStyle = tagColors[tag] || { bg: '#f0f0f0', color: '#333' };
-
-      nameDiv.innerHTML = `<span style="
-        display: inline-block;
-        padding: 2px 8px;
-        background: ${tagStyle.bg};
-        color: ${tagStyle.color};
-        border-radius: 4px;
-        font-size: 12px;
-        font-weight: 500;
-      ">${tag.replace('达人', '')}</span>`;
+      nameDiv.innerHTML = `<span style="display: inline-block; padding: 2px 8px; background: ${tagStyle.bg}; color: ${tagStyle.color}; border-radius: 4px; font-size: 12px; font-weight: 500;">${creator.tag.replace('达人', '')}</span>`;
     });
+  }
 
-    // 处理 IM 页面达人名称列表
-    const imNameDivs = container.querySelectorAll('div[style*="-webkit-line-clamp: 1"]');
-    imNameDivs.forEach(nameDiv => {
+  function imNameDivsLoop(container) {
+    if (!allCreatorMap.size) return;
+
+    const cidToCreator = new Map();
+    allCreatorMap.forEach((creator, id) => {
+      if (creator.cid) cidToCreator.set(creator.cid.trim(), creator);
+    });
+    if (!cidToCreator.size) return;
+
+    container.querySelectorAll('div[style*="-webkit-line-clamp: 1"]').forEach(nameDiv => {
+      if (nameDiv.dataset.nameTagAdded === 'true') return;
+
       const nameText = (nameDiv.textContent || '').trim();
       if (!nameText) return;
 
-      let creatorId = null;
-      let tag = null;
+      const creator = cidToCreator.get(nameText);
+      if (!creator || !creator.tag) return;
 
-      for (const [cId, cTag] of allCreators.entries()) {
-        const creator = getCreatorById(cId);
-        if (creator && creator.cid) {
-          const cidName = (creator.cid || '').trim();
-          if (cidName === nameText) {
-            creatorId = cId;
-            tag = cTag;
-            break;
-          }
-        }
-      }
-
-      if (!tag) return;
-
-      if (nameDiv.dataset.nameTagAdded === 'true') return;
       nameDiv.dataset.nameTagAdded = 'true';
 
-      const isHidden = tag === '隐藏达人';
-      if (isHidden) {
+      if (creator.tag === '隐藏达人') {
         nameDiv.style.textDecoration = 'line-through';
         nameDiv.style.opacity = '0.5';
         nameDiv.style.color = '#999';
       }
     });
+  }
 
-    // 处理 IM 页面达人ID旁边显示标签
-    const imUnameDivs = container.querySelectorAll('[class*="uname-"]');
-    imUnameDivs.forEach(unameDiv => {
+  function imUnameDivsLoop(container) {
+    if (!allCreatorMap.size) return;
+
+    container.querySelectorAll('[class*="uname-"]').forEach(unameDiv => {
       const creatorId = normalizeCreatorId(unameDiv.textContent || '');
       if (!creatorId) return;
 
-      const tag = allCreators.get(creatorId);
-      const isHidden = tag === '隐藏达人';
+      const creator = getCreatorById(creatorId);
+      if (!creator || !creator.tag) return;
 
-      if (isHidden && !unameDiv.dataset.hiddenStyled) {
+      if (creator.tag === '隐藏达人' && !unameDiv.dataset.hiddenStyled) {
         unameDiv.dataset.hiddenStyled = 'true';
         unameDiv.style.textDecoration = 'line-through';
         unameDiv.style.opacity = '0.5';
         unameDiv.style.color = '#999';
       }
 
-      if (!tag) return;
-
       if (unameDiv.dataset.tagAdded === 'true') return;
       unameDiv.dataset.tagAdded = 'true';
 
-      const tagColors = {
-        '绩效达人': { bg: '#ffebee', color: '#c62828' },
-        '流失达人': { bg: '#e8f5e9', color: '#2e7d32' },
-        '隐藏达人': { bg: '#f5f5f5', color: '#616161' }
-      };
-
-      const tagStyle = tagColors[tag] || { bg: '#f0f0f0', color: '#333' };
+      const tagStyle = TAG_COLORS[creator.tag] || { bg: '#f0f0f0', color: '#333' };
 
       const tagSpan = document.createElement('span');
-      tagSpan.style.cssText = `
-        display: inline-block;
-        margin-right: 8px;
-        padding: 2px 8px;
-        background: ${tagStyle.bg};
-        color: ${tagStyle.color};
-        border-radius: 4px;
-        font-size: 12px;
-        font-weight: 500;
-        vertical-align: middle;
-        flex-shrink: 0;
-        white-space: nowrap;
-      `;
-      tagSpan.textContent = tag.replace('达人', '');
+      tagSpan.style.cssText = `display: inline-block; margin-right: 8px; padding: 2px 8px; background: ${tagStyle.bg}; color: ${tagStyle.color}; border-radius: 4px; font-size: 12px; font-weight: 500; vertical-align: middle; flex-shrink: 0; white-space: nowrap;`;
+      tagSpan.textContent = creator.tag.replace('达人', '');
 
       const parentDiv = unameDiv.parentElement;
       if (parentDiv) {
@@ -434,24 +322,22 @@
     highlightScheduled = true;
     requestAnimationFrame(() => {
       highlightScheduled = false;
-      highlightCreators();
-      replaceCreatorNameWithTag();
+      highlightAndTag();
+      updateTooltipContent();
     });
   }
 
   function updateTooltipContent() {
-    const tooltipContents = document.querySelectorAll('.arco-tooltip-content-inner');
+    if (!creatorSets.performance.size) return;
 
-    tooltipContents.forEach(tooltipContent => {
+    document.querySelectorAll('.arco-tooltip-content-inner').forEach(tooltipContent => {
       const text = (tooltipContent.textContent || '').trim();
       const norm = normalizeCreatorId(text);
 
-      if (norm && getCreatorIdSet().has(norm)) {
+      if (norm && creatorSets.performance.has(norm)) {
         const creator = getCreatorById(norm);
-        if (creator && creator.remark) {
-          if (tooltipContent.textContent !== creator.remark) {
-            tooltipContent.textContent = creator.remark;
-          }
+        if (creator && creator.remark && tooltipContent.textContent !== creator.remark) {
+          tooltipContent.textContent = creator.remark;
         }
       }
     });
@@ -460,66 +346,41 @@
   function debounce(func, wait) {
     let timeout;
     return function executedFunction(...args) {
-      const later = () => {
-        clearTimeout(timeout);
-        func(...args);
-      };
       clearTimeout(timeout);
-      timeout = setTimeout(later, wait);
+      timeout = setTimeout(() => func.apply(this, args), wait);
     };
   }
 
   function updateCreatorRemarksOnPage() {
     try {
       const creatorIdElements = document.querySelectorAll('[data-e2e="8a94f9b6-1a48-fe57"]');
-
-      if (creatorIdElements.length === 0) return;
+      if (!creatorIdElements.length) return;
 
       creatorIdElements.forEach(element => {
         const creatorId = (element.textContent || '').trim();
         const norm = normalizeCreatorId(creatorId);
+        const creator = norm ? getCreatorById(norm) : null;
 
-        if (norm && getCreatorIdSet().has(norm)) {
-          const creator = getCreatorById(norm);
+        let remarkElement = element.parentNode?.querySelector('.creator-page-remark-display');
 
-          if (creator && creator.remark) {
-            let remarkElement = element.parentNode.querySelector('.creator-page-remark-display');
-            if (!remarkElement) {
-              remarkElement = document.createElement('div');
-              remarkElement.className = 'creator-page-remark-display';
-              remarkElement.style.cssText = `
-                margin-top: 8px;
-                padding: 8px 12px;
-                background: #f0f7ff;
-                border: 1px solid #d1e9ff;
-                border-radius: 6px;
-                font-size: 12px;
-                color: #1d5fff;
-                font-weight: 500;
-                word-wrap: break-word;
-                white-space: pre-wrap;
-                text-align: center;
-                max-width: 300px;
-              `;
-              if (element.parentNode) {
-                element.parentNode.insertBefore(remarkElement, element.nextSibling);
-              }
-            }
-            const newContent = `📝 备注: ${creator.remark}`;
-            if (remarkElement && remarkElement.textContent !== newContent) {
-              remarkElement.textContent = newContent;
-            }
-          } else {
-            const remarkElement = element.parentNode?.querySelector('.creator-page-remark-display');
-            if (remarkElement) {
-              remarkElement.remove();
-            }
+        if (creator && creator.remark) {
+          if (!remarkElement) {
+            remarkElement = document.createElement('div');
+            remarkElement.className = 'creator-page-remark-display';
+            remarkElement.style.cssText = `
+              margin-top: 8px; padding: 8px 12px; background: #f0f7ff;
+              border: 1px solid #d1e9ff; border-radius: 6px; font-size: 12px;
+              color: #1d5fff; font-weight: 500; word-wrap: break-word;
+              white-space: pre-wrap; text-align: center; max-width: 300px;
+            `;
+            element.parentNode?.insertBefore(remarkElement, element.nextSibling);
           }
-        } else {
-          const remarkElement = element.parentNode?.querySelector('.creator-page-remark-display');
-          if (remarkElement) {
-            remarkElement.remove();
+          const newContent = `📝 备注: ${creator.remark}`;
+          if (remarkElement.textContent !== newContent) {
+            remarkElement.textContent = newContent;
           }
+        } else if (remarkElement) {
+          remarkElement.remove();
         }
       });
     } catch (error) {
@@ -539,30 +400,19 @@
 
       for (const mutation of mutations) {
         if (mutation.type === 'childList') {
-          const hasNewCreatorElements = Array.from(mutation.addedNodes).some(node => {
-            if (node.nodeType === Node.ELEMENT_NODE) {
-              return node.querySelector && (
-                node.querySelector('[data-e2e="8a94f9b6-1a48-fe57"]') ||
-                node.querySelector('[class*="creator-info__HightBoldText"]') ||
-                (node.matches && node.matches('[data-e2e="8a94f9b6-1a48-fe57"]'))
-              );
+          for (const node of mutation.addedNodes) {
+            if (node.nodeType === Node.ELEMENT_NODE &&
+                node.querySelector?.('[data-e2e="8a94f9b6-1a48-fe57"], [class*="creator-info__HightBoldText"]')) {
+              shouldUpdateRemarks = true;
+              break;
             }
-            return false;
-          });
-
-          if (hasNewCreatorElements) {
-            shouldUpdateRemarks = true;
-            break;
           }
         }
+        if (shouldUpdateRemarks) break;
       }
 
       scheduleHighlightCreators();
-      updateTooltipContent();
-
-      if (shouldUpdateRemarks) {
-        debouncedUpdateCreatorRemarks();
-      }
+      if (shouldUpdateRemarks) debouncedUpdateCreatorRemarks();
     });
 
     creatorObserver.observe(root, { childList: true, subtree: true });
@@ -576,25 +426,23 @@
 
     document.addEventListener('DOMContentLoaded', () => {
       scheduleHighlightCreators();
-      setTimeout(() => updateCreatorRemarksOnPage(), 1000);
+      setTimeout(updateCreatorRemarksOnPage, 1000);
     }, { once: true });
 
     chrome.storage.onChanged.addListener((changes, area) => {
-      if (area !== 'local') return;
-      if (changes.savedCreators) {
-        creators = Array.isArray(changes.savedCreators.newValue) ? changes.savedCreators.newValue : [];
-        scheduleHighlightCreators();
-        updateTooltipContent();
-        setTimeout(() => updateCreatorRemarksOnPage(), 100);
-      }
+      if (area !== 'local' || !changes.savedCreators) return;
+      creators = Array.isArray(changes.savedCreators.newValue) ? changes.savedCreators.newValue : [];
+      buildCreatorSets();
+      scheduleHighlightCreators();
+      updateTooltipContent();
+      setTimeout(updateCreatorRemarksOnPage, 100);
     });
   }
 
   init();
 
   window.addEventListener('unhandledrejection', event => {
-    if (event.reason && event.reason.message &&
-      event.reason.message.includes('Extension context invalidated')) {
+    if (event.reason?.message?.includes('Extension context invalidated')) {
       event.preventDefault();
     }
   }, { passive: false });
