@@ -102,48 +102,71 @@
     btn.textContent = '隐藏';
     btn.title = '点击隐藏此达人';
     btn.type = 'button';
+    btn.dataset.normId = normalizeCreatorId(creatorId);
+    btn.dataset.creatorId = creatorId;
 
-    btn.addEventListener('click', async (e) => {
+    btn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
 
-      try {
-        await loadCreators();
-        const normId = normalizeCreatorId(creatorId);
-        const existingCreator = getCreatorById(normId);
-        const isHidden = existingCreator && existingCreator.tag === '隐藏达人';
+      const normId = btn.dataset.normId;
+      const isCurrentlyHidden = creatorSets.hidden.has(normId);
 
-        if (isHidden) {
-          existingCreator.tag = '';
-          creatorIdElement.classList.remove('creator-id-blacklisted');
-          btn.classList.remove('blacklisted');
-          btn.textContent = '隐藏';
-          btn.title = '点击隐藏此达人';
-        } else {
-          if (existingCreator) {
-            existingCreator.tag = '隐藏达人';
-          } else {
-            creators.push({
-              id: normId, cid: '', region: '', tag: '隐藏达人', remark: '', hiddenAt: Date.now()
-            });
-          }
-          creatorIdElement.classList.add('creator-id-blacklisted');
-          btn.classList.add('blacklisted');
-          btn.textContent = '解除';
-          btn.title = '点击取消隐藏';
+      const allIdElements = document.querySelectorAll('[data-e2e="8a94f9b6-1a48-fe57"]');
+      const matchingElements = [];
+      allIdElements.forEach(el => {
+        const elNorm = normalizeCreatorId(el.textContent || '');
+        if (elNorm === normId) {
+          matchingElements.push(el);
         }
+      });
 
-        await saveCreators();
-        buildCreatorSets();
-        scheduleHighlightCreators();
-      } catch (error) {
-        if (!error.message.includes('Extension context invalidated')) {
-          console.error('隐藏操作出错', error);
-        }
+      if (isCurrentlyHidden) {
+        btn.classList.remove('blacklisted');
+        btn.textContent = '隐藏';
+        btn.title = '点击隐藏此达人';
+        matchingElements.forEach(el => {
+          el.classList.remove('creator-id-blacklisted');
+          el.style.textDecoration = '';
+          el.style.opacity = '';
+          el.style.color = '';
+        });
+        updateCreatorData(normId, '');
+      } else {
+        btn.classList.add('blacklisted');
+        btn.textContent = '解除';
+        btn.title = '点击取消隐藏';
+        matchingElements.forEach(el => {
+          el.classList.add('creator-id-blacklisted');
+          el.style.textDecoration = 'line-through';
+          el.style.opacity = '0.5';
+          el.style.color = '#999';
+        });
+        updateCreatorData(normId, '隐藏达人');
       }
     });
 
     return btn;
+  }
+
+  function updateCreatorData(normId, newTag) {
+    const existingCreator = getCreatorById(normId);
+    if (newTag === '') {
+      if (existingCreator) {
+        existingCreator.tag = '';
+        saveCreators().then(() => buildCreatorSets());
+      }
+    } else {
+      if (existingCreator) {
+        existingCreator.tag = newTag;
+        saveCreators().then(() => buildCreatorSets());
+      } else {
+        creators.push({
+          id: normId, cid: '', region: '', tag: newTag, remark: '', hiddenAt: Date.now()
+        });
+        saveCreators().then(() => buildCreatorSets());
+      }
+    }
   }
 
   function processCreatorIdHideButton(idElement) {
@@ -160,17 +183,25 @@
       parentContainer.appendChild(createBlacklistButton(idElement, rawCreatorId));
     }
 
+    const btn = parentContainer.querySelector('.creator-blacklist-btn');
+    if (!btn) return;
+
     if (creatorSets.hidden.has(normId)) {
       idElement.classList.add('creator-id-blacklisted');
       idElement.style.textDecoration = 'line-through';
       idElement.style.opacity = '0.5';
       idElement.style.color = '#999';
-
-      const btn = parentContainer.querySelector('.creator-blacklist-btn');
-      if (btn) {
-        btn.classList.add('blacklisted');
-        btn.textContent = '解除';
-      }
+      btn.classList.add('blacklisted');
+      btn.textContent = '解除';
+      btn.title = '点击取消隐藏';
+    } else {
+      idElement.classList.remove('creator-id-blacklisted');
+      idElement.style.textDecoration = '';
+      idElement.style.opacity = '';
+      idElement.style.color = '';
+      btn.classList.remove('blacklisted');
+      btn.textContent = '隐藏';
+      btn.title = '点击隐藏此达人';
     }
   }
 
@@ -334,7 +365,7 @@
       const text = (tooltipContent.textContent || '').trim();
       const norm = normalizeCreatorId(text);
 
-      if (norm && creatorSets.performance.has(norm)) {
+      if (norm) {
         const creator = getCreatorById(norm);
         if (creator && creator.remark && tooltipContent.textContent !== creator.remark) {
           tooltipContent.textContent = creator.remark;
