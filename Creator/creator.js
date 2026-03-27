@@ -19,6 +19,7 @@
   let activeCreatorTagId = 'all';
 
   function showStatus(message, type = 'info', elementId = 'status') {
+    // 显示状态提示信息
     let statusDiv = document.getElementById(elementId);
     if (!statusDiv) {
       statusDiv = document.getElementById('status');
@@ -35,6 +36,7 @@
     }, 20000);
   }
 
+  // 从Chrome存储加载达人数据
   async function loadData() {
     if (!storageAPI) {
       console.error('[Creator] 存储API不可用');
@@ -61,12 +63,14 @@
     }
   }
 
+  // HTML转义，防止XSS攻击
   function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
   }
 
+  // 渲染标签筛选栏，根据已有达人标签生成可点击的标签按钮
   function renderTags() {
     const tagBar = document.getElementById('creatorTagBar');
     if (!tagBar) return;
@@ -93,10 +97,12 @@
     });
   }
 
+  // 保存当前选中的标签ID到存储
   async function saveActiveTagId() {
     await new Promise(resolve => storageAPI.set({ activeCreatorTagId }, resolve));
   }
 
+  // 获取当前标签筛选后的达人列表
   function getFilteredCreators() {
     if (activeCreatorTagId === 'all') {
       return creators.filter(c => c.tag && c.tag.trim() !== '');
@@ -104,6 +110,7 @@
     return creators.filter(c => c.tag === activeCreatorTagId);
   }
 
+  // 渲染达人列表主视图，根据搜索状态显示不同内容
   function renderCreators() {
     const creatorPreview = document.getElementById('creatorPreview');
     const creatorSearchInput = document.getElementById('creatorSearchInput');
@@ -163,6 +170,7 @@
     }
   }
 
+  // 渲染达人列表（全部/筛选模式）
   function renderCreatorList() {
     const creatorList = document.getElementById('creatorList');
     const totalCount = document.getElementById('totalCount');
@@ -237,6 +245,7 @@
     });
   }
 
+  // 渲染搜索结果列表（搜索模式）
   function renderSearchResults() {
     const creatorSearchResults = document.getElementById('creatorSearchResults');
     const creatorSearchList = document.getElementById('creatorSearchList');
@@ -296,6 +305,7 @@
     });
   }
 
+  // 打开达人编辑弹窗，填充当前达人数据
   function openCreatorEdit(mainIndex, searchResultIndex = -1) {
     const creatorEditDialog = document.getElementById('creatorEditDialog');
     const creatorEditId = document.getElementById('creatorEditId');
@@ -315,12 +325,14 @@
     if (creatorEditDialog) creatorEditDialog.classList.add('show');
   }
 
+  // 关闭达人编辑弹窗
   function closeCreatorEdit() {
     const creatorEditDialog = document.getElementById('creatorEditDialog');
     if (creatorEditDialog) creatorEditDialog.classList.remove('show');
     editingCreatorIndex = -1;
   }
 
+  // 保存编辑后的达人信息到存储
   async function saveCreatorEdit() {
     const creatorEditCid = document.getElementById('creatorEditCid');
     const creatorEditRegion = document.getElementById('creatorEditRegion');
@@ -340,6 +352,7 @@
     showStatus('✅ 达人信息已更新', 'success', 'creatorCardStatus');
   }
 
+  // 删除当前编辑的达人
   async function deleteCreator() {
     if (editingCreatorIndex < 0 || editingCreatorIndex >= creators.length) return;
     const creator = creators[editingCreatorIndex];
@@ -354,6 +367,7 @@
     showStatus('✅ 达人已删除', 'success', 'creatorCardStatus');
   }
 
+  // 初始化达人管理模块，绑定所有事件监听器
   function initCreatorModule() {
     const importCreatorBtn = document.getElementById('importCreatorBtn');
     const downloadCreatorTemplateBtn = document.getElementById('downloadCreatorTemplateBtn');

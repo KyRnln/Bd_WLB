@@ -398,10 +398,12 @@ class OrderAutomation {
     await this.sleep(300);
   }
 
-  findElementByText(selector, text) {
+  findElementByText(selector, texts) {
+    const textArray = Array.isArray(texts) ? texts : [texts];
     const elements = document.querySelectorAll(selector);
     for (const element of elements) {
-      if (element.textContent.includes(text)) {
+      const elementText = element.textContent || '';
+      if (textArray.some(t => elementText.includes(t))) {
         return element;
       }
     }
@@ -434,7 +436,8 @@ class OrderAutomation {
         if (!orderElement) {
           const allOrderSpans = row.querySelectorAll('span[data-e2e].truncate');
           for (const span of allOrderSpans) {
-            if (span.textContent.includes('订单 ID：') || /^\d{18,}$/.test(span.textContent.trim())) {
+            const text = span.textContent || '';
+            if (text.includes('订单 ID：') || text.includes('Order ID:') || /^\d{18,}$/.test(text.trim())) {
               orderElement = span;
               break;
             }
@@ -443,10 +446,13 @@ class OrderAutomation {
 
         if (orderElement) {
           let orderId = '';
-          if (orderElement.textContent.includes('订单 ID：')) {
-            orderId = orderElement.textContent.replace('订单 ID：', '').trim();
+          const text = orderElement.textContent || '';
+          if (text.includes('订单 ID：')) {
+            orderId = text.replace('订单 ID：', '').trim();
+          } else if (text.includes('Order ID:')) {
+            orderId = text.replace('Order ID:', '').trim();
           } else {
-            orderId = orderElement.textContent.trim();
+            orderId = text.trim();
           }
 
           if (orderId) {
@@ -547,11 +553,14 @@ class OrderAutomation {
         '[class*="side-menu"]'
       ];
 
+      const menuTexts = ['样品申请', 'Sample Request', 'Sample', '样品'];
       let menuElement = null;
+
       for (const selector of menuSelectors) {
         const elements = document.querySelectorAll(selector);
         for (const el of elements) {
-          if (el.textContent && el.textContent.includes('样品申请')) {
+          const text = el.textContent || '';
+          if (menuTexts.some(t => text.includes(t))) {
             menuElement = el;
             break;
           }
@@ -562,7 +571,8 @@ class OrderAutomation {
       if (!menuElement) {
         const allDivs = document.querySelectorAll('div');
         for (const div of allDivs) {
-          if (div.textContent && div.textContent.trim() === '样品申请') {
+          const text = div.textContent || '';
+          if (menuTexts.some(t => text.trim() === t || text.includes(t))) {
             menuElement = div;
             break;
           }
@@ -597,11 +607,14 @@ class OrderAutomation {
         '[class*="side-menu"]'
       ];
 
+      const menuTexts = ['达人管理', 'Creator Management', 'Creator'];
       let menuElement = null;
+
       for (const selector of menuSelectors) {
         const elements = document.querySelectorAll(selector);
         for (const el of elements) {
-          if (el.textContent && el.textContent.includes('达人管理')) {
+          const text = el.textContent || '';
+          if (menuTexts.some(t => text.includes(t))) {
             menuElement = el;
             break;
           }
@@ -612,7 +625,8 @@ class OrderAutomation {
       if (!menuElement) {
         const allDivs = document.querySelectorAll('div');
         for (const div of allDivs) {
-          if (div.textContent && div.textContent.trim() === '达人管理') {
+          const text = div.textContent || '';
+          if (menuTexts.some(t => text.trim() === t || text.includes(t))) {
             menuElement = div;
             break;
           }
@@ -641,15 +655,17 @@ class OrderAutomation {
       this.updatePageProgress(`开始查询订单: ${orderId}`, 'info');
 
       try {
-        let allTabElement = this.findElementByText(ORDER_SELECTORS.allTab, '全部');
+        let allTabElement = this.findElementByText(ORDER_SELECTORS.allTab, ['全部', 'All']);
 
         if (!allTabElement) {
           const allSelectors = ['div[role="tab"]', '.arco-tabs-tab-title', 'span', 'div'];
+          const allTexts = ['全部', 'All'];
 
           for (const selector of allSelectors) {
             const elements = document.querySelectorAll(selector);
             for (const element of elements) {
-              if (element.textContent && element.textContent.trim() === '全部') {
+              const text = element.textContent || '';
+              if (allTexts.some(t => text.trim() === t)) {
                 allTabElement = element;
                 break;
               }
@@ -669,7 +685,7 @@ class OrderAutomation {
       }
 
       this.updatePageProgress('正在选择达人昵称字段...', 'info');
-      const creatorSelectElement = this.findElementByText(ORDER_SELECTORS.creatorSelect, '达人昵称');
+      const creatorSelectElement = this.findElementByText(ORDER_SELECTORS.creatorSelect, ['达人昵称', 'Creator Name', 'Creator']);
       if (creatorSelectElement) {
         if (typeof creatorSelectElement.click === 'function') {
           creatorSelectElement.click();
@@ -678,7 +694,7 @@ class OrderAutomation {
       }
 
       this.updatePageProgress('正在选择订单ID搜索方式...', 'info');
-      const orderIdOptionElement = this.findElementByText(ORDER_SELECTORS.orderIdOption, '订单 ID');
+      const orderIdOptionElement = this.findElementByText(ORDER_SELECTORS.orderIdOption, ['订单 ID', 'Order ID']);
       if (orderIdOptionElement) {
         if (typeof orderIdOptionElement.click === 'function') {
           orderIdOptionElement.click();

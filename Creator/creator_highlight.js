@@ -17,7 +17,13 @@
   let allCreatorMap = new Map();
   let creatorObserver = null;
   let highlightScheduled = false;
+  const processedHighlights = new Set();
+  const processedFlexTags = new Set();
+  const processedImNames = new Set();
+  const processedImUnames = new Set();
+  let rafId = null;
 
+  // 注入高亮样式到页面
   function injectHighlightStyles() {
     if (document.getElementById('creator-highlight-styles')) return;
     const style = document.createElement('style');
@@ -39,10 +45,12 @@
     document.documentElement.appendChild(style);
   }
 
+  // 标准化达人ID，移除@前缀和多余空白
   function normalizeCreatorId(text) {
     return (text || '').trim().replace(/^[@＠]+/, '').trim();
   }
 
+  // 根据达人数据构建Set集合，用于快速查找和判断
   function buildCreatorSets() {
     const performance = new Set();
     const lost = new Set();
@@ -65,10 +73,12 @@
     allCreatorMap = map;
   }
 
+  // 根据标准化ID获取达人完整数据
   function getCreatorById(normalizedId) {
     return allCreatorMap.get(normalizedId) || null;
   }
 
+  // 从存储加载达人数据
   async function loadCreators() {
     try {
       const result = await new Promise(resolve =>
@@ -83,6 +93,7 @@
     }
   }
 
+  // 保存达人数据到存储
   async function saveCreators() {
     try {
       await new Promise(resolve =>
@@ -96,6 +107,7 @@
     }
   }
 
+  // 创建隐藏/解除按钮
   function createBlacklistButton(creatorIdElement, creatorId) {
     const btn = document.createElement('button');
     btn.className = 'creator-blacklist-btn';
@@ -149,6 +161,7 @@
     return btn;
   }
 
+  // 更新达人数据（标签），并异步保存
   function updateCreatorData(normId, newTag) {
     const existingCreator = getCreatorById(normId);
     if (newTag === '') {
@@ -169,6 +182,7 @@
     }
   }
 
+  // 处理达人ID元素的隐藏按钮（初始化按钮状态）
   function processCreatorIdHideButton(idElement) {
     const rawCreatorId = (idElement.textContent || '').trim();
     if (!rawCreatorId) return;
@@ -205,6 +219,7 @@
     }
   }
 
+  // 为节点应用高亮样式（绩效/流失/隐藏）
   function applyHighlight(node, norm) {
     if (creatorSets.hidden.has(norm)) {
       node.classList.add('creator-id-blacklisted');
@@ -218,6 +233,7 @@
     }
   }
 
+  // 遍历容器，为达人ID添加高亮和标签
   function highlightAndTag() {
     const { performance, lost, hidden } = creatorSets;
     if (!performance.size && !lost.size && !hidden.size) return;
@@ -226,7 +242,7 @@
       document.querySelector('#root') || document.body;
 
     const targetContainers = container.querySelectorAll('.flex.flex-col.flex-1, [class*="creator-info__HightBoldText"]');
-    const relevantNodes = [];
+    const batchUpdates = [];
 
     targetContainers.forEach(el => {
       if (el.classList.contains(CREATOR_HIT_CLASS) ||
@@ -241,11 +257,13 @@
 
       const norm = normalizeCreatorId(rawText);
       if (!norm) return;
+      if (processedHighlights.has(el)) return;
 
-      relevantNodes.push({ node: el, norm });
+      processedHighlights.add(el);
+      batchUpdates.push({ node: el, norm });
     });
 
-    relevantNodes.forEach(({ node, norm }) => {
+    batchUpdates.forEach(({ node, norm }) => {
       applyHighlight(node, norm);
     });
 
@@ -257,6 +275,7 @@
     imUnameDivsLoop(container);
   }
 
+  // 替换达人ID下方的描述区域，用于显示达人标签
   function flexContainersLoop(container) {
     if (!allCreatorMap.size) return;
 
@@ -266,6 +285,9 @@
 
       const creatorId = normalizeCreatorId(creatorIdDiv.textContent || '');
       if (!creatorId) return;
+
+      if (processedFlexTags.has(flexCol)) return;
+      processedFlexTags.add(flexCol);
 
       const creator = getCreatorById(creatorId);
       if (!creator || !creator.tag) return;
@@ -280,6 +302,7 @@
     });
   }
 
+  // 遍历IM消息中的名称div，为隐藏达人添加删除线
   function imNameDivsLoop(container) {
     if (!allCreatorMap.size) return;
 
@@ -291,6 +314,8 @@
 
     container.querySelectorAll('div[style*="-webkit-line-clamp: 1"]').forEach(nameDiv => {
       if (nameDiv.dataset.nameTagAdded === 'true') return;
+      if (processedImNames.has(nameDiv)) return;
+      processedImNames.add(nameDiv);
 
       const nameText = (nameDiv.textContent || '').trim();
       if (!nameText) return;
@@ -308,10 +333,14 @@
     });
   }
 
+  // 遍历IM消息中的用户名div，为隐藏达人添加样式和标签
   function imUnameDivsLoop(container) {
     if (!allCreatorMap.size) return;
 
     container.querySelectorAll('[class*="uname-"]').forEach(unameDiv => {
+      if (processedImUnames.has(unameDiv)) return;
+      processedImUnames.add(unameDiv);
+
       const creatorId = normalizeCreatorId(unameDiv.textContent || '');
       if (!creatorId) return;
 
@@ -348,16 +377,21 @@
     });
   }
 
+  // 延迟执行高亮任务，防止频繁触发
   function scheduleHighlightCreators() {
     if (highlightScheduled) return;
     highlightScheduled = true;
-    requestAnimationFrame(() => {
+
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(() => {
+      rafId = null;
       highlightScheduled = false;
       highlightAndTag();
       updateTooltipContent();
     });
   }
 
+  // 更新悬停提示内容，显示达人备注信息
   function updateTooltipContent() {
     if (!creatorSets.performance.size) return;
 
@@ -374,6 +408,7 @@
     });
   }
 
+  // 防抖函数
   function debounce(func, wait) {
     let timeout;
     return function executedFunction(...args) {
@@ -382,6 +417,7 @@
     };
   }
 
+  // 更新页面上所有达人的备注显示
   function updateCreatorRemarksOnPage() {
     try {
       const creatorIdElements = document.querySelectorAll('[data-e2e="8a94f9b6-1a48-fe57"]');
@@ -421,6 +457,7 @@
 
   const debouncedUpdateCreatorRemarks = debounce(updateCreatorRemarksOnPage, 500);
 
+  // 设置MutationObserver监听页面DOM变化
   function setupCreatorObserver() {
     if (creatorObserver) creatorObserver.disconnect();
     const root = document.documentElement || document.body;
@@ -450,6 +487,7 @@
     scheduleHighlightCreators();
   }
 
+  // 初始化达人高亮模块
   function init() {
     injectHighlightStyles();
     loadCreators();
