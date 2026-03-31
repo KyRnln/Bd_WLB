@@ -1,4 +1,12 @@
 // 达人ID高亮与隐藏功能
+// 功能说明：
+//   - 绩效达人：红色高亮 + 加粗 (quick-creator-hit)
+//   - 流失达人：绿色高亮 + 加粗 + 50%透明度 + 删除线 (quick-creator-lost)
+//   - 隐藏达人：灰色 + 删除线 + 50%透明度 (creator-id-blacklisted)
+// 样式实现：CSS类 + 内联样式双重保护，防止鼠标悬停时样式被页面覆盖丢失
+// 更新记录：
+//   - 2026-03-31: 统一三种达人的样式实现方式，均使用 CSS类 + 内联样式
+//   - 修复绩效/流失达人在鼠标悬停时样式消失的问题
 
 (function () {
   'use strict';
@@ -11,6 +19,15 @@
     '流失达人': { bg: '#e8f5e9', color: '#2e7d32' },
     '隐藏达人': { bg: '#f5f5f5', color: '#616161' }
   };
+
+  // 高亮样式类名映射 - 用于为不同类型达人添加对应CSS类
+  const HIGHLIGHT_CLASSES = {
+    performance: 'quick-creator-hit',
+    lost: 'quick-creator-lost',
+    hidden: 'creator-id-blacklisted'
+  };
+
+
 
   let creators = [];
   let creatorSets = { performance: new Set(), lost: new Set(), hidden: new Set() };
@@ -30,7 +47,7 @@
     style.id = 'creator-highlight-styles';
     style.textContent = `
       .${CREATOR_HIT_CLASS} { color: #ff0050 !important; font-weight: 700; }
-      .quick-creator-lost { color: #117a42 !important; font-weight: 700; opacity: 0.5; }
+      .quick-creator-lost { color: #117a42 !important; font-weight: 700; opacity: 0.5; text-decoration: line-through; }
       .creator-blacklist-btn {
         display: inline-flex; align-items: center; justify-content: center;
         min-width: 32px; height: 18px; margin-left: 6px; padding: 0 4px;
@@ -201,18 +218,35 @@
     if (!btn) return;
 
     if (creatorSets.hidden.has(normId)) {
-      idElement.classList.add('creator-id-blacklisted');
+      idElement.classList.add(HIGHLIGHT_CLASSES.hidden);
       idElement.style.textDecoration = 'line-through';
       idElement.style.opacity = '0.5';
       idElement.style.color = '#999';
       btn.classList.add('blacklisted');
       btn.textContent = '解除';
       btn.title = '点击取消隐藏';
+    } else if (creatorSets.performance.has(normId)) {
+      idElement.classList.add(HIGHLIGHT_CLASSES.performance);
+      idElement.style.color = '#ff0050';
+      idElement.style.fontWeight = '700';
+      btn.classList.remove('blacklisted');
+      btn.textContent = '隐藏';
+      btn.title = '点击隐藏此达人';
+    } else if (creatorSets.lost.has(normId)) {
+      idElement.classList.add(HIGHLIGHT_CLASSES.lost);
+      idElement.style.color = '#117a42';
+      idElement.style.fontWeight = '700';
+      idElement.style.opacity = '0.5';
+      idElement.style.textDecoration = 'line-through';
+      btn.classList.remove('blacklisted');
+      btn.textContent = '隐藏';
+      btn.title = '点击隐藏此达人';
     } else {
-      idElement.classList.remove('creator-id-blacklisted');
+      idElement.classList.remove(HIGHLIGHT_CLASSES.performance, HIGHLIGHT_CLASSES.lost, HIGHLIGHT_CLASSES.hidden);
       idElement.style.textDecoration = '';
       idElement.style.opacity = '';
       idElement.style.color = '';
+      idElement.style.fontWeight = '';
       btn.classList.remove('blacklisted');
       btn.textContent = '隐藏';
       btn.title = '点击隐藏此达人';
@@ -221,16 +255,13 @@
 
   // 为节点应用高亮样式（绩效/流失/隐藏）
   function applyHighlight(node, norm) {
-    if (creatorSets.hidden.has(norm)) {
-      node.classList.add('creator-id-blacklisted');
-      node.style.textDecoration = 'line-through';
-      node.style.opacity = '0.5';
-      node.style.color = '#999';
-    } else if (creatorSets.performance.has(norm)) {
-      node.classList.add(CREATOR_HIT_CLASS);
-    } else if (creatorSets.lost.has(norm)) {
-      node.classList.add('quick-creator-lost');
-    }
+    const type = creatorSets.hidden.has(norm) ? 'hidden'
+               : creatorSets.performance.has(norm) ? 'performance'
+               : creatorSets.lost.has(norm) ? 'lost'
+               : null;
+    if (!type) return;
+
+    node.classList.add(HIGHLIGHT_CLASSES[type]);
   }
 
   // 遍历容器，为达人ID添加高亮和标签
