@@ -57,7 +57,7 @@
         "https://affiliate.tiktokshopglobalselling.com/*"
       ],
       "js": [
-        "Creator/creator_highlight.js"
+        "creator/creator_highlight.js"
       ],
       "run_at": "document_end"
     },
