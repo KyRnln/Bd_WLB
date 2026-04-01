@@ -657,6 +657,80 @@ details.panel .panel-content {
   font-size: 16px;
 }
 
+/* 用户信息栏 */
+.user-info-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  border-radius: var(--radius-lg);
+  margin-bottom: 8px;
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.user-name {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.user-email {
+  font-size: 11px;
+  opacity: 0.85;
+}
+
+.user-info-bar .btn-sm {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.user-info-bar .btn-sm:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.user-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* 登录验证遮罩 */
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.overlay-content {
+  text-align: center;
+  color: #fff;
+}
+
+.overlay-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.overlay-text {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 20px;
+}
+
 /* 统计行组件 */
 
 .stats-row {

@@ -11,6 +11,23 @@
 </head>
 
 <body>
+  <div id="userInfoBar" class="user-info-bar" style="display:none;">
+    <div class="user-info">
+      <span class="user-name" id="userName"></span>
+      <span class="user-email" id="userEmail"></span>
+    </div>
+    <div class="user-actions">
+      <button id="settingsBtn" class="btn-sm">⚙️ 设置</button>
+      <button id="logoutBtn" class="btn-sm">退出</button>
+    </div>
+  </div>
+  <div id="loginRequiredOverlay" class="overlay" style="display:none;">
+    <div class="overlay-content">
+      <div class="overlay-icon">🔒</div>
+      <div class="overlay-text">请先登录</div>
+      <button id="goToLoginBtn" class="btn-primary">前往登录</button>
+    </div>
+  </div>
   <div class="main">
     <div id="creatorCard" class="card">
       <div id="creatorCardStatus" class="status info" style="display:none;"></div>

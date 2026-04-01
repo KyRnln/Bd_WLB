@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>用户设置 - 商务WLB插件</title>
+  <link rel="stylesheet" href="../styles/base.css">
+  <link rel="stylesheet" href="../styles/components.css">
+  <link rel="stylesheet" href="styles/auth.css">
+</head>
+<body class="auth-page">
+  <div class="auth-container">
+    <div class="auth-card">
+      <div class="auth-header">
+        <h1>👤 用户设置</h1>
+        <p class="subtitle">修改个人信息</p>
+      </div>
+
+      <form id="profileForm" class="auth-form">
+        <div class="form-group">
+          <label for="username">用户名</label>
+          <input type="text" id="username" name="username" placeholder="输入用户名" autocomplete="username" minlength="2" maxlength="32">
+        </div>
+        <div class="form-group">
+          <label for="email">邮箱</label>
+          <input type="email" id="email" name="email" placeholder="输入邮箱地址" autocomplete="email">
+        </div>
+
+        <div class="form-divider">
+          <span>修改密码（选填）</span>
+        </div>
+
+        <div class="form-group">
+          <label for="currentPassword">当前密码</label>
+          <input type="password" id="currentPassword" name="currentPassword" placeholder="输入当前密码" autocomplete="current-password">
+        </div>
+        <div class="form-group">
+          <label for="newPassword">新密码</label>
+          <input type="password" id="newPassword" name="newPassword" placeholder="输入新密码（至少6位）" autocomplete="new-password" minlength="6">
+        </div>
+        <div class="form-group">
+          <label for="confirmPassword">确认新密码</label>
+          <input type="password" id="confirmPassword" name="confirmPassword" placeholder="再次输入新密码" autocomplete="new-password" minlength="6">
+        </div>
+
+        <div id="profileError" class="error-message" style="display:none;"></div>
+        <div id="profileSuccess" class="success-message" style="display:none;"></div>
+
+        <button type="submit" class="btn-primary">保存修改</button>
+      </form>
+
+      <div class="auth-footer">
+        <a href="../popup.html">返回主页面</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="api.js"></script>
+  <script src="profile.js"></script>
+</body>
+</html>

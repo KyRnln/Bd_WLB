@@ -34,7 +34,7 @@
   ],
 
   "content_security_policy": {
-    "extension_pages": "default-src 'self'; connect-src https://*.tiktok.com https://*.tiktokcdn.com https://*.tiktokcdn-us.com https://*.tiktokv.com https://dav.jianguiyun.com https://*.aliyuncs.com https://api.openai.com https://api.deepseek.com https://*; img-src 'self' https: data:; style-src 'self' 'unsafe-inline'; script-src 'self'"
+    "extension_pages": "default-src 'self'; connect-src https://*.tiktok.com https://*.tiktokcdn.com https://*.tiktokcdn-us.com https://*.tiktokv.com https://dav.jianguiyun.com https://*.aliyuncs.com https://api.openai.com https://api.deepseek.com https://* http://localhost:* http://120.24.170.11:* https://kyrnln.cloud; img-src 'self' https: data:; style-src 'self' 'unsafe-inline'; script-src 'self'"
   },
 
   "content_scripts": [
