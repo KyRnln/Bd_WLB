@@ -1,17 +1,69 @@
 (function () {
   'use strict';
 
+  const API_BASE_URL = 'https://kyrnln.cloud/api';
+
   let config = null;
   let translateBox = null;
   let isVisible = false;
   let currentTextarea = null;
+  let cachedToken = null;
+
+  function getTokenFromStorage() {
+    return new Promise((resolve) => {
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        chrome.storage.local.get(['auth_token'], (result) => {
+          resolve(result.auth_token || null);
+        });
+      } else {
+        resolve(null);
+      }
+    });
+  }
+
+  async function apiRequest(endpoint, options = {}) {
+    if (!cachedToken) {
+      cachedToken = await getTokenFromStorage();
+    }
+    const url = `${API_BASE_URL}${endpoint}`;
+    const headers = {
+      'Content-Type': 'application/json',
+      ...options.headers
+    };
+
+    if (cachedToken) {
+      headers['Authorization'] = `Bearer ${cachedToken}`;
+    }
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          console.warn('[Translate Content] 用户未登录');
+        }
+        throw new Error(data.message || '请求失败');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('[Translate Content] API 请求错误:', error);
+      throw error;
+    }
+  }
 
   async function loadConfig() {
     try {
-      const result = await chrome.storage.local.get(['translateConfig']);
-      config = result.translateConfig || null;
+      const result = await apiRequest('/translate/config');
+      config = result.data || null;
     } catch (e) {
       console.error('加载翻译配置失败', e);
+      config = null;
     }
   }
 
@@ -71,13 +123,13 @@
     document.body.appendChild(translateBox);
 
     document.getElementById('wlb-translate-close').addEventListener('click', hideTranslateBox);
-    
+
     const inputEl = document.getElementById('wlb-translate-input');
     inputEl.addEventListener('input', function() {
       this.style.width = 'auto';
       const newWidth = Math.max(100, Math.min(1000, this.scrollWidth + 16));
       this.style.width = newWidth + 'px';
-      
+
       if (translateBox) {
         const boxRect = translateBox.getBoundingClientRect();
         if (boxRect.right > window.innerWidth - 10) {
@@ -99,10 +151,10 @@
 
   function updateTargetLanguages() {
     const select = document.getElementById('wlb-translate-target');
-    if (!select || !config || !config.targetLanguages) return;
+    if (!select || !config || !config.target_langs) return;
 
     select.innerHTML = '';
-    config.targetLanguages.forEach(lang => {
+    config.target_langs.forEach(lang => {
       const option = document.createElement('option');
       option.value = lang;
       option.textContent = lang;
@@ -111,7 +163,7 @@
   }
 
   function showTranslateBox(x, y, textarea) {
-    if (!config || !config.apiKey) {
+    if (!config || !config.api_key) {
       showNotification('请先配置翻译服务', 'error');
       return;
     }
@@ -141,7 +193,7 @@
 
   function hideTranslateBox(keepFocus = false) {
     const textareaToFocus = keepFocus ? currentTextarea : null;
-    
+
     if (translateBox) {
       translateBox.style.display = 'none';
       document.getElementById('wlb-translate-input').value = '';
@@ -162,23 +214,23 @@
       return;
     }
 
-    if (!config || !config.apiKey) {
+    if (!config || !config.api_key) {
       showNotification('请先配置翻译服务', 'error');
       return;
     }
 
-    const prompt = (config.promptTemplate || '将以下内容翻译成{target}：')
+    const prompt = (config.prompt_template || '将以下内容翻译成{target}：')
       .replace('{target}', target);
 
     try {
-      const response = await fetch(config.apiUrl, {
+      const response = await fetch(config.api_url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${config.apiKey}`
+          'Authorization': `Bearer ${config.api_key}`
         },
         body: JSON.stringify({
-          model: config.modelName,
+          model: config.model_name,
           messages: [
             { role: 'user', content: `你是一个专业的翻译助手，请准确翻译用户的内容。\n\n${prompt}\n\n${input}` }
           ],
@@ -264,9 +316,9 @@
     document.addEventListener('keydown', handleKeydown, true);
 
     chrome.storage.onChanged.addListener((changes, area) => {
-      if (area === 'local' && changes.translateConfig) {
-        config = changes.translateConfig.newValue;
-        updateTargetLanguages();
+      if (area === 'local' && changes.auth_token) {
+        cachedToken = changes.auth_token.newValue || null;
+        loadConfig();
       }
     });
   }
