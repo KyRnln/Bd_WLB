@@ -36,10 +36,20 @@
 
   function setToken(token) {
     localStorage.setItem(AUTH_TOKEN_KEY, token);
+    syncTokenToStorage(token);
   }
 
   function removeToken() {
     localStorage.removeItem(AUTH_TOKEN_KEY);
+    syncTokenToStorage(null);
+  }
+
+  function syncTokenToStorage(token) {
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.set({ auth_token: token }, () => {
+        console.debug('[Auth] Token已同步到chrome.storage');
+      });
+    }
   }
 
   function isLoggedIn() {

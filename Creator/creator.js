@@ -3,23 +3,58 @@
 (function() {
   'use strict';
 
-  function getStorage() {
-    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-      return chrome.storage.local;
-    }
-    console.error('存储不可用');
-    return null;
-  }
-
-  const storageAPI = getStorage();
+  const API_BASE_URL = 'https://kyrnln.cloud/api';
 
   let creators = [];
   let searchResults = [];
   let editingCreatorIndex = -1;
   let activeCreatorTagId = 'all';
 
+  function getToken() {
+    return localStorage.getItem('auth_token');
+  }
+
+  function isLoggedIn() {
+    return !!getToken();
+  }
+
+  async function apiRequest(endpoint, options = {}) {
+    const url = `${API_BASE_URL}${endpoint}`;
+    const token = getToken();
+
+    const headers = {
+      'Content-Type': 'application/json',
+      ...options.headers
+    };
+
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem('auth_token');
+          window.location.href = '../auth/auth.html';
+        }
+        throw new Error(data.message || '请求失败');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('API 请求错误:', error);
+      throw error;
+    }
+  }
+
   function showStatus(message, type = 'info', elementId = 'status') {
-    // 显示状态提示信息
     let statusDiv = document.getElementById(elementId);
     if (!statusDiv) {
       statusDiv = document.getElementById('status');
@@ -36,19 +71,22 @@
     }, 20000);
   }
 
-  // 从Chrome存储加载达人数据
   async function loadData() {
-    if (!storageAPI) {
-      console.error('[Creator] 存储API不可用');
+    if (!isLoggedIn()) {
+      showStatus('请先登录', 'error');
+      creators = [];
+      activeCreatorTagId = 'all';
+      searchResults = [];
+      renderTags();
+      renderCreators();
       return;
     }
+
     try {
-      const result = await new Promise(resolve => 
-        storageAPI.get(['savedCreators', 'activeCreatorTagId'], resolve)
-      );
+      const result = await apiRequest('/creators?limit=100000');
       console.log('[Creator] 加载数据结果:', result);
-      creators = Array.isArray(result.savedCreators) ? result.savedCreators : [];
-      activeCreatorTagId = result.activeCreatorTagId || 'all';
+      creators = result.data || [];
+      activeCreatorTagId = 'all';
       searchResults = [];
       console.log('[Creator] 加载了', creators.length, '个达人');
       renderTags();
@@ -60,17 +98,16 @@
       searchResults = [];
       renderTags();
       renderCreators();
+      showStatus('加载达人数据失败: ' + e.message, 'error', 'creatorCardStatus');
     }
   }
 
-  // HTML转义，防止XSS攻击
   function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
   }
 
-  // 渲染标签筛选栏，根据已有达人标签生成可点击的标签按钮
   function renderTags() {
     const tagBar = document.getElementById('creatorTagBar');
     if (!tagBar) return;
@@ -88,7 +125,7 @@
       el.addEventListener('click', async () => {
         const id = el.dataset.id;
         activeCreatorTagId = id;
-        await saveActiveTagId();
+        localStorage.setItem('activeCreatorTagId', id);
         renderTags();
         renderCreators();
         const tag = allTags.find(t => t.id === id);
@@ -97,12 +134,6 @@
     });
   }
 
-  // 保存当前选中的标签ID到存储
-  async function saveActiveTagId() {
-    await new Promise(resolve => storageAPI.set({ activeCreatorTagId }, resolve));
-  }
-
-  // 获取当前标签筛选后的达人列表
   function getFilteredCreators() {
     if (activeCreatorTagId === 'all') {
       return creators.filter(c => c.tag && c.tag.trim() !== '');
@@ -110,7 +141,6 @@
     return creators.filter(c => c.tag === activeCreatorTagId);
   }
 
-  // 渲染达人列表主视图，根据搜索状态显示不同内容
   function renderCreators() {
     const creatorPreview = document.getElementById('creatorPreview');
     const creatorSearchInput = document.getElementById('creatorSearchInput');
@@ -121,7 +151,7 @@
         const performanceCount = creators.filter(c => c.tag === '绩效达人').length;
         const lostCount = creators.filter(c => c.tag === '流失达人').length;
         const hiddenCount = creators.filter(c => c.tag === '隐藏达人').length;
-        
+
         let statsHtml = `<div class="creator-stats">`;
         statsHtml += `<div class="stat-item"><span class="stat-label">总计</span><span class="stat-value">${creators.length}</span></div>`;
         if (performanceCount > 0) {
@@ -134,7 +164,7 @@
           statsHtml += `<div class="stat-item hidden"><span class="stat-label">隐藏达人</span><span class="stat-value">${hiddenCount}</span></div>`;
         }
         statsHtml += `</div>`;
-        
+
         creatorPreview.innerHTML = statsHtml;
         creatorPreview.className = 'mt-2';
       } else {
@@ -170,7 +200,6 @@
     }
   }
 
-  // 渲染达人列表（全部/筛选模式）
   function renderCreatorList() {
     const creatorList = document.getElementById('creatorList');
     const totalCount = document.getElementById('totalCount');
@@ -200,12 +229,12 @@
       if (creator.tag === '绩效达人') tagClass = 'performance';
       else if (creator.tag === '流失达人') tagClass = 'lost';
       else if (creator.tag === '隐藏达人') tagClass = 'hidden';
-      
+
       return `
         <div class="creator-item">
           <div class="creator-info">
             <div class="creator-main">
-              <div class="creator-id">${escapeHtml(creator.id)}</div>
+              <div class="creator-id">${escapeHtml(creator.creator_id)}</div>
               <div class="creator-meta">
                 ${creator.cid ? `CID: ${escapeHtml(creator.cid)}` : '无CID'}
                 ${creator.region ? ` • REG: ${escapeHtml(creator.region)}` : ''}
@@ -245,7 +274,6 @@
     });
   }
 
-  // 渲染搜索结果列表（搜索模式）
   function renderSearchResults() {
     const creatorSearchResults = document.getElementById('creatorSearchResults');
     const creatorSearchList = document.getElementById('creatorSearchList');
@@ -261,12 +289,12 @@
       const isLost = creator.tag === '流失达人';
       const itemClass = isLost ? 'creator-item lost' : 'creator-item';
       const tagHtml = creator.tag ? `<span class="creator-tag-badge ${isLost ? 'lost' : 'performance'}">${escapeHtml(creator.tag)}</span>` : '';
-      
+
       return `
         <div class="${itemClass}">
           <div class="creator-info">
             <div class="creator-main">
-              <div class="creator-id">${escapeHtml(creator.id)} ${tagHtml}</div>
+              <div class="creator-id">${escapeHtml(creator.creator_id)} ${tagHtml}</div>
               <div class="creator-meta">
                 ${creator.cid ? `CID: ${escapeHtml(creator.cid)}` : '无CID'}
                 ${creator.region ? ` • REG: ${escapeHtml(creator.region)}` : ''}
@@ -305,7 +333,6 @@
     });
   }
 
-  // 打开达人编辑弹窗，填充当前达人数据
   function openCreatorEdit(mainIndex, searchResultIndex = -1) {
     const creatorEditDialog = document.getElementById('creatorEditDialog');
     const creatorEditId = document.getElementById('creatorEditId');
@@ -317,7 +344,7 @@
     if (mainIndex < 0 || mainIndex >= creators.length) return;
     editingCreatorIndex = mainIndex;
     const creator = creators[mainIndex];
-    if (creatorEditId) creatorEditId.value = creator.id || '';
+    if (creatorEditId) creatorEditId.value = creator.creator_id || '';
     if (creatorEditCid) creatorEditCid.value = creator.cid || '';
     if (creatorEditRegion) creatorEditRegion.value = creator.region || '';
     if (creatorEditTag) creatorEditTag.value = creator.tag || '';
@@ -325,14 +352,12 @@
     if (creatorEditDialog) creatorEditDialog.classList.add('show');
   }
 
-  // 关闭达人编辑弹窗
   function closeCreatorEdit() {
     const creatorEditDialog = document.getElementById('creatorEditDialog');
     if (creatorEditDialog) creatorEditDialog.classList.remove('show');
     editingCreatorIndex = -1;
   }
 
-  // 保存编辑后的达人信息到存储
   async function saveCreatorEdit() {
     const creatorEditCid = document.getElementById('creatorEditCid');
     const creatorEditRegion = document.getElementById('creatorEditRegion');
@@ -341,33 +366,57 @@
 
     if (editingCreatorIndex < 0 || editingCreatorIndex >= creators.length) return;
     const creator = creators[editingCreatorIndex];
-    creator.cid = creatorEditCid ? creatorEditCid.value.trim() : '';
-    creator.region = creatorEditRegion ? creatorEditRegion.value.trim() : '';
-    creator.tag = creatorEditTag ? creatorEditTag.value.trim() : '';
-    creator.remark = creatorEditRemark ? creatorEditRemark.value.trim() : '';
 
-    await new Promise(resolve => storageAPI.set({ savedCreators: creators }, resolve));
-    closeCreatorEdit();
-    renderCreators();
-    showStatus('✅ 达人信息已更新', 'success', 'creatorCardStatus');
+    const updatedData = {
+      creator_id: creator.creator_id,
+      cid: creatorEditCid ? creatorEditCid.value.trim() : '',
+      region: creatorEditRegion ? creatorEditRegion.value.trim() : '',
+      tag: creatorEditTag ? creatorEditTag.value.trim() : '',
+      remark: creatorEditRemark ? creatorEditRemark.value.trim() : ''
+    };
+
+    try {
+      await apiRequest(`/creators/${creator.id}`, {
+        method: 'PUT',
+        body: JSON.stringify(updatedData)
+      });
+
+      creator.cid = updatedData.cid;
+      creator.region = updatedData.region;
+      creator.tag = updatedData.tag;
+      creator.remark = updatedData.remark;
+
+      closeCreatorEdit();
+      renderCreators();
+      showStatus('✅ 达人信息已更新', 'success', 'creatorCardStatus');
+    } catch (e) {
+      console.error('更新失败', e);
+      showStatus('更新失败: ' + e.message, 'error', 'creatorCardStatus');
+    }
   }
 
-  // 删除当前编辑的达人
   async function deleteCreator() {
     if (editingCreatorIndex < 0 || editingCreatorIndex >= creators.length) return;
     const creator = creators[editingCreatorIndex];
-    if (!confirm(`确定删除达人 "${creator.id}" 吗？`)) return;
+    if (!confirm(`确定删除达人 "${creator.creator_id}" 吗？`)) return;
 
-    creators = creators.filter((_, i) => i !== editingCreatorIndex);
-    searchResults = searchResults.filter(c => c.id !== creator.id);
+    try {
+      await apiRequest(`/creators/${creator.id}`, {
+        method: 'DELETE'
+      });
 
-    await new Promise(resolve => storageAPI.set({ savedCreators: creators }, resolve));
-    closeCreatorEdit();
-    renderCreators();
-    showStatus('✅ 达人已删除', 'success', 'creatorCardStatus');
+      creators = creators.filter((_, i) => i !== editingCreatorIndex);
+      searchResults = searchResults.filter(c => c.id !== creator.id);
+
+      closeCreatorEdit();
+      renderCreators();
+      showStatus('✅ 达人已删除', 'success', 'creatorCardStatus');
+    } catch (e) {
+      console.error('删除失败', e);
+      showStatus('删除失败: ' + e.message, 'error', 'creatorCardStatus');
+    }
   }
 
-  // 初始化达人管理模块，绑定所有事件监听器
   function initCreatorModule() {
     const importCreatorBtn = document.getElementById('importCreatorBtn');
     const downloadCreatorTemplateBtn = document.getElementById('downloadCreatorTemplateBtn');
@@ -384,7 +433,6 @@
       });
     }
 
-    // 搜索达人
     if (creatorSearchInput) {
       creatorSearchInput.addEventListener('input', () => {
         const query = creatorSearchInput.value.trim().toLowerCase();
@@ -396,7 +444,7 @@
 
         searchResults = creators.filter(c => {
           if (c.tag === '隐藏达人') return false;
-          return (c.id && c.id.toLowerCase().includes(query)) ||
+          return (c.creator_id && c.creator_id.toLowerCase().includes(query)) ||
                  (c.cid && c.cid.toLowerCase().includes(query)) ||
                  (c.region && c.region.toLowerCase().includes(query)) ||
                  (c.tag && c.tag.toLowerCase().includes(query)) ||
@@ -406,7 +454,6 @@
       });
     }
 
-    // 导入达人
     if (importCreatorBtn && creatorFileInput) {
       importCreatorBtn.addEventListener('click', () => creatorFileInput.click());
       creatorFileInput.addEventListener('change', async (e) => {
@@ -428,28 +475,41 @@
             const tag = row.getCell(4).value?.toString().trim();
             const remark = row.getCell(5).value?.toString().trim();
             if (id) {
-              newCreators.push({ id, cid: cid || '', region: region || '', tag: tag || '', remark: remark || '' });
+              newCreators.push({ creator_id: id, cid: cid || '', region: region || '', tag: tag || '', remark: remark || '' });
             }
           });
 
           let updatedCount = 0;
           let addedCount = 0;
+          let failedCount = 0;
 
           for (const newCreator of newCreators) {
-            const existingIndex = creators.findIndex(c => c.id === newCreator.id);
-            if (existingIndex >= 0) {
-              creators[existingIndex] = { ...creators[existingIndex], ...newCreator };
-              updatedCount++;
-            } else {
-              creators.push(newCreator);
-              addedCount++;
+            try {
+              const existingIndex = creators.findIndex(c => c.creator_id === newCreator.creator_id);
+              if (existingIndex >= 0) {
+                await apiRequest(`/creators/${creators[existingIndex].id}`, {
+                  method: 'PUT',
+                  body: JSON.stringify(newCreator)
+                });
+                creators[existingIndex] = { ...creators[existingIndex], ...newCreator };
+                updatedCount++;
+              } else {
+                const result = await apiRequest('/creators', {
+                  method: 'POST',
+                  body: JSON.stringify(newCreator)
+                });
+                creators.push(result.data);
+                addedCount++;
+              }
+            } catch (err) {
+              console.error(`处理达人 ${newCreator.creator_id} 失败:`, err);
+              failedCount++;
             }
           }
 
-          await new Promise(resolve => storageAPI.set({ savedCreators: creators }, resolve));
           renderTags();
           renderCreators();
-          
+
           let statusMsg = '';
           if (addedCount > 0 && updatedCount > 0) {
             statusMsg = `✅ 新增 ${addedCount} 个，更新 ${updatedCount} 个达人`;
@@ -457,6 +517,8 @@
             statusMsg = `✅ 已导入 ${addedCount} 个新达人`;
           } else if (updatedCount > 0) {
             statusMsg = `✅ 已更新 ${updatedCount} 个达人`;
+          } else if (failedCount > 0) {
+            statusMsg = `⚠️ 导入完成，但有 ${failedCount} 个达人处理失败`;
           } else {
             statusMsg = `✅ 导入完成`;
           }
@@ -470,7 +532,6 @@
       });
     }
 
-    // 下载模板
     if (downloadCreatorTemplateBtn) {
       downloadCreatorTemplateBtn.addEventListener('click', () => {
         const workbook = new ExcelJS.Workbook();
@@ -496,7 +557,6 @@
       });
     }
 
-    // 编辑达人弹窗
     if (saveCreatorEditBtn) {
       saveCreatorEditBtn.addEventListener('click', saveCreatorEdit);
     }
@@ -507,7 +567,6 @@
       deleteCreatorBtn.addEventListener('click', deleteCreator);
     }
 
-    // 删除全部达人
     const clearAllCreatorsBtn = document.getElementById('clearAllCreatorsBtn');
     if (clearAllCreatorsBtn) {
       clearAllCreatorsBtn.addEventListener('click', async () => {
@@ -517,11 +576,25 @@
         }
         if (!confirm(`确定删除全部 ${creators.length} 个达人吗？此操作不可恢复！`)) return;
 
+        let deletedCount = 0;
+        let failedCount = 0;
+
+        for (const creator of creators) {
+          try {
+            await apiRequest(`/creators/${creator.id}`, {
+              method: 'DELETE'
+            });
+            deletedCount++;
+          } catch (err) {
+            console.error(`删除达人 ${creator.creator_id} 失败:`, err);
+            failedCount++;
+          }
+        }
+
         creators = [];
         searchResults = [];
-        await new Promise(resolve => storageAPI.set({ savedCreators: creators }, resolve));
         renderCreators();
-        showStatus('✅ 已删除全部达人', 'success');
+        showStatus(deletedCount > 0 ? `✅ 已删除 ${deletedCount} 个达人` : '删除完成', 'success');
       });
     }
 

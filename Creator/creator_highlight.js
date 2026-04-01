@@ -75,8 +75,8 @@
     const map = new Map();
 
     for (const c of creators) {
-      if (!c || !c.id) continue;
-      const norm = normalizeCreatorId(String(c.id));
+      if (!c || !c.creator_id) continue;
+      const norm = normalizeCreatorId(String(c.creator_id));
       if (!norm) continue;
 
       map.set(norm, c);
@@ -95,32 +95,103 @@
     return allCreatorMap.get(normalizedId) || null;
   }
 
+  const API_BASE_URL = 'https://kyrnln.cloud/api';
+
+  function getTokenFromStorage() {
+    return new Promise((resolve) => {
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        chrome.storage.local.get(['auth_token'], (result) => {
+          resolve(result.auth_token || null);
+        });
+      } else {
+        resolve(null);
+      }
+    });
+  }
+
+  let cachedToken = null;
+
+  function getToken() {
+    return cachedToken;
+  }
+
+  async function apiRequest(endpoint, options = {}) {
+    if (!cachedToken) {
+      cachedToken = await getTokenFromStorage();
+    }
+    const url = `${API_BASE_URL}${endpoint}`;
+    const token = cachedToken;
+
+    const headers = {
+      'Content-Type': 'application/json',
+      ...options.headers
+    };
+
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          console.warn('[Creator Highlight] 用户未登录');
+        }
+        throw new Error(data.message || '请求失败');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('[Creator Highlight] API 请求错误:', error);
+      throw error;
+    }
+  }
+
   // 从存储加载达人数据
   async function loadCreators() {
     try {
-      const result = await new Promise(resolve =>
-        chrome.storage.local.get(['savedCreators'], resolve)
-      );
-      creators = Array.isArray(result.savedCreators) ? result.savedCreators : [];
+      const result = await apiRequest('/creators?limit=100000');
+      creators = result.data || [];
       buildCreatorSets();
       scheduleHighlightCreators();
     } catch (e) {
+      console.error('[Creator Highlight] 加载达人数据失败:', e);
       creators = [];
       buildCreatorSets();
     }
   }
 
-  // 保存达人数据到存储
+  // 保存达人数据到服务器
   async function saveCreators() {
+    // 数据已同步到服务器，此处仅做日志记录
+    console.debug('[Creator Highlight] 达人数据已保存在服务器');
+  }
+
+  // 更新单个达人标签到服务器
+  async function updateCreatorTag(normId, newTag) {
+    const existingCreator = getCreatorById(normId);
+    if (!existingCreator) return;
+
     try {
-      await new Promise(resolve =>
-        chrome.storage.local.set({ savedCreators: creators }, resolve)
-      );
-      try {
-        chrome.runtime.sendMessage({ action: 'creatorDataUpdated' }).catch(() => {});
-      } catch (msgError) {}
-    } catch (storageError) {
-      console.debug('达人数据保存失败', storageError);
+      if (newTag === '') {
+        await apiRequest(`/creators/${existingCreator.id}`, {
+          method: 'PUT',
+          body: JSON.stringify({ creator_id: existingCreator.creator_id, tag: '' })
+        });
+      } else {
+        await apiRequest(`/creators/${existingCreator.id}`, {
+          method: 'PUT',
+          body: JSON.stringify({ creator_id: existingCreator.creator_id, tag: newTag })
+        });
+      }
+    } catch (e) {
+      console.error('[Creator Highlight] 更新达人标签失败:', e);
     }
   }
 
@@ -178,23 +249,30 @@
     return btn;
   }
 
-  // 更新达人数据（标签），并异步保存
-  function updateCreatorData(normId, newTag) {
+  // 更新达人数据（标签），并同步到服务器
+  async function updateCreatorData(normId, newTag) {
     const existingCreator = getCreatorById(normId);
-    if (newTag === '') {
-      if (existingCreator) {
-        existingCreator.tag = '';
-        saveCreators().then(() => buildCreatorSets());
-      }
-    } else {
-      if (existingCreator) {
-        existingCreator.tag = newTag;
-        saveCreators().then(() => buildCreatorSets());
-      } else {
-        creators.push({
-          id: normId, cid: '', region: '', tag: newTag, remark: '', hiddenAt: Date.now()
+
+    if (existingCreator) {
+      existingCreator.tag = newTag;
+      await updateCreatorTag(normId, newTag);
+      buildCreatorSets();
+    } else if (newTag !== '') {
+      try {
+        const result = await apiRequest('/creators', {
+          method: 'POST',
+          body: JSON.stringify({
+            creator_id: normId,
+            cid: '',
+            region: '',
+            tag: newTag,
+            remark: ''
+          })
         });
-        saveCreators().then(() => buildCreatorSets());
+        creators.push(result.data);
+        buildCreatorSets();
+      } catch (e) {
+        console.error('[Creator Highlight] 创建达人失败:', e);
       }
     }
   }
