@@ -3,6 +3,8 @@
 (() => {
   if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) return;
 
+  const API_BASE_URL = 'https://kyrnln.cloud/api';
+
   let phrases = [];
   let filteredPhrases = [];
   let activeTagId = '__ALL__';
@@ -10,17 +12,65 @@
   let currentInput = null;
   let selectedIndex = 0;
   let triggerPosition = -1;
+  let cachedToken = null;
+
+  function getTokenFromStorage() {
+    return new Promise((resolve) => {
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        chrome.storage.local.get(['auth_token'], (result) => {
+          resolve(result.auth_token || null);
+        });
+      } else {
+        resolve(null);
+      }
+    });
+  }
+
+  async function apiRequest(endpoint, options = {}) {
+    if (!cachedToken) {
+      cachedToken = await getTokenFromStorage();
+    }
+    const url = `${API_BASE_URL}${endpoint}`;
+    const headers = {
+      'Content-Type': 'application/json',
+      ...options.headers
+    };
+
+    if (cachedToken) {
+      headers['Authorization'] = `Bearer ${cachedToken}`;
+    }
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          console.warn('[Phrase Content] 用户未登录');
+        }
+        throw new Error(data.message || '请求失败');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('[Phrase Content] API 请求错误:', error);
+      throw error;
+    }
+  }
 
   async function loadPhrases() {
     try {
-      const result = await new Promise(resolve => chrome.storage.local.get(['savedPhrases', 'activeTagId'], resolve));
-      phrases = Array.isArray(result.savedPhrases) ? result.savedPhrases : [];
-      activeTagId = typeof result.activeTagId === 'string' ? result.activeTagId : '__ALL__';
+      const result = await apiRequest('/phrases');
+      phrases = Array.isArray(result.data) ? result.data : [];
       filteredPhrases = getVisiblePhrases().slice();
     } catch (e) {
+      console.error('[Phrase Content] 加载短语失败:', e);
       phrases = [];
       filteredPhrases = [];
-      activeTagId = '__ALL__';
     }
   }
 
@@ -372,7 +422,7 @@
 
   function getVisiblePhrases() {
     if (activeTagId === '__ALL__') return phrases.slice();
-    return phrases.filter(p => p && p.tagId === activeTagId);
+    return phrases.filter(p => p && p.tag_id === activeTagId);
   }
 
   loadPhrases();
@@ -380,22 +430,11 @@
 
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local') return;
-    let needRerender = false;
-    if (changes.savedPhrases) {
-      phrases = Array.isArray(changes.savedPhrases.newValue) ? changes.savedPhrases.newValue : [];
-      needRerender = true;
-    }
-    if (changes.activeTagId) {
-      activeTagId = typeof changes.activeTagId.newValue === 'string' ? changes.activeTagId.newValue : '__ALL__';
-      needRerender = true;
-    }
-    if (selector && needRerender) {
-      selectedIndex = 0;
-      filteredPhrases = getVisiblePhrases().slice();
-      renderFilteredList();
+    if (changes.auth_token) {
+      cachedToken = changes.auth_token.newValue || null;
+      loadPhrases();
     }
   });
 
   document.addEventListener('keydown', handleKeydown, true);
-  document.addEventListener('input', handleInput, true);
 })();

@@ -3,22 +3,63 @@
 (function() {
   'use strict';
 
+  const API_BASE_URL = 'https://kyrnln.cloud/api';
   const DEFAULT_TAG_ID = 'default';
-
-  function getStorage() {
-    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-      return chrome.storage.local;
-    }
-    console.error('存储不可用，无法使用快捷短语');
-    return null;
-  }
-
-  const storageAPI = getStorage();
 
   let phrases = [];
   let tags = [];
   let activeTagId = DEFAULT_TAG_ID;
   let editingId = null;
+
+  function getTokenFromStorage() {
+    return new Promise((resolve) => {
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        chrome.storage.local.get(['auth_token'], (result) => {
+          resolve(result.auth_token || null);
+        });
+      } else {
+        resolve(null);
+      }
+    });
+  }
+
+  let cachedToken = null;
+
+  async function apiRequest(endpoint, options = {}) {
+    if (!cachedToken) {
+      cachedToken = await getTokenFromStorage();
+    }
+    const url = `${API_BASE_URL}${endpoint}`;
+    const headers = {
+      'Content-Type': 'application/json',
+      ...options.headers
+    };
+
+    if (cachedToken) {
+      headers['Authorization'] = `Bearer ${cachedToken}`;
+    }
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          console.warn('[Phrase] 用户未登录');
+        }
+        throw new Error(data.message || '请求失败');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('[Phrase] API 请求错误:', error);
+      throw error;
+    }
+  }
 
   function showStatus(message, type = 'info', elementId = 'status') {
     let statusDiv = document.getElementById(elementId);
@@ -38,85 +79,46 @@
   }
 
   async function loadData() {
-    if (!storageAPI) return;
     try {
-      const result = await new Promise(resolve => 
-        storageAPI.get(['savedPhrases', 'savedTags', 'activeTagId'], resolve)
-      );
-      phrases = result.savedPhrases || [];
-      tags = Array.isArray(result.savedTags) ? result.savedTags : [];
-      activeTagId = typeof result.activeTagId === 'string' ? result.activeTagId : DEFAULT_TAG_ID;
-      await ensureTagsAndMigrate();
+      const [phrasesResult, tagsResult] = await Promise.all([
+        apiRequest('/phrases'),
+        apiRequest('/tags')
+      ]);
+
+      phrases = phrasesResult.data || [];
+      tags = tagsResult.data || [];
+
+      if (tags.length === 0 || !tags.some(t => t.name === '默认')) {
+        try {
+          await apiRequest('/tags', {
+            method: 'POST',
+            body: JSON.stringify({ name: '默认', sort_order: 0 })
+          });
+          const newTagsResult = await apiRequest('/tags');
+          tags = newTagsResult.data || [];
+        } catch (e) {
+          console.error('[Phrase] 创建默认标签失败:', e);
+        }
+      }
+
+      const defaultTag = tags.find(t => t.name === '默认');
+      activeTagId = defaultTag ? defaultTag.id : (tags[0] ? tags[0].id : null);
+
       renderAll();
     } catch (e) {
       console.error('加载短语失败', e);
       phrases = [];
       tags = [];
       activeTagId = DEFAULT_TAG_ID;
-      await ensureTagsAndMigrate();
       renderAll();
+      showStatus('加载短语数据失败: ' + e.message, 'error', 'phraseCardStatus');
     }
   }
 
-  async function savePhrases() {
-    if (!storageAPI) return;
-    await new Promise(resolve => storageAPI.set({ savedPhrases: phrases }, resolve));
-  }
-
-  async function saveTags() {
-    if (!storageAPI) return;
-    await new Promise(resolve => storageAPI.set({ savedTags: tags }, resolve));
-  }
-
-  async function saveActiveTagId() {
-    if (!storageAPI) return;
-    await new Promise(resolve => storageAPI.set({ activeTagId }, resolve));
-  }
-
-  async function ensureTagsAndMigrate() {
-    if (!storageAPI) return;
-    let changed = false;
-
-    if (!Array.isArray(tags) || tags.length === 0) {
-      tags = [{
-        id: DEFAULT_TAG_ID,
-        name: '默认',
-        createdAt: Date.now(),
-        updatedAt: Date.now()
-      }];
-      changed = true;
-    }
-
-    if (!tags.some(t => t.id === DEFAULT_TAG_ID)) {
-      tags.unshift({
-        id: DEFAULT_TAG_ID,
-        name: '默认',
-        createdAt: Date.now(),
-        updatedAt: Date.now()
-      });
-      changed = true;
-    }
-
-    const validTagIds = new Set(tags.map(t => t.id));
-    for (const p of phrases) {
-      if (!p.tagId || !validTagIds.has(p.tagId)) {
-        p.tagId = DEFAULT_TAG_ID;
-        changed = true;
-      }
-    }
-
-    if (!validTagIds.has(activeTagId)) {
-      activeTagId = DEFAULT_TAG_ID;
-      changed = true;
-    }
-
-    if (changed) {
-      await new Promise(resolve => storageAPI.set({
-        savedTags: tags,
-        savedPhrases: phrases,
-        activeTagId
-      }, resolve));
-    }
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
   }
 
   function renderAll() {
@@ -128,7 +130,7 @@
   function updateStats() {
     const totalCountEl = document.getElementById('totalCount');
     const tagCountEl = document.getElementById('tagCount');
-    
+
     if (totalCountEl) {
       totalCountEl.textContent = phrases.length;
     }
@@ -139,10 +141,15 @@
     }
   }
 
+  function getVisiblePhrases() {
+    if (!activeTagId) return phrases.filter(p => p.tag_id === null || p.tag_id === undefined);
+    return phrases.filter(p => p.tag_id === activeTagId);
+  }
+
   function renderPhraseList() {
     const phraseList = document.getElementById('phraseList');
     if (!phraseList) return;
-    
+
     const list = getVisiblePhrases();
     if (!list.length) {
       phraseList.innerHTML = `
@@ -155,7 +162,7 @@
     }
 
     phraseList.innerHTML = list.map(p => {
-      const tag = tags.find(t => t.id === p.tagId);
+      const tag = tags.find(t => t.id === p.tag_id);
       const tagName = tag ? tag.name : '未分类';
       return `
         <div class="phrase-item">
@@ -178,23 +185,13 @@
     });
   }
 
-  function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  }
-
-  function getVisiblePhrases() {
-    return phrases.filter(p => p.tagId === activeTagId);
-  }
-
   function renderTagBar() {
     const tagBar = document.getElementById('tagBar');
     if (!tagBar) return;
-    
+
     const chips = [];
     for (const t of tags) {
-      chips.push(`<button class="tag-chip ${activeTagId === t.id ? 'active' : ''}" data-id="${escapeHtml(t.id)}">${escapeHtml(t.name)}</button>`);
+      chips.push(`<button class="tag-chip ${activeTagId === t.id ? 'active' : ''}" data-id="${t.id}">${escapeHtml(t.name)}</button>`);
     }
     chips.push(`<button class="tag-chip manage" data-action="manage">管理</button>`);
     tagBar.innerHTML = chips.join('');
@@ -205,7 +202,6 @@
         const tag = tags.find(t => t.id === id);
         const tagName = tag ? tag.name : '';
         activeTagId = id;
-        await saveActiveTagId();
         renderAll();
         showStatus(`✅ 已切换到：${tagName}`, 'success', 'phraseCardStatus');
       });
@@ -217,11 +213,14 @@
   function renderPhraseTagSelect(selectedId) {
     const phraseTag = document.getElementById('phraseTag');
     if (!phraseTag) return;
-    
-    const opts = tags.map(t => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name)}</option>`).join('');
+
+    const opts = tags.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
     phraseTag.innerHTML = opts;
-    const next = selectedId && tags.some(t => t.id === selectedId) ? selectedId : DEFAULT_TAG_ID;
-    phraseTag.value = next;
+    if (selectedId && tags.some(t => t.id === selectedId)) {
+      phraseTag.value = selectedId;
+    } else if (activeTagId) {
+      phraseTag.value = activeTagId;
+    }
   }
 
   function openTagManage() {
@@ -242,57 +241,65 @@
   function renderTagManageList() {
     const tagListManage = document.getElementById('tagListManage');
     if (!tagListManage) return;
-    
+
     tagListManage.innerHTML = tags.map(t => `
       <div class="phrase-item" style="flex-direction: row; align-items: center; padding: 10px 12px;">
         <div style="flex: 1;">
           <div class="phrase-title" style="margin-bottom: 2px;">${escapeHtml(t.name)}</div>
-          <div class="phrase-content" style="font-size: 10px;">ID: ${escapeHtml(t.id)}</div>
+          <div class="phrase-content" style="font-size: 10px;">ID: ${t.id}</div>
         </div>
         <div class="phrase-actions" style="margin-top: 0; padding-top: 0; border-top: none;">
-          <button type="button" class="tag-rename btn-sm secondary" data-id="${escapeHtml(t.id)}">重命名</button>
-          <button type="button" class="tag-delete btn-sm danger" data-id="${escapeHtml(t.id)}">删除</button>
+          <button type="button" class="tag-rename btn-sm secondary" data-id="${t.id}">重命名</button>
+          <button type="button" class="tag-delete btn-sm danger" data-id="${t.id}" ${t.name === '默认' ? 'disabled' : ''}>删除</button>
         </div>
       </div>
     `).join('');
 
     tagListManage.querySelectorAll('button.tag-rename').forEach(btn => {
       btn.addEventListener('click', async () => {
-        const id = btn.dataset.id;
+        const id = parseInt(btn.dataset.id);
         const tag = tags.find(x => x.id === id);
         if (!tag) return;
         const next = prompt('请输入新的标签名称：', tag.name);
         const name = (next || '').trim();
         if (!name) return;
-        tag.name = name;
-        tag.updatedAt = Date.now();
-        await saveTags();
-        renderAll();
-        renderTagManageList();
+        try {
+          await apiRequest(`/tags/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify({ name })
+          });
+          tag.name = name;
+          renderAll();
+          renderTagManageList();
+        } catch (e) {
+          showStatus('重命名失败: ' + e.message, 'error', 'phraseCardStatus');
+        }
       });
     });
 
     tagListManage.querySelectorAll('button.tag-delete').forEach(btn => {
       btn.addEventListener('click', async () => {
-        const id = btn.dataset.id;
-        if (id === DEFAULT_TAG_ID) {
-          alert('"默认"标签不可删除');
-          return;
-        }
+        if (btn.disabled) return;
+        const id = parseInt(btn.dataset.id);
         const tag = tags.find(x => x.id === id);
         if (!tag) return;
         if (!confirm(`确定删除标签"${tag.name}"吗？`)) return;
-
-        tags = tags.filter(t => t.id !== id);
-        for (const p of phrases) {
-          if (p.tagId === id) p.tagId = DEFAULT_TAG_ID;
+        try {
+          await apiRequest(`/tags/${id}`, {
+            method: 'DELETE'
+          });
+          tags = tags.filter(t => t.id !== id);
+          for (const p of phrases) {
+            if (p.tag_id === id) p.tag_id = tags.find(t => t.name === '默认')?.id || null;
+          }
+          if (activeTagId === id) {
+            const defaultTag = tags.find(t => t.name === '默认');
+            activeTagId = defaultTag ? defaultTag.id : (tags[0] ? tags[0].id : null);
+          }
+          await loadData();
+        } catch (e) {
+          showStatus('删除失败: ' + e.message, 'error', 'phraseCardStatus');
         }
-        if (activeTagId === id) activeTagId = DEFAULT_TAG_ID;
-        await new Promise(resolve => 
-          storageAPI.set({ savedTags: tags, savedPhrases: phrases, activeTagId }, resolve)
-        );
-        renderAll();
-        renderTagManageList();
       });
     });
   }
@@ -302,13 +309,13 @@
     const phraseEditTitle = document.getElementById('phraseEditTitle');
     const phraseTitle = document.getElementById('phraseTitle');
     const phraseContent = document.getElementById('phraseContent');
-    
+
     if (id) {
-      const p = phrases.find(x => x.id === id);
+      const p = phrases.find(x => x.id === parseInt(id));
       if (!p) return;
       editingId = id;
       if (phraseEditTitle) phraseEditTitle.textContent = '编辑短语';
-      renderPhraseTagSelect(p.tagId);
+      renderPhraseTagSelect(p.tag_id);
       if (phraseTitle) phraseTitle.value = p.title || '';
       if (phraseContent) phraseContent.value = p.content || '';
     } else {
@@ -324,14 +331,15 @@
   function closeEdit() {
     const phraseEditDialog = document.getElementById('phraseEditDialog');
     phraseEditDialog && phraseEditDialog.classList.remove('show');
+    editingId = null;
   }
 
   async function savePhrase() {
     const phraseTag = document.getElementById('phraseTag');
     const phraseTitle = document.getElementById('phraseTitle');
     const phraseContent = document.getElementById('phraseContent');
-    
-    const tagId = phraseTag ? phraseTag.value : DEFAULT_TAG_ID;
+
+    const tagId = phraseTag ? parseInt(phraseTag.value) : null;
     const title = phraseTitle ? phraseTitle.value.trim() : '';
     const content = phraseContent ? phraseContent.value.trim() : '';
 
@@ -340,40 +348,49 @@
       return;
     }
 
-    if (editingId) {
-      const p = phrases.find(x => x.id === editingId);
-      if (p) {
-        p.tagId = tagId;
-        p.title = title;
-        p.content = content;
-        p.updatedAt = Date.now();
+    try {
+      if (editingId) {
+        const id = parseInt(editingId);
+        await apiRequest(`/phrases/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify({ tag_id: tagId, title, content })
+        });
+        const index = phrases.findIndex(p => p.id === id);
+        if (index >= 0) {
+          phrases[index].tag_id = tagId;
+          phrases[index].title = title;
+          phrases[index].content = content;
+        }
+      } else {
+        const result = await apiRequest('/phrases', {
+          method: 'POST',
+          body: JSON.stringify({ tag_id: tagId, title, content })
+        });
+        phrases.push(result.data);
       }
-    } else {
-      phrases.push({
-        id: 'phrase_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
-        tagId,
-        title,
-        content,
-        createdAt: Date.now(),
-        updatedAt: Date.now()
-      });
-    }
 
-    await savePhrases();
-    closeEdit();
-    renderAll();
-    showStatus(editingId ? '✅ 短语已更新' : '✅ 短语已添加', 'success', 'phraseCardStatus');
-    editingId = null;
+      closeEdit();
+      renderAll();
+      showStatus(editingId ? '✅ 短语已更新' : '✅ 短语已添加', 'success', 'phraseCardStatus');
+    } catch (e) {
+      showStatus('保存失败: ' + e.message, 'error', 'phraseCardStatus');
+    }
   }
 
   async function deletePhrase(id) {
-    const p = phrases.find(x => x.id === id);
+    const p = phrases.find(x => x.id === parseInt(id));
     if (!p) return;
     if (!confirm(`确定删除短语"${p.title}"吗？`)) return;
-    phrases = phrases.filter(x => x.id !== id);
-    await savePhrases();
-    renderAll();
-    showStatus('✅ 短语已删除', 'success', 'phraseCardStatus');
+    try {
+      await apiRequest(`/phrases/${id}`, {
+        method: 'DELETE'
+      });
+      phrases = phrases.filter(x => x.id !== parseInt(id));
+      renderAll();
+      showStatus('✅ 短语已删除', 'success', 'phraseCardStatus');
+    } catch (e) {
+      showStatus('删除失败: ' + e.message, 'error', 'phraseCardStatus');
+    }
   }
 
   function initPhraseModule() {
@@ -399,16 +416,17 @@
       addTagBtn.addEventListener('click', async () => {
         const name = prompt('请输入新标签名称：');
         if (!name || !name.trim()) return;
-        const newTag = {
-          id: 'tag_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
-          name: name.trim(),
-          createdAt: Date.now(),
-          updatedAt: Date.now()
-        };
-        tags.push(newTag);
-        await saveTags();
-        renderAll();
-        renderTagManageList();
+        try {
+          const result = await apiRequest('/tags', {
+            method: 'POST',
+            body: JSON.stringify({ name: name.trim() })
+          });
+          tags.push(result.data);
+          renderAll();
+          renderTagManageList();
+        } catch (e) {
+          showStatus('创建标签失败: ' + e.message, 'error', 'phraseCardStatus');
+        }
       });
     }
 
