@@ -69,9 +69,7 @@
         <span class="card-desc">备份与恢复数据</span>
       </div>
       <div class="card-actions">
-        <button id="backupBtn" class="btn-sm">备份数据</button>
-        <button id="initAppBtn" class="btn-sm">初始化应用</button>
-        <button id="clearAllDataBtn" class="btn-sm">清除全部数据</button>
+        <button id="btnBackup" class="btn-sm">📦 数据备份</button>
       </div>
     </div>
   </div>
@@ -109,53 +107,6 @@
         <button id="cancelCreatorEditBtn" class="btn-sm">取消</button>
         <button id="saveCreatorEditBtn" class="btn-sm">保存</button>
         <button id="deleteCreatorBtn" class="btn-sm">删除</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="backupDialog" class="dialog-mask">
-    <div class="dialog">
-      <h3>数据备份与恢复</h3>
-      <details class="panel">
-        <summary class="custom-summary">
-          <span>本地备份与恢复</span>
-        </summary>
-        <div class="panel-content">
-          <div class="mb-4">
-            <h4>导出数据</h4>
-            <p>将所有数据导出为JSON文件，方便备份和迁移</p>
-            <button id="exportDataBtn" class="btn-sm w-full">导出数据</button>
-          </div>
-          <div class="pt-4" style="border-top:1px solid var(--card-border);">
-            <h4>导入数据</h4>
-            <p>从JSON文件导入数据，会覆盖现有数据</p>
-            <input id="importDataFile" type="file" accept=".json" class="w-full mb-2" />
-            <button id="importDataBtn" class="btn-sm w-full">导入数据</button>
-          </div>
-        </div>
-      </details>
-
-      <details class="panel">
-        <summary class="custom-summary">
-          <span>WebDAV 同步</span>
-        </summary>
-        <div class="panel-content">
-          <p>通过坚果云等WebDAV服务云端备份与恢复</p>
-          <label for="webdavUrl">服务器地址 (例如: 坚果云)</label>
-          <input id="webdavUrl" type="text" placeholder="https://dav.jianguoyun.com/dav/" value="https://dav.jianguoyun.com/dav/" />
-          <label for="webdavUsername">账号 (邮箱)</label>
-          <input id="webdavUsername" type="text" placeholder="输入WebDAV账号" />
-          <label for="webdavPassword">应用密码</label>
-          <input id="webdavPassword" type="password" placeholder="输入WebDAV应用密码" />
-          <div class="flex gap-3 mt-3">
-            <button id="backupToWebdavBtn" class="btn-sm flex-1">备份到WebDAV</button>
-            <button id="restoreFromWebdavBtn" class="btn-sm flex-1">从WebDAV恢复</button>
-          </div>
-          <div id="webdavStatus" class="status" style="display:none;"></div>
-        </div>
-      </details>
-      <div class="footer">
-        <button id="closeBackupDialogBtn" class="btn-sm">关闭</button>
       </div>
     </div>
   </div>
