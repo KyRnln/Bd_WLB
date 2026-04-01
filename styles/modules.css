@@ -720,6 +720,36 @@ body.page-translate-now .result-text {
   word-break: break-word;
 }
 
+/* ===== 认证页面 (登录/注册) ===== */
+.page-auth body,
+body.page-auth {
+  width: 420px;
+  padding: 16px 20px 24px;
+}
+
+.page-auth h1,
+body.page-auth h1 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-color);
+}
+
+/* ===== 用户设置页面 ===== */
+.page-profile body,
+body.page-profile {
+  width: 420px;
+  padding: 16px 20px 24px;
+}
+
+.page-profile h1,
+body.page-profile h1 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-color);
+}
+
 /* ===== 工具模块页面 (头像/CID, CID查询, 封面, 订单) ===== */
 .page-tool body,
 body.page-tool {

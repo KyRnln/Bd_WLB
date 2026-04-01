@@ -177,12 +177,12 @@
 
     const chips = [];
     for (const t of tags) {
-      chips.push(`<button class="tag-chip ${String(activeTagId) === String(t.id) ? 'active' : ''}" data-id="${t.id}">${escapeHtml(t.name)}</button>`);
+      chips.push(`<button class="segment-item ${String(activeTagId) === String(t.id) ? 'active' : ''}" data-id="${t.id}">${escapeHtml(t.name)}</button>`);
     }
-    chips.push(`<button class="tag-chip manage" data-action="manage">管理</button>`);
+    chips.push(`<button class="segment-item manage" data-action="manage">管理</button>`);
     tagBar.innerHTML = chips.join('');
 
-    tagBar.querySelectorAll('.tag-chip[data-id]').forEach(el => {
+    tagBar.querySelectorAll('.segment-item[data-id]').forEach(el => {
       el.addEventListener('click', async () => {
         const id = el.dataset.id;
         const tag = tags.find(t => t.id === id);
@@ -192,7 +192,7 @@
         showStatus(`✅ 已切换到：${tagName}`, 'success', 'phraseCardStatus');
       });
     });
-    const manageBtn = tagBar.querySelector('.tag-chip.manage');
+    const manageBtn = tagBar.querySelector('.segment-item.manage');
     manageBtn && manageBtn.addEventListener('click', () => openTagManage());
   }
 

@@ -299,13 +299,6 @@
       });
     }
 
-    const btnBackup = document.getElementById('btnBackup');
-    if (btnBackup) {
-      btnBackup.addEventListener('click', () => {
-        window.location.href = 'backup/backup.html';
-      });
-    }
-
     const btnTranslateNow = document.getElementById('btnTranslateNow');
     if (btnTranslateNow) {
       btnTranslateNow.addEventListener('click', () => {

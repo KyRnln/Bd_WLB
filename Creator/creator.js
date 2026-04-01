@@ -54,10 +54,10 @@
     }
   }
 
-  function showStatus(message, type = 'info', elementId = 'status') {
+  function showStatus(message, type = 'info', elementId = 'creatorCardStatus') {
     let statusDiv = document.getElementById(elementId);
     if (!statusDiv) {
-      statusDiv = document.getElementById('status');
+      statusDiv = document.getElementById('creatorCardStatus');
     }
     if (!statusDiv) {
       console.error(`找不到状态提示元素: ${elementId}`);
@@ -117,11 +117,11 @@
 
     const chips = [];
     for (const t of allTags) {
-      chips.push(`<button class="tag-chip ${activeCreatorTagId === t.id ? 'active' : ''}" data-id="${escapeHtml(t.id)}">${escapeHtml(t.name)}</button>`);
+      chips.push(`<button class="segment-item ${activeCreatorTagId === t.id ? 'active' : ''}" data-id="${escapeHtml(t.id)}">${escapeHtml(t.name)}</button>`);
     }
     tagBar.innerHTML = chips.join('');
 
-    tagBar.querySelectorAll('.tag-chip[data-id]').forEach(el => {
+    tagBar.querySelectorAll('.segment-item[data-id]').forEach(el => {
       el.addEventListener('click', async () => {
         const id = el.dataset.id;
         activeCreatorTagId = id;

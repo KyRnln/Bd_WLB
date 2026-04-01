@@ -57,7 +57,7 @@
   }
 
   function switchTab(tabName) {
-    const tabs = document.querySelectorAll('.auth-tab');
+    const tabs = document.querySelectorAll('.segment-item');
     const loginForm = document.getElementById('loginForm');
     const registerForm = document.getElementById('registerForm');
 
@@ -66,11 +66,11 @@
     });
 
     if (tabName === 'login') {
-      loginForm.style.display = 'flex';
+      loginForm.style.display = 'block';
       registerForm.style.display = 'none';
     } else {
       loginForm.style.display = 'none';
-      registerForm.style.display = 'flex';
+      registerForm.style.display = 'block';
     }
 
     clearError('loginError');
@@ -117,7 +117,7 @@
         setToken(data.token);
         showStatus('✅ 登录成功，正在跳转...', 'success');
         setTimeout(() => {
-          window.location.href = '../web/dashboard.html';
+          window.location.href = '../popup.html';
         }, 500);
       }
     } catch (error) {
@@ -197,7 +197,7 @@
   function initAuth() {
     const loginForm = document.getElementById('loginForm');
     const registerForm = document.getElementById('registerForm');
-    const authTabs = document.querySelectorAll('.auth-tab');
+    const authTabs = document.querySelectorAll('.segment-item');
 
     if (loginForm) {
       loginForm.addEventListener('submit', handleLogin);

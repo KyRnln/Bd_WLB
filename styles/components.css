@@ -403,6 +403,71 @@ details.panel .panel-content {
   max-height: 400px;
 }
 
+/* 分段选择器组件 */
+
+.segment-group {
+  display: flex;
+  background: #e8ecf0;
+  border-radius: var(--radius-md);
+  padding: 3px;
+  margin-bottom: 16px;
+}
+
+.segment-item {
+  flex: 1;
+  padding: 8px 16px;
+  background: none;
+  border: none;
+  border-radius: calc(var(--radius-md) - 2px);
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.segment-item:hover {
+  color: var(--text-color);
+}
+
+.segment-item.active {
+  background: #fff;
+  color: var(--text-color);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* 标签切换组件 */
+
+.tab-group {
+  display: flex;
+  border-bottom: 2px solid var(--border-color);
+  margin-bottom: 16px;
+}
+
+.tab-item {
+  flex: 1;
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  color: var(--text-muted);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tab-item:hover {
+  color: var(--btn-color);
+}
+
+.tab-item.active {
+  color: var(--btn-color);
+  border-bottom-color: var(--btn-color);
+  font-weight: 600;
+}
+
 /* 页面头部组件 */
 
 .page-header {
