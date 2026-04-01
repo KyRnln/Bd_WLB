@@ -88,21 +88,7 @@
       phrases = phrasesResult.data || [];
       tags = tagsResult.data || [];
 
-      if (tags.length === 0 || !tags.some(t => t.name === '默认')) {
-        try {
-          await apiRequest('/tags', {
-            method: 'POST',
-            body: JSON.stringify({ name: '默认', sort_order: 0 })
-          });
-          const newTagsResult = await apiRequest('/tags');
-          tags = newTagsResult.data || [];
-        } catch (e) {
-          console.error('[Phrase] 创建默认标签失败:', e);
-        }
-      }
-
-      const defaultTag = tags.find(t => t.name === '默认');
-      activeTagId = defaultTag ? defaultTag.id : (tags[0] ? tags[0].id : null);
+      activeTagId = tags.length > 0 ? tags[0].id : null;
 
       renderAll();
     } catch (e) {
@@ -143,7 +129,7 @@
 
   function getVisiblePhrases() {
     if (!activeTagId) return phrases.filter(p => p.tag_id === null || p.tag_id === undefined);
-    return phrases.filter(p => p.tag_id === activeTagId);
+    return phrases.filter(p => String(p.tag_id) === String(activeTagId));
   }
 
   function renderPhraseList() {
@@ -162,7 +148,7 @@
     }
 
     phraseList.innerHTML = list.map(p => {
-      const tag = tags.find(t => t.id === p.tag_id);
+      const tag = tags.find(t => String(t.id) === String(p.tag_id));
       const tagName = tag ? tag.name : '未分类';
       return `
         <div class="phrase-item">
@@ -191,7 +177,7 @@
 
     const chips = [];
     for (const t of tags) {
-      chips.push(`<button class="tag-chip ${activeTagId === t.id ? 'active' : ''}" data-id="${t.id}">${escapeHtml(t.name)}</button>`);
+      chips.push(`<button class="tag-chip ${String(activeTagId) === String(t.id) ? 'active' : ''}" data-id="${t.id}">${escapeHtml(t.name)}</button>`);
     }
     chips.push(`<button class="tag-chip manage" data-action="manage">管理</button>`);
     tagBar.innerHTML = chips.join('');
@@ -216,7 +202,7 @@
 
     const opts = tags.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
     phraseTag.innerHTML = opts;
-    if (selectedId && tags.some(t => t.id === selectedId)) {
+    if (selectedId && tags.some(t => String(t.id) === String(selectedId))) {
       phraseTag.value = selectedId;
     } else if (activeTagId) {
       phraseTag.value = activeTagId;
@@ -250,7 +236,7 @@
         </div>
         <div class="phrase-actions" style="margin-top: 0; padding-top: 0; border-top: none;">
           <button type="button" class="tag-rename btn-sm secondary" data-id="${t.id}">重命名</button>
-          <button type="button" class="tag-delete btn-sm danger" data-id="${t.id}" ${t.name === '默认' ? 'disabled' : ''}>删除</button>
+          <button type="button" class="tag-delete btn-sm danger" data-id="${t.id}">删除</button>
         </div>
       </div>
     `).join('');
@@ -258,7 +244,7 @@
     tagListManage.querySelectorAll('button.tag-rename').forEach(btn => {
       btn.addEventListener('click', async () => {
         const id = parseInt(btn.dataset.id);
-        const tag = tags.find(x => x.id === id);
+        const tag = tags.find(x => String(x.id) === String(id));
         if (!tag) return;
         const next = prompt('请输入新的标签名称：', tag.name);
         const name = (next || '').trim();
@@ -279,22 +265,20 @@
 
     tagListManage.querySelectorAll('button.tag-delete').forEach(btn => {
       btn.addEventListener('click', async () => {
-        if (btn.disabled) return;
         const id = parseInt(btn.dataset.id);
-        const tag = tags.find(x => x.id === id);
+        const tag = tags.find(x => String(x.id) === String(id));
         if (!tag) return;
         if (!confirm(`确定删除标签"${tag.name}"吗？`)) return;
         try {
           await apiRequest(`/tags/${id}`, {
             method: 'DELETE'
           });
-          tags = tags.filter(t => t.id !== id);
+          tags = tags.filter(t => String(t.id) !== String(id));
           for (const p of phrases) {
-            if (p.tag_id === id) p.tag_id = tags.find(t => t.name === '默认')?.id || null;
+            if (String(p.tag_id) === String(id)) p.tag_id = null;
           }
-          if (activeTagId === id) {
-            const defaultTag = tags.find(t => t.name === '默认');
-            activeTagId = defaultTag ? defaultTag.id : (tags[0] ? tags[0].id : null);
+          if (String(activeTagId) === String(id)) {
+            activeTagId = tags.length > 0 ? tags[0].id : null;
           }
           await loadData();
         } catch (e) {
@@ -311,7 +295,7 @@
     const phraseContent = document.getElementById('phraseContent');
 
     if (id) {
-      const p = phrases.find(x => x.id === parseInt(id));
+      const p = phrases.find(x => String(x.id) === String(id));
       if (!p) return;
       editingId = id;
       if (phraseEditTitle) phraseEditTitle.textContent = '编辑短语';
@@ -350,12 +334,12 @@
 
     try {
       if (editingId) {
-        const id = parseInt(editingId);
+        const id = editingId;
         await apiRequest(`/phrases/${id}`, {
           method: 'PUT',
           body: JSON.stringify({ tag_id: tagId, title, content })
         });
-        const index = phrases.findIndex(p => p.id === id);
+        const index = phrases.findIndex(p => String(p.id) === String(id));
         if (index >= 0) {
           phrases[index].tag_id = tagId;
           phrases[index].title = title;
@@ -378,14 +362,14 @@
   }
 
   async function deletePhrase(id) {
-    const p = phrases.find(x => x.id === parseInt(id));
+    const p = phrases.find(x => String(x.id) === String(id));
     if (!p) return;
     if (!confirm(`确定删除短语"${p.title}"吗？`)) return;
     try {
       await apiRequest(`/phrases/${id}`, {
         method: 'DELETE'
       });
-      phrases = phrases.filter(x => x.id !== parseInt(id));
+      phrases = phrases.filter(x => String(x.id) !== String(id));
       renderAll();
       showStatus('✅ 短语已删除', 'success', 'phraseCardStatus');
     } catch (e) {
