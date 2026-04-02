@@ -427,6 +427,10 @@
     if (addPhraseBtn) {
       addPhraseBtn.addEventListener('click', () => openEdit(null));
     }
+    const openTagManageBtn = document.getElementById('openTagManageBtn');
+    if (openTagManageBtn) {
+      openTagManageBtn.addEventListener('click', () => openTagManage());
+    }
     if (savePhraseBtn) {
       savePhraseBtn.addEventListener('click', savePhrase);
     }

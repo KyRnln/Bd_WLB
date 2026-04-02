@@ -392,11 +392,19 @@ details.panel .panel-content {
   font-weight: 500;
 }
 
+.tool-btn:hover {
+  background: var(--md3-surface-variant);
+}
+
 .btn-sm {
   flex: none;
   padding: 6px 12px;
   font-size: 12px;
   min-height: 32px;
+}
+
+.btn-sm:hover {
+  background: var(--md3-surface-variant);
 }
 
 .search-input {
@@ -471,7 +479,7 @@ details.panel .panel-content {
 }
 
 .segment-item:hover::before {
-  opacity: 0.08;
+  opacity: 0.12;
 }
 
 .segment-item.active {
