@@ -6,6 +6,8 @@
   const API_BASE_URL = 'https://kyrnln.cloud/api';
 
   let creators = [];
+  let allCreators = [];
+  let currentUserId = null;
   let searchResults = [];
   let editingCreatorIndex = -1;
   let activeCreatorTagId = 'all';
@@ -75,6 +77,8 @@
     if (!isLoggedIn()) {
       showStatus('请先登录', 'error');
       creators = [];
+      allCreators = [];
+      currentUserId = null;
       activeCreatorTagId = 'all';
       searchResults = [];
       renderTags();
@@ -83,17 +87,24 @@
     }
 
     try {
-      const result = await apiRequest('/creators?limit=100000');
+      const userResult = await apiRequest('/auth/me');
+      currentUserId = userResult.success && userResult.user ? userResult.user.id : null;
+      console.log('[Creator] 当前用户ID:', currentUserId);
+
+      const result = await apiRequest('/creators/all');
       console.log('[Creator] 加载数据结果:', result);
-      creators = result.data || [];
+      allCreators = result.data || [];
+      creators = allCreators.filter(c => c.user_id === currentUserId);
+      console.log('[Creator] 加载了', allCreators.length, '个服务器达人，其中', creators.length, '个属于当前用户');
       activeCreatorTagId = 'all';
       searchResults = [];
-      console.log('[Creator] 加载了', creators.length, '个达人');
       renderTags();
       renderCreators();
     } catch (e) {
       console.error('加载数据失败', e);
       creators = [];
+      allCreators = [];
+      currentUserId = null;
       activeCreatorTagId = 'all';
       searchResults = [];
       renderTags();
@@ -112,7 +123,7 @@
     const tagBar = document.getElementById('creatorTagBar');
     if (!tagBar) return;
 
-    const uniqueTags = [...new Set(creators.map(c => c.tag).filter(t => t))];
+    const uniqueTags = [...new Set(allCreators.map(c => c.tag).filter(t => t))];
     const allTags = [{ id: 'all', name: '全部' }, ...uniqueTags.map(t => ({ id: t, name: t }))];
 
     const chips = [];
@@ -129,7 +140,7 @@
         renderTags();
         renderCreators();
         const tag = allTags.find(t => t.id === id);
-        showStatus(`✅ 已切换到：${tag ? tag.name : ''}`, 'success');
+        showStatus(`已切换到：${tag ? tag.name : ''}`, 'success');
       });
     });
   }
@@ -212,7 +223,7 @@
     const baseList = getFilteredCreators();
     const displayList = query ? searchResults : baseList;
 
-    if (totalCount) totalCount.textContent = creators.filter(c => c.tag && c.tag.trim() !== '').length;
+    if (totalCount) totalCount.textContent = allCreators.length;
     if (searchCount) searchCount.textContent = query ? searchResults.length : '-';
 
     if (displayList.length === 0) {
@@ -388,7 +399,7 @@
 
       closeCreatorEdit();
       renderCreators();
-      showStatus('✅ 达人信息已更新', 'success', 'creatorCardStatus');
+      showStatus('达人信息已更新', 'success', 'creatorCardStatus');
     } catch (e) {
       console.error('更新失败', e);
       showStatus('更新失败: ' + e.message, 'error', 'creatorCardStatus');
@@ -410,7 +421,7 @@
 
       closeCreatorEdit();
       renderCreators();
-      showStatus('✅ 达人已删除', 'success', 'creatorCardStatus');
+      showStatus('达人已删除', 'success', 'creatorCardStatus');
     } catch (e) {
       console.error('删除失败', e);
       showStatus('删除失败: ' + e.message, 'error', 'creatorCardStatus');
@@ -512,15 +523,15 @@
 
           let statusMsg = '';
           if (addedCount > 0 && updatedCount > 0) {
-            statusMsg = `✅ 新增 ${addedCount} 个，更新 ${updatedCount} 个达人`;
+            statusMsg = `新增 ${addedCount} 个，更新 ${updatedCount} 个达人`;
           } else if (addedCount > 0) {
-            statusMsg = `✅ 已导入 ${addedCount} 个新达人`;
+            statusMsg = `已导入 ${addedCount} 个新达人`;
           } else if (updatedCount > 0) {
-            statusMsg = `✅ 已更新 ${updatedCount} 个达人`;
+            statusMsg = `已更新 ${updatedCount} 个达人`;
           } else if (failedCount > 0) {
-            statusMsg = `⚠️ 导入完成，但有 ${failedCount} 个达人处理失败`;
+            statusMsg = `导入完成，但有 ${failedCount} 个达人处理失败`;
           } else {
-            statusMsg = `✅ 导入完成`;
+            statusMsg = `导入完成`;
           }
           showStatus(statusMsg, 'success', 'creatorCardStatus');
         } catch (err) {
@@ -594,7 +605,7 @@
         creators = [];
         searchResults = [];
         renderCreators();
-        showStatus(deletedCount > 0 ? `✅ 已删除 ${deletedCount} 个达人` : '删除完成', 'success');
+        showStatus(deletedCount > 0 ? `已删除 ${deletedCount} 个达人` : '删除完成', 'success');
       });
     }
 

@@ -115,7 +115,7 @@
 
       if (data.token) {
         setToken(data.token);
-        showStatus('✅ 登录成功，正在跳转...', 'success');
+        showStatus('登录成功，正在跳转...', 'success');
         setTimeout(() => {
           window.location.href = '../popup.html';
         }, 500);
@@ -179,7 +179,7 @@
         return;
       }
 
-      showStatus('✅ 注册成功，请登录', 'success');
+      showStatus('注册成功，请登录', 'success');
       switchTab('login');
       document.getElementById('loginEmail').value = email;
       document.getElementById('loginPassword').value = '';

@@ -139,9 +139,9 @@
         };
         request.onerror = (e) => reject(e.target.error);
       });
-      showStatus('✅ 所有数据已清空', 'success');
+      showStatus('所有数据已清空', 'success');
     } catch (e) {
-      showStatus('❌ 清空数据失败', 'error');
+      showStatus('清空数据失败', 'error');
     }
   }
 
@@ -244,11 +244,11 @@
       a.download = `tiktok_cid2name_${new Date().toISOString().split('T')[0]}.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
-      showStatus('✅ XLSX导出成功', 'success');
+      showStatus('XLSX导出成功', 'success');
     } catch (err) {
       console.error('导出失败', err);
       alert('导出失败: ' + err.message);
-      showStatus('❌ 导出失败', 'error');
+      showStatus('导出失败', 'error');
     } finally {
       if (btn) {
         btn.disabled = false;
@@ -261,7 +261,7 @@
     if (status.isRunning) {
       showStatus(`批量查询进行中: 正在处理 ${status.currentIndex}/${status.total} - CID: ${status.currentCid} (成功: ${status.successCount}, 失败: ${status.failCount})`, 'info');
     } else if (status.error) {
-      showStatus(`❌ 批量查询出错: ${status.error}`, 'error');
+      showStatus(`批量查询出错: ${status.error}`, 'error');
     }
   }
 
@@ -294,7 +294,7 @@
               }
             }
             await chrome.runtime.sendMessage({ action: 'clearBatchQueryStatus_cidToName' });
-            showStatus(`✅ 批量查询完成！成功 ${response.status.successCount} 个，失败 ${response.status.failCount} 个`, 'success');
+            showStatus(`批量查询完成！成功 ${response.status.successCount} 个，失败 ${response.status.failCount} 个`, 'success');
             const searchBtn = document.getElementById('cidToNameSearchBtn');
             const stopBtn = document.getElementById('cidToNameStopBtn');
             searchBtn.disabled = false;
@@ -329,7 +329,7 @@
     regionSelect.addEventListener('change', () => chrome.storage.local.set({ savedCidToNameRegion: regionSelect.value }));
 
     if (exportBtn) exportBtn.addEventListener('click', () => {
-      if (results.length === 0) showStatus('❌ 没有可导出的数据', 'error');
+      if (results.length === 0) showStatus('没有可导出的数据', 'error');
       else exportToExcel(results);
     });
 
@@ -371,7 +371,7 @@
       const cids = inputArea.value.split('\n').map(cid => cid.trim()).filter(cid => cid.length > 0);
 
       if (cids.length === 0) {
-        showStatus('⚠️ 请输入要批量查询的CID', 'error');
+        showStatus('请输入要批量查询的CID', 'error');
         return;
       }
 
@@ -389,13 +389,13 @@
         if (response && response.success) {
           startStatusPolling();
         } else {
-          showStatus('❌ 批量查询启动失败: ' + (response?.error || '未知错误'), 'error');
+          showStatus('批量查询启动失败: ' + (response?.error || '未知错误'), 'error');
           batchQueryInProgress = false;
           resetQueryUI();
         }
       } catch (error) {
         console.error('batch query start error', error);
-        showStatus('❌ 批量查询发生错误', 'error');
+        showStatus('批量查询发生错误', 'error');
         batchQueryInProgress = false;
         resetQueryUI();
       }
@@ -435,7 +435,7 @@
             for (const [cid, result] of uniqueResults) {
               await addResult(result.cid, result.region, result.username, result.avatarUrl);
             }
-            showStatus(`✅ 已恢复 ${uniqueResults.size} 条查询结果`, 'success');
+            showStatus(`已恢复 ${uniqueResults.size} 条查询结果`, 'success');
             await chrome.runtime.sendMessage({ action: 'clearBatchQueryStatus_cidToName' });
           }
         }

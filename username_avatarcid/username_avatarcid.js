@@ -56,7 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const pct = total > 0 ? Math.round((currentIndex / total) * 100) : 0;
       cidProgressFill.style.width = `${pct}%`;
       cidProgressBar.classList.add('show');
-      showStatus(`正在处理 ${currentIndex}/${total}：${currentCreatorId || ''}  ✅${successCount} ❌${failCount}`, 'info');
+      showStatus(`正在处理 ${currentIndex}/${total}：${currentCreatorId || ''}  成功${successCount} 失败${failCount}`, 'info');
       cidSearchBtn.style.display = 'none';
       cidStopBtn.style.display = 'block';
       cidStopBtn.disabled = false;
@@ -88,12 +88,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const resp = await chrome.runtime.sendMessage({ action: 'getStoredResults' });
       if (!resp.success || !resp.results || resp.results.length === 0) {
-        showStatus('❌ 没有可导出的数据', 'error');
+        showStatus('没有可导出的数据', 'error');
         return;
       }
 
       if (typeof ExcelJS === 'undefined') {
-        showStatus('❌ ExcelJS 加载失败', 'error');
+        showStatus('ExcelJS 加载失败', 'error');
         return;
       }
 
@@ -198,10 +198,10 @@ document.addEventListener('DOMContentLoaded', () => {
       a.click();
       URL.revokeObjectURL(url);
 
-      showStatus('✅ XLSX导出成功', 'success');
+      showStatus('XLSX导出成功', 'success');
     } catch (e) {
       console.error('导出失败:', e);
-      showStatus('❌ 导出失败: ' + e.message, 'error');
+      showStatus('导出失败: ' + e.message, 'error');
     }
   }
 
@@ -215,7 +215,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (!tab || !tab.url || !tab.url.includes('affiliate.tiktokshopglobalselling.com')) {
-        showStatus('⚠️ 请先打开 TikTok Shop 达人管理页面，再使用此功能', 'error');
+        showStatus('请先打开 TikTok Shop 达人管理页面，再使用此功能', 'error');
         return;
       }
 
@@ -254,14 +254,14 @@ document.addEventListener('DOMContentLoaded', () => {
       showStatus('正在清除...', 'info');
       const resp = await chrome.runtime.sendMessage({ action: 'clearData' });
       if (resp.success) {
-        showStatus('✅ 数据已清除', 'success');
+        showStatus('数据已清除', 'success');
         cidResultsDiv.innerHTML = '';
         cidResultsDiv.classList.remove('show');
       } else {
-        showStatus(resp.error || '❌ 清除失败', 'error');
+        showStatus(resp.error || '清除失败', 'error');
       }
     } catch (e) {
-      showStatus('❌ 清除失败', 'error');
+      showStatus('清除失败', 'error');
     }
   });
 

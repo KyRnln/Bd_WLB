@@ -58,20 +58,24 @@
     const overlay = document.getElementById('loginRequiredOverlay');
     const userInfoBar = document.getElementById('userInfoBar');
     const main = document.querySelector('.main');
+    const footer = document.querySelector('.footer-text');
 
     if (overlay) overlay.style.display = 'flex';
     if (userInfoBar) userInfoBar.style.display = 'none';
     if (main) main.style.display = 'none';
+    if (footer) footer.style.display = 'none';
   }
 
   function showMainUI() {
     const overlay = document.getElementById('loginRequiredOverlay');
     const userInfoBar = document.getElementById('userInfoBar');
     const main = document.querySelector('.main');
+    const footer = document.querySelector('.footer-text');
 
     if (overlay) overlay.style.display = 'none';
     if (userInfoBar) userInfoBar.style.display = 'flex';
     if (main) main.style.display = 'block';
+    if (footer) footer.style.display = 'none';
   }
 
   function updateUserInfo(user) {
@@ -173,10 +177,10 @@
     const btnCidToName = document.getElementById('btnCidToName');
     const btnOrder = document.getElementById('btnOrder');
 
-    const btnCoverOriginalText = btnCover ? btnCover.textContent : '📹 获取视频封面';
-    const btnCidOriginalText = btnCid ? btnCid.textContent : '👤 获取头像/CID';
-    const btnCidToNameOriginalText = btnCidToName ? btnCidToName.textContent : '🔍 通过CID获取达人信息';
-    const btnOrderOriginalText = btnOrder ? btnOrder.textContent : '📦 获取订单履约情况';
+    const btnCoverOriginalText = btnCover ? btnCover.textContent : '获取视频封面';
+    const btnCidOriginalText = btnCid ? btnCid.textContent : '获取头像/CID';
+    const btnCidToNameOriginalText = btnCidToName ? btnCidToName.textContent : '通过CID获取达人信息';
+    const btnOrderOriginalText = btnOrder ? btnOrder.textContent : '获取订单履约情况';
 
     function setButtonRunning(btn, text) {
       if (!btn) return;
@@ -201,7 +205,7 @@
         const status = result.coverFetchStatus;
         if (status && status.status === 'running') {
           const { currentIndex, total, successCount, failCount } = status;
-          setButtonRunning(btnCover, `${currentIndex}/${total} ✅${successCount} ❌${failCount}`);
+          setButtonRunning(btnCover, `${currentIndex}/${total} 成功${successCount} 失败${failCount}`);
         } else {
           resetButton(btnCover, btnCoverOriginalText);
         }
@@ -219,7 +223,7 @@
         const status = result.batchSearchStatus;
         if (status && status.status === 'running') {
           const { currentIndex, total, successCount, failCount } = status;
-          setButtonRunning(btnCid, `${currentIndex}/${total} ✅${successCount} ❌${failCount}`);
+          setButtonRunning(btnCid, `${currentIndex}/${total} 成功${successCount} 失败${failCount}`);
         } else {
           resetButton(btnCid, btnCidOriginalText);
         }
@@ -237,7 +241,7 @@
         const status = result.batchQueryState_cidToName;
         if (status && status.isRunning) {
           const { currentIndex, total, successCount, failCount } = status;
-          setButtonRunning(btnCidToName, `${currentIndex}/${total} ✅${successCount} ❌${failCount}`);
+          setButtonRunning(btnCidToName, `${currentIndex}/${total} 成功${successCount} 失败${failCount}`);
         } else {
           resetButton(btnCidToName, btnCidToNameOriginalText);
         }
@@ -255,7 +259,7 @@
         const status = result.orderQueryState;
         if (status && status.isRunning) {
           const { currentIndex, total, processedCount, failedCount } = status;
-          setButtonRunning(btnOrder, `${currentIndex}/${total} ✅${processedCount || 0} ❌${failedCount || 0}`);
+          setButtonRunning(btnOrder, `${currentIndex}/${total} 成功${processedCount || 0} 失败${failedCount || 0}`);
         } else {
           resetButton(btnOrder, btnOrderOriginalText);
         }
@@ -317,11 +321,24 @@
       const modelInfoEl = document.getElementById('translateModelInfo');
       if (!modelInfoEl) return;
 
-      try {
-        const result = await storageAPI.get(['translateConfig']);
-        const config = result.translateConfig;
+      const token = getToken();
+      if (!token) {
+        modelInfoEl.textContent = '未配置';
+        modelInfoEl.style.color = '#999';
+        return;
+      }
 
-        if (config && config.apiKey && config.modelName) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/translate/config`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        const result = await response.json();
+        const config = result.data;
+
+        if (config && config.api_key && config.model_name) {
           const providerNames = {
             qwen: '通义千问',
             openai: 'OpenAI',
@@ -329,7 +346,7 @@
             custom: '自定义'
           };
           const providerName = providerNames[config.provider] || config.provider;
-          modelInfoEl.textContent = `${providerName} - ${config.modelName}`;
+          modelInfoEl.textContent = `${providerName} - ${config.model_name}`;
           modelInfoEl.style.color = '#1890ff';
         } else {
           modelInfoEl.textContent = '未配置';

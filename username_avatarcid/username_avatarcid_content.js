@@ -238,7 +238,7 @@ class TikTokShopCidExtractor {
           <div style="width:${pct}%;background:#4ade80;height:100%;border-radius:4px;transition:width 0.3s;"></div>
         </div>
         <div style="font-size:12px;opacity:0.9;">${currentIndex}/${total} · ${currentCreatorId || ''}</div>
-        <div style="font-size:12px;opacity:0.9;">✅ ${successCount} · ❌ ${failCount}</div>
+        <div style="font-size:12px;opacity:0.9;">成功 ${successCount} · 失败 ${failCount}</div>
       `;
       container.style.display = 'flex';
     } else if (status === 'completed') {

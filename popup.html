@@ -8,27 +8,28 @@
   <link rel="stylesheet" href="styles/base.css">
   <link rel="stylesheet" href="styles/components.css">
   <link rel="stylesheet" href="styles/utilities.css">
+  <link rel="stylesheet" href="styles/modules.css">
 </head>
 
 <body>
   <div id="loginRequiredOverlay" class="overlay" style="display:none;">
     <div class="overlay-content">
-      <div class="overlay-icon">🔒</div>
+      <div class="overlay-icon"></div>
       <div class="overlay-text">请先登录</div>
       <button id="goToLoginBtn" class="btn-primary">前往登录</button>
     </div>
   </div>
   <div class="main">
     <div id="userInfoBar" class="card" style="display:none;">
-      <div class="card-header">
+      <div class="user-info-content">
         <div class="card-title">
           <span id="userName" style="display: block;"></span>
           <span id="userEmail" class="text-muted" style="font-size: 12px; margin-top: 4px;"></span>
         </div>
-      </div>
-      <div class="card-actions">
-        <button id="settingsBtn" class="btn-sm">⚙️ 设置</button>
-        <button id="logoutBtn" class="btn-sm">退出</button>
+        <div class="user-info-actions">
+          <button id="settingsBtn" class="btn-sm">设置</button>
+          <button id="logoutBtn" class="btn-sm">退出</button>
+        </div>
       </div>
     </div>
     <div id="creatorCard" class="card">
@@ -51,12 +52,15 @@
     </div>
 
     <div id="toolsCard" class="card">
-      <div class="text-base text-muted text-center mb-3">选择要使用的功能</div>
+      <div class="card-header">
+        <div class="card-title">选择要使用的功能</div>
+        <span class="card-desc">点击按钮跳转到对应功能页面。</span>
+      </div>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-        <button id="btnCover" class="tool-btn" style="padding: 6px 8px; font-size: 13px;">📹 获取视频封面</button>
-        <button id="btnCid" class="tool-btn" style="padding: 6px 8px; font-size: 13px;">👤 获取头像/CID</button>
-        <button id="btnCidToName" class="tool-btn" style="padding: 6px 8px; font-size: 13px;">🔍 CID获取达人</button>
-        <button id="btnOrder" class="tool-btn" style="padding: 6px 8px; font-size: 13px;">📦 订单履约情况</button>
+        <button id="btnCover" class="tool-btn" style="padding: 6px 8px; font-size: 13px;">获取视频封面</button>
+        <button id="btnCid" class="tool-btn" style="padding: 6px 8px; font-size: 13px;">获取头像/CID</button>
+        <button id="btnCidToName" class="tool-btn" style="padding: 6px 8px; font-size: 13px;">CID获取达人</button>
+        <button id="btnOrder" class="tool-btn" style="padding: 6px 8px; font-size: 13px;">订单履约情况</button>
       </div>
     </div>
 
@@ -66,8 +70,8 @@
         <span id="translateModelInfo" class="card-desc">未配置</span>
       </div>
       <div class="card-actions">
-        <button id="btnTranslateNow" class="btn-sm">📝 即时翻译</button>
-        <button id="btnTranslate" class="btn-sm">🌐 翻译配置</button>
+        <button id="btnTranslateNow" class="btn-sm">即时翻译</button>
+        <button id="btnTranslate" class="btn-sm">翻译配置</button>
       </div>
     </div>
 

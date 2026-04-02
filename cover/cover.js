@@ -42,7 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const thumbHtml = (item.status === 'success' && item.thumbnailUrl)
       ? `<img src="${item.thumbnailUrl}" class="thumbnail" onclick="window.open('${item.thumbnailUrl}', '_blank')" title="点击查看大图" />`
-      : `<div class="thumbnail-placeholder">${item.status === 'error' ? '⚠️' : '🖼️'}</div>`;
+      : `<div class="thumbnail-placeholder">${item.status === 'error' ? '[错误]' : '[图片]'}</div>`;
 
     const actionsHtml = item.status === 'success'
       ? `<div class="result-actions">
@@ -196,7 +196,7 @@ document.addEventListener('DOMContentLoaded', () => {
           updateCoverProgress(status.currentIndex, status.total);
           
           if (status.status === 'running') {
-            coverFetchBtn.textContent = `${status.currentIndex}/${status.total} ✅${status.successCount} ❌${status.failCount}`;
+            coverFetchBtn.textContent = `${status.currentIndex}/${status.total} 成功${status.successCount} 失败${status.failCount}`;
           } else if (status.status === 'completed' || status.status === 'error') {
             clearInterval(statusPollInterval);
             statusPollInterval = null;
@@ -426,7 +426,7 @@ document.addEventListener('DOMContentLoaded', () => {
           updateCoverStats();
           coverStatsRow.classList.add('show');
           coverExportBtn.style.display = coverDataList.some(r => r.status === 'success') ? 'inline-block' : 'none';
-          showStatus(`✅ 已恢复 ${coverDataList.length} 条获取结果`, 'success');
+          showStatus(`已恢复 ${coverDataList.length} 条获取结果`, 'success');
           await chrome.runtime.sendMessage({ action: 'clearCoverFetchStatus' });
         } else {
           await loadResultsFromStorage();

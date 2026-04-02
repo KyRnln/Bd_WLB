@@ -153,11 +153,43 @@
     }
   }
 
+  let cachedUserId = null;
+
+  async function fetchCurrentUser() {
+    try {
+      const result = await apiRequest('/auth/me');
+      if (result.success && result.user) {
+        cachedUserId = result.user.id;
+        return result.user;
+      }
+    } catch (e) {
+      console.warn('[Creator Highlight] 获取当前用户信息失败:', e);
+    }
+    return null;
+  }
+
+  function getCurrentUserId() {
+    return cachedUserId;
+  }
+
   // 从存储加载达人数据
   async function loadCreators() {
     try {
-      const result = await apiRequest('/creators?limit=100000');
-      creators = result.data || [];
+      const currentUser = await fetchCurrentUser();
+      const currentUserId = currentUser ? currentUser.id : null;
+
+      const result = await apiRequest('/creators/all');
+      const allCreators = result.data || [];
+
+      creators = allCreators.map(creator => {
+        if (creator.user_id && currentUserId && creator.user_id !== currentUserId) {
+          if (!creator.tag || creator.tag !== '隐藏达人') {
+            return { ...creator, tag: '隐藏达人' };
+          }
+        }
+        return creator;
+      });
+
       buildCreatorSets();
       scheduleHighlightCreators();
     } catch (e) {
@@ -551,7 +583,7 @@
             `;
             element.parentNode?.insertBefore(remarkElement, element.nextSibling);
           }
-          const newContent = `📝 备注: ${creator.remark}`;
+          const newContent = `备注: ${creator.remark}`;
           if (remarkElement.textContent !== newContent) {
             remarkElement.textContent = newContent;
           }

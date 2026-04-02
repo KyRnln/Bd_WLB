@@ -273,4 +273,8 @@
   }
 
   document.addEventListener('DOMContentLoaded', init);
+
+  window.getTranslateModelName = function() {
+    return currentConfig.model_name || '未配置';
+  };
 })();

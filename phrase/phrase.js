@@ -5,6 +5,7 @@
 
   const API_BASE_URL = 'https://kyrnln.cloud/api';
   const DEFAULT_TAG_ID = 'default';
+  const PHRASE_ACTIVE_TAG_KEY = 'phrase_active_tag_id';
 
   let phrases = [];
   let tags = [];
@@ -61,6 +62,33 @@
     }
   }
 
+  function getStorage() {
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      return chrome.storage.local;
+    }
+    return null;
+  }
+
+  function saveActiveTagId(tagId) {
+    const storage = getStorage();
+    if (storage) {
+      storage.set({ [PHRASE_ACTIVE_TAG_KEY]: tagId });
+    }
+  }
+
+  function loadActiveTagId() {
+    return new Promise((resolve) => {
+      const storage = getStorage();
+      if (storage) {
+        storage.get([PHRASE_ACTIVE_TAG_KEY], (result) => {
+          resolve(result[PHRASE_ACTIVE_TAG_KEY] || null);
+        });
+      } else {
+        resolve(null);
+      }
+    });
+  }
+
   function showStatus(message, type = 'info', elementId = 'status') {
     let statusDiv = document.getElementById(elementId);
     if (!statusDiv) {
@@ -80,15 +108,20 @@
 
   async function loadData() {
     try {
-      const [phrasesResult, tagsResult] = await Promise.all([
+      const [phrasesResult, tagsResult, savedTagId] = await Promise.all([
         apiRequest('/phrases'),
-        apiRequest('/tags')
+        apiRequest('/tags'),
+        loadActiveTagId()
       ]);
 
       phrases = phrasesResult.data || [];
       tags = tagsResult.data || [];
 
-      activeTagId = tags.length > 0 ? tags[0].id : null;
+      if (savedTagId && tags.some(t => String(t.id) === String(savedTagId))) {
+        activeTagId = savedTagId;
+      } else {
+        activeTagId = tags.length > 0 ? tags[0].id : null;
+      }
 
       renderAll();
     } catch (e) {
@@ -185,11 +218,12 @@
     tagBar.querySelectorAll('.segment-item[data-id]').forEach(el => {
       el.addEventListener('click', async () => {
         const id = el.dataset.id;
-        const tag = tags.find(t => t.id === id);
+        const tag = tags.find(t => String(t.id) === id);
         const tagName = tag ? tag.name : '';
         activeTagId = id;
+        saveActiveTagId(id);
         renderAll();
-        showStatus(`✅ 已切换到：${tagName}`, 'success', 'phraseCardStatus');
+        showStatus(`已切换到：${tagName}`, 'success', 'phraseCardStatus');
       });
     });
     const manageBtn = tagBar.querySelector('.segment-item.manage');
@@ -279,6 +313,7 @@
           }
           if (String(activeTagId) === String(id)) {
             activeTagId = tags.length > 0 ? tags[0].id : null;
+            saveActiveTagId(activeTagId);
           }
           await loadData();
         } catch (e) {
@@ -355,7 +390,7 @@
 
       closeEdit();
       renderAll();
-      showStatus(editingId ? '✅ 短语已更新' : '✅ 短语已添加', 'success', 'phraseCardStatus');
+      showStatus(editingId ? '短语已更新' : '短语已添加', 'success', 'phraseCardStatus');
     } catch (e) {
       showStatus('保存失败: ' + e.message, 'error', 'phraseCardStatus');
     }
@@ -371,7 +406,7 @@
       });
       phrases = phrases.filter(x => String(x.id) !== String(id));
       renderAll();
-      showStatus('✅ 短语已删除', 'success', 'phraseCardStatus');
+      showStatus('短语已删除', 'success', 'phraseCardStatus');
     } catch (e) {
       showStatus('删除失败: ' + e.message, 'error', 'phraseCardStatus');
     }

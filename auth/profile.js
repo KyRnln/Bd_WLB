@@ -180,7 +180,7 @@
         return;
       }
 
-      showStatus('✅ ' + (data.message || '更新成功'));
+      showStatus(data.message || '更新成功');
 
       document.getElementById('currentPassword').value = '';
       document.getElementById('newPassword').value = '';

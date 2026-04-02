@@ -98,7 +98,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const cleared = await clearOrderData(tabId);
 
         if (cleared) {
-          updateProgressDisplay('操作完成！\n✅ 已导出XLSX\n✅ 已清理数据');
+          updateProgressDisplay('操作完成！\n已导出XLSX\n已清理数据');
           showStatus('操作完成！已导出XLSX并清理数据', 'success');
         } else {
           updateProgressDisplay('XLSX已下载，但数据清理失败\n请手动清理临时数据');
@@ -297,7 +297,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           updateProgressDisplay(`查询进度: ${progressPercent}% (${state.currentIndex}/${state.total || 0})\n当前处理: ${state.currentOrderId}\n${state.message || '请稍候...'}`);
         } else if (state.allOrders && state.allOrders.length > 0) {
           // 任务已完成但有未处理的结果
-          showStatus(`✅ 已恢复 ${state.allOrders.length} 条查询结果，正在导出...`, 'success');
+          showStatus(`已恢复 ${state.allOrders.length} 条查询结果，正在导出...`, 'success');
           switchToProgressMode();
           updateProgressDisplay('正在恢复结果并导出...\n请稍候...');
           await downloadAndCleanup(state.allOrders, null, state.failedOrders);

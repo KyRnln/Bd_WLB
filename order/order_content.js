@@ -140,10 +140,10 @@ class OrderAutomation {
 
   createProgressHtml(message, type) {
     const iconMap = {
-      'info': '🔄',
-      'success': '✅',
-      'error': '❌',
-      'warning': '⚠️'
+      'info': '',
+      'success': '',
+      'error': '',
+      'warning': ''
     };
 
     const icon = iconMap[type] || iconMap.info;
