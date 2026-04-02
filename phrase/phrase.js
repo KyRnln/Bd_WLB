@@ -142,6 +142,7 @@
 
   function renderAll() {
     renderTagBar();
+    renderTagManageBar();
     renderPhraseList();
     updateStats();
   }
@@ -212,7 +213,6 @@
     for (const t of tags) {
       chips.push(`<button class="segment-item ${String(activeTagId) === String(t.id) ? 'active' : ''}" data-id="${t.id}">${escapeHtml(t.name)}</button>`);
     }
-    chips.push(`<button class="segment-item manage" data-action="manage">管理</button>`);
     tagBar.innerHTML = chips.join('');
 
     tagBar.querySelectorAll('.segment-item[data-id]').forEach(el => {
@@ -226,7 +226,12 @@
         showStatus(`已切换到：${tagName}`, 'success', 'phraseCardStatus');
       });
     });
-    const manageBtn = tagBar.querySelector('.segment-item.manage');
+  }
+
+  function renderTagManageBar() {
+    const tagManageBar = document.getElementById('tagManageBar');
+    if (!tagManageBar) return;
+    const manageBtn = tagManageBar.querySelector('.segment-item.manage');
     manageBtn && manageBtn.addEventListener('click', () => openTagManage());
   }
 

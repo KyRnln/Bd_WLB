@@ -14,9 +14,13 @@
 .card-header {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: baseline;
   gap: 12px;
   margin-bottom: 16px;
+}
+
+.card-header .card-title {
+  width: 100%;
 }
 
 .card-title {
