@@ -56,6 +56,23 @@
     }
   }
 
+  function showImportProgress(current, total, text) {
+    const progressBar = document.getElementById('importProgressBar');
+    const progressFill = document.getElementById('importProgressFill');
+    const progressText = document.getElementById('importProgressText');
+    if (!progressBar || !progressFill || !progressText) return;
+
+    const percent = total > 0 ? Math.round((current / total) * 100) : 0;
+    progressFill.style.width = percent + '%';
+    progressText.textContent = text || (current + '/' + total);
+    progressBar.style.display = 'flex';
+  }
+
+  function hideImportProgress() {
+    const progressBar = document.getElementById('importProgressBar');
+    if (progressBar) progressBar.style.display = 'none';
+  }
+
   function showStatus(message, type = 'info', elementId = 'creatorCardStatus') {
     let statusDiv = document.getElementById(elementId);
     if (!statusDiv) {
@@ -494,7 +511,10 @@
           let addedCount = 0;
           let failedCount = 0;
 
-          for (const newCreator of newCreators) {
+          showImportProgress(0, newCreators.length, '准备导入...');
+
+          for (let i = 0; i < newCreators.length; i++) {
+            const newCreator = newCreators[i];
             try {
               const existingIndex = creators.findIndex(c => c.creator_id === newCreator.creator_id);
               if (existingIndex >= 0) {
@@ -516,8 +536,10 @@
               console.error(`处理达人 ${newCreator.creator_id} 失败:`, err);
               failedCount++;
             }
+            showImportProgress(i + 1, newCreators.length, `处理中 ${i + 1}/${newCreators.length}`);
           }
 
+          hideImportProgress();
           renderTags();
           renderCreators();
 
@@ -536,6 +558,7 @@
           showStatus(statusMsg, 'success', 'creatorCardStatus');
         } catch (err) {
           console.error('导入失败', err);
+          hideImportProgress();
           showStatus('导入失败，请检查文件格式', 'error', 'creatorCardStatus');
         }
 
@@ -590,7 +613,10 @@
         let deletedCount = 0;
         let failedCount = 0;
 
-        for (const creator of creators) {
+        showImportProgress(0, creators.length, '准备删除...');
+
+        for (let i = 0; i < creators.length; i++) {
+          const creator = creators[i];
           try {
             await apiRequest(`/creators/${creator.id}`, {
               method: 'DELETE'
@@ -600,8 +626,10 @@
             console.error(`删除达人 ${creator.creator_id} 失败:`, err);
             failedCount++;
           }
+          showImportProgress(i + 1, creators.length, `删除中 ${i + 1}/${creators.length}`);
         }
 
+        hideImportProgress();
         creators = [];
         searchResults = [];
         renderCreators();
