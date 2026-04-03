@@ -235,6 +235,19 @@
     document.getElementById('saveBtn').addEventListener('click', saveConfig);
     document.getElementById('testBtn').addEventListener('click', testConnection);
 
+    const openShortcutsBtn = document.getElementById('openShortcutsBtn');
+    if (openShortcutsBtn) {
+      openShortcutsBtn.addEventListener('click', () => {
+        chrome.tabs.create({ url: 'chrome://extensions/shortcuts' });
+      });
+      chrome.commands.getAll((commands) => {
+        const cmd = commands.find(c => c.name === 'toggle-translate');
+        if (cmd && cmd.shortcut) {
+          openShortcutsBtn.textContent = '快捷键: ' + cmd.shortcut;
+        }
+      });
+    }
+
     const modal = document.getElementById('addLangModal');
     const addLangBtn = document.getElementById('addLangBtn');
     const cancelLangBtn = document.getElementById('cancelLangBtn');

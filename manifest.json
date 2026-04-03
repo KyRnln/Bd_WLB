@@ -95,6 +95,9 @@
       "js": [
         "translate/translate_content.js"
       ],
+      "css": [
+        "styles/content.css"
+      ],
       "run_at": "document_end"
     }
   ],
@@ -113,6 +116,23 @@
   "background": {
     "service_worker": "background.js",
     "type": "module"
+  },
+
+  "commands": {
+    "toggle-phrase-selector": {
+      "suggested_key": {
+        "default": "Alt+Y",
+        "mac": "Command+Y"
+      },
+      "description": "打开快捷短语"
+    },
+    "toggle-translate": {
+      "suggested_key": {
+        "default": "Alt+T",
+        "mac": "Command+T"
+      },
+      "description": "打开快捷翻译"
+    }
   },
 
   "web_accessible_resources": [

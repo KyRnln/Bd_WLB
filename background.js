@@ -8,6 +8,25 @@ chrome.runtime.onInstalled.addListener(() => {
   console.log('商务WLB扩展已安装');
 });
 
+// ===== 快捷键命令处理 =====
+
+chrome.commands.onCommand.addListener((command) => {
+  if (command === 'toggle-phrase-selector') {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (tabs[0]?.id) {
+        chrome.tabs.sendMessage(tabs[0].id, { action: 'showPhraseSelector' }).catch(() => {});
+      }
+    });
+  }
+  if (command === 'toggle-translate') {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (tabs[0]?.id) {
+        chrome.tabs.sendMessage(tabs[0].id, { action: 'showTranslate' }).catch(() => {});
+      }
+    });
+  }
+});
+
 // ===== 消息处理 =====
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {

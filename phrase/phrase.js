@@ -431,6 +431,18 @@
     if (openTagManageBtn) {
       openTagManageBtn.addEventListener('click', () => openTagManage());
     }
+    const openShortcutsBtn = document.getElementById('openShortcutsBtn');
+    if (openShortcutsBtn) {
+      openShortcutsBtn.addEventListener('click', () => {
+        chrome.tabs.create({ url: 'chrome://extensions/shortcuts' });
+      });
+      chrome.commands.getAll((commands) => {
+        const cmd = commands.find(c => c.name === 'toggle-phrase-selector');
+        if (cmd && cmd.shortcut) {
+          openShortcutsBtn.textContent = '快捷键: ' + cmd.shortcut;
+        }
+      });
+    }
     if (savePhraseBtn) {
       savePhraseBtn.addEventListener('click', savePhrase);
     }

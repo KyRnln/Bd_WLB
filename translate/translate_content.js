@@ -8,6 +8,7 @@
   let isVisible = false;
   let currentTextarea = null;
   let cachedToken = null;
+  let focusedInput = null;
 
   function getTokenFromStorage() {
     return new Promise((resolve) => {
@@ -72,51 +73,13 @@
 
     translateBox = document.createElement('div');
     translateBox.id = 'wlb-translate-box';
-    translateBox.style.cssText = `
-      position: fixed;
-      z-index: 999999;
-      background: #fff;
-      border: 1px solid #1890ff;
-      border-radius: 999px;
-      box-shadow: 0 4px 20px rgba(24, 144, 255, 0.3);
-      padding: 6px;
-      display: none;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      white-space: nowrap;
-    `;
+    translateBox.className = 'wlb-translate-box';
 
     translateBox.innerHTML = `
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <select id="wlb-translate-target" style="
-          height: 28px;
-          padding: 0 8px;
-          border: 1px solid #1890ff;
-          border-radius: 999px;
-          font-size: 13px;
-          outline: none;
-          background: #fff;
-          cursor: pointer;
-          color: #1890ff;
-        "></select>
-        <input type="text" id="wlb-translate-input" placeholder="输入中文，回车翻译" style="
-          min-width: 100px;
-          max-width: 1000px;
-          height: 28px;
-          border: none;
-          border-bottom: 1px solid #e0e0e0;
-          padding: 0 8px;
-          font-size: 14px;
-          outline: none;
-          background: transparent;
-        " />
-        <span id="wlb-translate-close" style="
-          cursor: pointer;
-          color: #1890ff;
-          font-size: 16px;
-          padding: 0 4px;
-          line-height: 28px;
-          font-weight: bold;
-        ">×</span>
+      <div class="translate-row">
+        <select id="wlb-translate-target" class="translate-target"></select>
+        <input type="text" id="wlb-translate-input" class="translate-input" placeholder="输入中文，回车翻译" />
+        <button id="wlb-translate-close" class="translate-close">×</button>
       </div>
     `;
 
@@ -188,7 +151,9 @@
     translateBox.style.display = 'inline-block';
     isVisible = true;
 
-    document.getElementById('wlb-translate-input').focus();
+    setTimeout(() => {
+      document.getElementById('wlb-translate-input')?.focus();
+    }, 50);
   }
 
   function hideTranslateBox(keepFocus = false) {
@@ -262,6 +227,7 @@
       }, 500);
 
     } catch (e) {
+      console.error('翻译错误详情:', e);
       showNotification('翻译失败: ' + e.message, 'error');
     }
   }
@@ -294,26 +260,31 @@
     }
   }
 
-  function handleKeydown(e) {
-    if (e.key !== 'ArrowUp') return;
-    if (isVisible) return;
-
-    const target = e.target;
-    if (target.tagName !== 'TEXTAREA' && target.tagName !== 'INPUT') return;
-    if (target.id !== 'imTextarea' && !target.placeholder?.includes('发送消息')) return;
-
-    e.preventDefault();
-    loadConfig().then(() => {
-      const rect = target.getBoundingClientRect();
-      showTranslateBox(rect.left, rect.top, target);
-    });
-  }
-
   function init() {
     loadConfig();
 
+    // 监听页面点击，记录当前聚焦的输入框
+    document.addEventListener('mousedown', (e) => {
+      const target = e.target;
+      if (target.tagName === 'TEXTAREA' || (target.tagName === 'INPUT' && /^(text|search|tel|url|email|password|number)$/.test(target.type))) {
+        focusedInput = target;
+      }
+    }, true);
+
+    chrome.runtime.onMessage.addListener((request) => {
+      if (request.action === 'showTranslate') {
+        if (!focusedInput) {
+          showNotification('请先点击选择一个文本输入框', 'error');
+          return;
+        }
+        loadConfig().then(() => {
+          const rect = focusedInput.getBoundingClientRect();
+          showTranslateBox(rect.left, rect.top, focusedInput);
+        });
+      }
+    });
+
     document.addEventListener('click', handleClick, true);
-    document.addEventListener('keydown', handleKeydown, true);
 
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area === 'local' && changes.auth_token) {

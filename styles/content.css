@@ -428,6 +428,75 @@
   color: #666;
 }
 
+/* ===== 内联翻译框 ===== */
+.wlb-translate-box {
+  position: fixed;
+  z-index: 999999;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  padding: 6px;
+  display: none;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  white-space: nowrap;
+  border-top: 0;
+}
+
+.wlb-translate-box .translate-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wlb-translate-box .translate-target {
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 13px;
+  outline: none;
+  background: #fff;
+  cursor: pointer;
+  color: #333;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.wlb-translate-box .translate-input {
+  min-width: 100px;
+  max-width: 1000px;
+  height: 28px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 0 8px;
+  font-size: 14px;
+  outline: none;
+  background: #fff;
+  color: #333;
+  box-sizing: border-box;
+}
+
+.wlb-translate-box .translate-input:focus {
+  border-color: #1890ff;
+  box-shadow: 0 0 0 1px #1890ff;
+}
+
+.wlb-translate-box .translate-close {
+  cursor: pointer;
+  color: #999;
+  font-size: 16px;
+  padding: 0 4px;
+  line-height: 28px;
+  font-weight: bold;
+  background: none;
+  border: none;
+}
+
+.wlb-translate-box .translate-close:hover {
+  color: #333;
+}
+
 /* ===== 订单进度 ===== */
 .order-progress-container {
   padding: 12px;
