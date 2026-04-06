@@ -9,6 +9,7 @@
   let currentTextarea = null;
   let cachedToken = null;
   let focusedInput = null;
+  let lastSelectedTarget = null; // 持久化记住的目标语言
 
   function getTokenFromStorage() {
     return new Promise((resolve) => {
@@ -122,6 +123,20 @@
       option.value = lang;
       option.textContent = lang;
       select.appendChild(option);
+    });
+
+    // 恢复上次选择的语言
+    if (lastSelectedTarget && config.target_langs.includes(lastSelectedTarget)) {
+      select.value = lastSelectedTarget;
+    }
+
+    // 监听选择变化，持久化保存
+    select.addEventListener('change', () => {
+      lastSelectedTarget = select.value;
+      // 保存到 chrome.storage
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        chrome.storage.local.set({ 'translate_last_target': lastSelectedTarget });
+      }
     });
   }
 
@@ -262,6 +277,15 @@
 
   function init() {
     loadConfig();
+
+    // 加载上次保存的目标语言
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.get(['translate_last_target'], (result) => {
+        if (result.translate_last_target) {
+          lastSelectedTarget = result.translate_last_target;
+        }
+      });
+    }
 
     // 监听页面点击，记录当前聚焦的输入框
     document.addEventListener('mousedown', (e) => {
