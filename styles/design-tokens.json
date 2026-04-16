@@ -203,22 +203,22 @@
     },
     "radius": {
       "sm": {
-        "value": "8px",
+        "value": "10.4px",
         "type": "dimension",
         "cssVariable": "--md3-radius-sm"
       },
       "md": {
-        "value": "12px",
+        "value": "15.6px",
         "type": "dimension",
         "cssVariable": "--md3-radius-md"
       },
       "lg": {
-        "value": "16px",
+        "value": "20.8px",
         "type": "dimension",
         "cssVariable": "--md3-radius-lg"
       },
       "xl": {
-        "value": "28px",
+        "value": "36.4px",
         "type": "dimension",
         "cssVariable": "--md3-radius-xl"
       },
@@ -361,25 +361,25 @@
   },
   "radius": {
     "sm": {
-      "value": "8px",
+      "value": "10.4px",
       "type": "dimension",
       "cssVariable": "--radius-sm",
       "alias": "md3.radius.sm"
     },
     "md": {
-      "value": "12px",
+      "value": "15.6px",
       "type": "dimension",
       "cssVariable": "--radius-md",
       "alias": "md3.radius.md"
     },
     "lg": {
-      "value": "16px",
+      "value": "20.8px",
       "type": "dimension",
       "cssVariable": "--radius-lg",
       "alias": "md3.radius.lg"
     },
     "xl": {
-      "value": "28px",
+      "value": "36.4px",
       "type": "dimension",
       "cssVariable": "--radius-xl",
       "alias": "md3.radius.xl"
@@ -466,21 +466,21 @@
     },
     "input": {
       "padding": { "value": "14px 16px", "type": "dimension" },
-      "borderRadius": { "value": "12px", "type": "dimension" },
+      "borderRadius": { "value": "15.6px", "type": "dimension" },
       "fontSize": { "value": "14px", "type": "dimension" }
     },
     "card": {
       "padding": { "value": "16px", "type": "dimension" },
-      "borderRadius": { "value": "16px", "type": "dimension" }
+      "borderRadius": { "value": "20.8px", "type": "dimension" }
     },
     "dialog": {
       "padding": { "value": "24px", "type": "dimension" },
       "width": { "value": "360px", "type": "dimension" },
-      "borderRadius": { "value": "28px", "type": "dimension" }
+      "borderRadius": { "value": "36.4px", "type": "dimension" }
     },
     "chip": {
       "padding": { "value": "8px 16px", "type": "dimension" },
-      "borderRadius": { "value": "8px", "type": "dimension" },
+      "borderRadius": { "value": "10.4px", "type": "dimension" },
       "fontSize": { "value": "14px", "type": "dimension" }
     }
   }

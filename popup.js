@@ -150,10 +150,20 @@
     window.location.href = 'auth/profile.html';
   }
 
+  function openCreatorManage() {
+    window.location.href = 'creator_manage/creator_manage.html';
+  }
+
   document.addEventListener('DOMContentLoaded', async () => {
     const logoutBtn = document.getElementById('logoutBtn');
     const goToLoginBtn = document.getElementById('goToLoginBtn');
     const settingsBtn = document.getElementById('settingsBtn');
+    const creatorCard = document.getElementById('creatorCard');
+    const toolsCard = document.getElementById('toolsCard');
+    const translateCard = document.getElementById('translateCard');
+    const phraseCard = document.getElementById('phraseCard');
+    const creatorSearchInput = document.getElementById('creatorSearchInput');
+    const openCreatorManageBtn = document.getElementById('openCreatorManageBtn');
 
     if (logoutBtn) {
       logoutBtn.addEventListener('click', handleLogout);
@@ -165,6 +175,39 @@
 
     if (settingsBtn) {
       settingsBtn.addEventListener('click', goToSettings);
+    }
+
+    // 当用户在搜索框输入内容时，隐藏其他卡片，置顶显示达人管理卡片
+    // 当输入框清空时，自动恢复所有卡片
+    if (creatorSearchInput) {
+      creatorSearchInput.addEventListener('input', () => {
+        const hasInput = creatorSearchInput.value.trim() !== '';
+        
+        if (hasInput) {
+          if (toolsCard) toolsCard.style.display = 'none';
+          if (translateCard) translateCard.style.display = 'none';
+          if (phraseCard) phraseCard.style.display = 'none';
+          
+          // 确保达人管理卡片可见并置顶
+          if (creatorCard) {
+            creatorCard.style.order = '-1';
+            creatorCard.scrollIntoView({ behavior: 'smooth' });
+          }
+          
+          const creatorSearchResults = document.getElementById('creatorSearchResults');
+          if (creatorSearchResults) creatorSearchResults.style.display = 'block';
+        } else {
+          // 清空输入框后恢复所有卡片
+          if (toolsCard) toolsCard.style.display = 'block';
+          if (translateCard) translateCard.style.display = 'block';
+          if (phraseCard) phraseCard.style.display = 'block';
+          
+          if (creatorCard) creatorCard.style.order = '0';
+          
+          const creatorSearchResults = document.getElementById('creatorSearchResults');
+          if (creatorSearchResults) creatorSearchResults.style.display = 'none';
+        }
+      });
     }
 
     await checkLoginStatus();

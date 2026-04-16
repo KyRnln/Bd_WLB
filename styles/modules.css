@@ -1121,20 +1121,21 @@ body.page-tool .region-select select {
 
 .creator-stats {
   display: flex;
-  gap: 12px;
+  gap: 8px;
   flex-wrap: wrap;
+  justify-content: center;
   margin-bottom: 16px;
 }
 
 .stat-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px;
-  border-radius: var(--radius-md);
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
   background: var(--md3-surface-variant);
   color: var(--md3-on-surface-variant);
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .stat-item .stat-label {

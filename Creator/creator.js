@@ -183,13 +183,13 @@
         let statsHtml = `<div class="creator-stats">`;
         statsHtml += `<div class="stat-item"><span class="stat-label">总计</span><span class="stat-value">${creators.length}</span></div>`;
         if (performanceCount > 0) {
-          statsHtml += `<div class="stat-item performance"><span class="stat-label">绩效达人</span><span class="stat-value">${performanceCount}</span></div>`;
+          statsHtml += `<div class="stat-item performance"><span class="stat-label">绩效</span><span class="stat-value">${performanceCount}</span></div>`;
         }
         if (lostCount > 0) {
-          statsHtml += `<div class="stat-item lost"><span class="stat-label">流失达人</span><span class="stat-value">${lostCount}</span></div>`;
+          statsHtml += `<div class="stat-item lost"><span class="stat-label">流失</span><span class="stat-value">${lostCount}</span></div>`;
         }
         if (hiddenCount > 0) {
-          statsHtml += `<div class="stat-item hidden"><span class="stat-label">隐藏达人</span><span class="stat-value">${hiddenCount}</span></div>`;
+          statsHtml += `<div class="stat-item hidden"><span class="stat-label">隐藏</span><span class="stat-value">${hiddenCount}</span></div>`;
         }
         statsHtml += `</div>`;
 
@@ -322,7 +322,7 @@
         <div class="${itemClass}">
           <div class="creator-info">
             <div class="creator-main">
-              <div class="creator-id">${escapeHtml(creator.creator_id)} ${tagHtml}</div>
+              <div class="creator-id">${tagHtml} ${escapeHtml(creator.creator_id)}</div>
               <div class="creator-meta">
                 ${creator.cid ? `CID: ${escapeHtml(creator.cid)}` : '无CID'}
                 ${creator.region ? ` • REG: ${escapeHtml(creator.region)}` : ''}
