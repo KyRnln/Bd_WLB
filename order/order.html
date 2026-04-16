@@ -17,7 +17,14 @@
 
   <div class="card">
     <div id="orderPanelStatus" class="panel-status info"></div>
-    <div class="description">通过订单ID查询达人履约情况并导出XLSX</div>
+    <div id="orderDescription" class="description">通过订单ID查询达人履约情况并导出XLSX</div>
+
+    <div id="orderProgressBar" class="progress-display" style="padding: 12px; min-height: auto; margin-bottom: 16px; gap: 12px;">
+      <div class="progress-track">
+        <div id="orderProgressFill" class="progress-fill"></div>
+      </div>
+      <span id="orderProgressText" class="progress-text">0/0</span>
+    </div>
 
     <div id="inputArea" class="input-area">
       <textarea id="orderIdInput" placeholder="请输入订单号，每行一个&#10;例如：&#10;581439468539577962&#10;581813278309582149" rows="5"></textarea>

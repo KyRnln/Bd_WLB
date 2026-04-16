@@ -8,6 +8,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const cidProgressBar = document.getElementById('cidProgressBar');
   const cidProgressFill = document.getElementById('cidProgressFill');
   const backBtn = document.getElementById('backBtn');
+  const cidDescription = document.getElementById('cidDescription');
+  const cidProgressText = document.getElementById('cidProgressText');
 
   function showStatus(message, type = 'info') {
     const statusDiv = document.getElementById('cidPanelStatus');
@@ -231,7 +233,9 @@ document.addEventListener('DOMContentLoaded', () => {
         startPolling();
         showStatus('批量搜索已启动，关闭弹窗后仍会继续执行...', 'info');
         cidProgressBar.classList.add('show');
+        if (cidDescription) cidDescription.style.display = 'none';
         cidProgressFill.style.width = '0%';
+        if (cidProgressText) cidProgressText.textContent = `0/${creatorIds.length}`;
       } else {
         showStatus(resp.error || '启动失败', 'error');
       }

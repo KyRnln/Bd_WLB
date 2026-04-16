@@ -1,69 +1,70 @@
 :root {
-  --md3-primar达人管理y: #6B7BA8;
+  --md3-primary: #6750A4;
   --md3-on-primary: #FFFFFF;
-  --md3-primary-container: #B8C2D8;
-  --md3-on-primary-container: #3D4A5C;
+  --md3-primary-container: #EADDFF;
+  --md3-on-primary-container: #21005D;
 
-  --md3-secondary: #8DAA99;
+  --md3-secondary: #625B71;
   --md3-on-secondary: #FFFFFF;
-  --md3-secondary-container: #C4D8CA;
-  --md3-on-secondary-container: #3D4A3F;
+  --md3-secondary-container: #E8DEF8;
+  --md3-on-secondary-container: #1D192B;
 
-  --md3-tertiary: #AFA08C;
+  --md3-tertiary: #7D5260;
   --md3-on-tertiary: #FFFFFF;
-  --md3-tertiary-container: #D8CFC2;
-  --md3-on-tertiary-container: #4A3D32;
+  --md3-tertiary-container: #FFD8E4;
+  --md3-on-tertiary-container: #31111D;
 
-  --md3-error: #A86060;
+  --md3-error: #B3261E;
   --md3-on-error: #FFFFFF;
-  --md3-error-container: #E0C4C4;
-  --md3-on-error-container: #5C3A3A;
+  --md3-error-container: #F9DEDC;
+  --md3-on-error-container: #410E0B;
 
-  --md3-background: #F5F3F0;
-  --md3-on-background: #3D3D3D;
-  --md3-surface: #FDFCFA;
-  --md3-surface-dim: #E8E6E3;
-  --md3-surface-bright: #FFFFFF;
+  --md3-background: #FEF7FF;
+  --md3-on-background: #1D1B20;
+  --md3-surface: #FEF7FF;
+  --md3-surface-dim: #DED8E1;
+  --md3-surface-bright: #FEF7FF;
   --md3-surface-container-lowest: #FFFFFF;
-  --md3-surface-container-low: #F8F6F3;
-  --md3-surface-container: #F0EDE9;
-  --md3-surface-container-high: #E8E5E1;
-  --md3-surface-container-highest: #E2DFDA;
-  --md3-on-surface: #3D3D3D;
-  --md3-on-surface-dim: #5C5C5C;
-  --md3-surface-variant: #E0DDD8;
-  --md3-on-surface-variant: #4A4A4A;
-  --md3-outline: #9E9A95;
-  --md3-outline-variant: #C8C4BE;
-  --md3-inverse-surface: #4A4A4A;
-  --md3-inverse-on-surface: #F0F0F0;
-  --md3-inverse-primary: #B8C4E0;
+  --md3-surface-container-low: #F7F2FA;
+  --md3-surface-container: #F3EDF7;
+  --md3-surface-container-high: #ECE6F0;
+  --md3-surface-container-highest: #E6E0E9;
+  --md3-on-surface: #1D1B20;
+  --md3-on-surface-dim: #49454F;
+  --md3-surface-variant: #E7E0EC;
+  --md3-on-surface-variant: #49454F;
+  --md3-outline: #79747E;
+  --md3-outline-variant: #CAC4D0;
+  --md3-inverse-surface: #322F35;
+  --md3-inverse-on-surface: #F5EFF7;
+  --md3-inverse-primary: #D0BCFF;
   --md3-scrim: #000000;
 
-  --md3-shadow-elevation-1: 0 1px 3px 1px rgba(0,0,0,0.08);
-  --md3-shadow-elevation-2: 0 2px 6px 2px rgba(0,0,0,0.06);
-  --md3-shadow-elevation-3: 0 4px 8px 4px rgba(0,0,0,0.05);
+  --md3-shadow-elevation-1: 0px 1px 2px 0px rgba(0, 0, 0, 0.3), 0px 1px 3px 1px rgba(0, 0, 0, 0.15);
+  --md3-shadow-elevation-2: 0px 1px 2px 0px rgba(0, 0, 0, 0.3), 0px 2px 6px 2px rgba(0, 0, 0, 0.15);
+  --md3-shadow-elevation-3: 0px 1px 3px 0px rgba(0, 0, 0, 0.3), 0px 4px 8px 3px rgba(0, 0, 0, 0.15);
 
-  --md3-surface-tint: #6B7BA8;
-  --md3-primary-hover: #5A6A97;
-  --md3-primary-pressed: #4A5986;
-  --md3-primary-focus: #8B9DC3;
-  --md3-secondary-hover: #7C9988;
-  --md3-secondary-pressed: #6B8977;
-  --md3-secondary-focus: #A8C5B5;
-  --md3-tertiary-hover: #9E8F7B;
-  --md3-tertiary-pressed: #8E7E6A;
-  --md3-error-hover: #975050;
-  --md3-error-pressed: #874040;
-  --md3-error-focus: #C48080;
+  --md3-surface-tint: #6750A4;
+  --md3-primary-hover: #5A468F;
+  --md3-primary-pressed: #4D3C7A;
+  --md3-primary-focus: #7D69B1;
+  --md3-secondary-hover: #565063;
+  --md3-secondary-pressed: #4A4555;
+  --md3-secondary-focus: #726C7F;
+  --md3-tertiary-hover: #6E4854;
+  --md3-tertiary-pressed: #5E3E48;
+  --md3-error-hover: #9C211A;
+  --md3-error-pressed: #861C16;
+  --md3-error-focus: #BB3C35;
 
-  --md3-link: #5A6A97;
-  --md3-link-visited: #8A7BA8;
+  --md3-link: #6750A4;
+  --md3-link-visited: #7D5260;
 
-  --md3-radius-sm: 10.4px;
-  --md3-radius-md: 15.6px;
-  --md3-radius-lg: 20.8px;
-  --md3-radius-xl: 36.4px;
+  --md3-radius-xs: 4px;
+  --md3-radius-sm: 8px;
+  --md3-radius-md: 12px;
+  --md3-radius-lg: 16px;
+  --md3-radius-xl: 28px;
   --md3-radius-full: 9999px;
   --md3-font: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 
@@ -93,6 +94,7 @@
   --shadow-md: var(--md3-shadow-elevation-2);
   --shadow-lg: var(--md3-shadow-elevation-3);
 
+  --radius-xs: var(--md3-radius-xs);
   --radius-sm: var(--md3-radius-sm);
   --radius-md: var(--md3-radius-md);
   --radius-lg: var(--md3-radius-lg);
@@ -254,33 +256,38 @@ textarea,
 select {
   width: 100%;
   box-sizing: border-box;
-  padding: 14px 16px;
-  border: 1px solid var(--input-border);
-  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  border: 1px solid var(--md3-outline);
+  border-radius: var(--radius-full);
   font-family: var(--font-family);
   font-size: 14px;
-  background: var(--input-bg);
-  color: var(--text-color);
-  transition: border-color 0.2s, box-shadow 0.2s;
+  background: var(--md3-surface);
+  color: var(--md3-on-surface);
+  caret-color: var(--md3-primary);
+  transition: border 0.2s, box-shadow 0.2s, background-color 0.2s;
 }
 
 input:hover,
 textarea:hover,
 select:hover {
-  border-color: var(--md3-on-surface-variant);
+  border-color: var(--md3-on-surface);
+  background-color: var(--md3-surface-container-low);
 }
 
 input:focus,
 textarea:focus,
 select:focus {
-  outline: 2px solid var(--md3-primary);
-  outline-offset: 2px;
+  outline: none;
+  border: 2px solid var(--md3-primary);
+  padding: 11px 15px; /* 补偿 2px 边框以防止抖动 */
+  background-color: var(--md3-surface);
+  box-shadow: 0 0 0 1px var(--md3-primary);
 }
 
 input::placeholder,
 textarea::placeholder {
   color: var(--md3-on-surface-variant);
-  opacity: 0.6;
+  opacity: 0.7;
 }
 
 textarea {

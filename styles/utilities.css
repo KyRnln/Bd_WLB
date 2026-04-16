@@ -180,6 +180,10 @@
   border-radius: var(--md3-radius-sm);
 }
 
+.rounded-xs {
+  border-radius: var(--md3-radius-xs);
+}
+
 .rounded-sm {
   border-radius: var(--md3-radius-sm);
 }

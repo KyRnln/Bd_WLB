@@ -186,17 +186,17 @@
     },
     "shadow": {
       "elevation1": {
-        "value": "0 1px 3px 1px rgba(0,0,0,0.08)",
+        "value": "0px 1px 2px 0px rgba(0, 0, 0, 0.3), 0px 1px 3px 1px rgba(0, 0, 0, 0.15)",
         "type": "shadow",
         "cssVariable": "--md3-shadow-elevation-1"
       },
       "elevation2": {
-        "value": "0 2px 6px 2px rgba(0,0,0,0.06)",
+        "value": "0px 1px 2px 0px rgba(0, 0, 0, 0.3), 0px 2px 6px 2px rgba(0, 0, 0, 0.15)",
         "type": "shadow",
         "cssVariable": "--md3-shadow-elevation-2"
       },
       "elevation3": {
-        "value": "0 4px 8px 4px rgba(0,0,0,0.05)",
+        "value": "0px 1px 3px 0px rgba(0, 0, 0, 0.3), 0px 4px 8px 3px rgba(0, 0, 0, 0.15)",
         "type": "shadow",
         "cssVariable": "--md3-shadow-elevation-3"
       }
@@ -360,26 +360,32 @@
     }
   },
   "radius": {
+    "xs": {
+      "value": "4px",
+      "type": "dimension",
+      "cssVariable": "--radius-xs",
+      "alias": "md3.radius.xs"
+    },
     "sm": {
-      "value": "10.4px",
+      "value": "8px",
       "type": "dimension",
       "cssVariable": "--radius-sm",
       "alias": "md3.radius.sm"
     },
     "md": {
-      "value": "15.6px",
+      "value": "12px",
       "type": "dimension",
       "cssVariable": "--radius-md",
       "alias": "md3.radius.md"
     },
     "lg": {
-      "value": "20.8px",
+      "value": "16px",
       "type": "dimension",
       "cssVariable": "--radius-lg",
       "alias": "md3.radius.lg"
     },
     "xl": {
-      "value": "36.4px",
+      "value": "28px",
       "type": "dimension",
       "cssVariable": "--radius-xl",
       "alias": "md3.radius.xl"

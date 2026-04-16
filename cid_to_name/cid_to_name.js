@@ -301,6 +301,10 @@
             searchBtn.textContent = '批量查询';
             searchBtn.style.display = 'inline-block';
             stopBtn.style.display = 'none';
+            const description = document.getElementById('cidToNameDescription');
+            const progressBar = document.getElementById('cidToNameProgressBar');
+            if (description) description.style.display = 'block';
+            if (progressBar) progressBar.classList.remove('show');
           }
         }
       } catch (error) {
@@ -391,12 +395,16 @@
         } else {
           showStatus('批量查询启动失败: ' + (response?.error || '未知错误'), 'error');
           batchQueryInProgress = false;
+          if (cidToNameDescription) cidToNameDescription.style.display = 'block';
+          if (cidToNameProgressBar) cidToNameProgressBar.classList.remove('show');
           resetQueryUI();
         }
       } catch (error) {
         console.error('batch query start error', error);
         showStatus('批量查询发生错误', 'error');
         batchQueryInProgress = false;
+        if (cidToNameDescription) cidToNameDescription.style.display = 'block';
+        if (cidToNameProgressBar) cidToNameProgressBar.classList.remove('show');
         resetQueryUI();
       }
     });
@@ -418,6 +426,8 @@
             batchQueryInProgress = true;
             searchBtn.style.display = 'none';
             stopBtn.style.display = 'inline-block';
+            if (cidToNameDescription) cidToNameDescription.style.display = 'none';
+            if (cidToNameProgressBar) cidToNameProgressBar.classList.add('show');
             startStatusPolling();
           } else if (Array.isArray(status.results) && status.results.length > 0) {
             // 任务已完成但有未处理的结果

@@ -89,7 +89,7 @@
   align-items: center;
   gap: 6px;
   padding: 8px 16px;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-sm);
   border: none;
   background: var(--md3-secondary-container);
   color: var(--md3-on-secondary-container);
@@ -235,15 +235,7 @@
 .dialog input,
 .dialog textarea,
 .dialog select {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 14px 16px;
-  border: 1px solid var(--md3-outline);
-  border-radius: var(--radius-md);
-  font-size: 14px;
   margin-bottom: 16px;
-  font-family: inherit;
-  background: var(--md3-surface);
 }
 
 .dialog textarea {
@@ -408,13 +400,6 @@ details.panel .panel-content {
 }
 
 .search-input {
-  width: 100%;
-  padding: 12px 16px;
-  border: 1px solid var(--md3-outline);
-  border-radius: var(--radius-lg);
-  font-size: 14px;
-  box-sizing: border-box;
-  background: var(--md3-surface);
 }
 
 .search-input:focus {
@@ -570,7 +555,7 @@ details.panel .panel-content {
   padding: 24px;
   text-align: center;
   background: var(--md3-surface);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   margin-bottom: 12px;
   font-size: 14px;
   color: var(--text-color);

@@ -21,24 +21,25 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function switchToProgressMode() {
-    inputArea.classList.add('hidden');
-    progressDisplay.classList.add('show');
-    orderProgressBar.classList.add('show');
+    if (orderDescription) orderDescription.style.display = 'none';
+    if (orderProgressBar) orderProgressBar.classList.add('show');
   }
 
   function switchToInputMode() {
-    inputArea.classList.remove('hidden');
-    progressDisplay.classList.remove('show');
-    orderProgressBar.classList.remove('show');
+    if (orderDescription) orderDescription.style.display = 'block';
+    if (orderProgressBar) orderProgressBar.classList.remove('show');
   }
 
-  function updateProgressDisplay(message) {
-    progressDisplay.textContent = message;
+  function updateProgressDisplay(message, current = 0, total = 0) {
+    if (orderProgressText) orderProgressText.textContent = `${current}/${total}`;
+    const pct = total === 0 ? 0 : Math.round((current / total) * 100);
+    if (orderProgressFill) orderProgressFill.style.width = `${pct}%`;
+    showStatus(message, 'info');
   }
 
   function clearProgressDisplay() {
-    progressDisplay.textContent = '';
-    orderProgressFill.style.width = '0%';
+    if (orderProgressFill) orderProgressFill.style.width = '0%';
+    if (orderProgressText) orderProgressText.textContent = '0/0';
   }
 
   async function checkContentScript(tabId) {
@@ -292,9 +293,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             stopOrderQueryBtn.style.display = 'flex';
           }
           switchToProgressMode();
-          const progressPercent = Math.round((state.currentIndex / (state.total || 1)) * 100);
-          orderProgressFill.style.width = `${progressPercent}%`;
-          updateProgressDisplay(`查询进度: ${progressPercent}% (${state.currentIndex}/${state.total || 0})\n当前处理: ${state.currentOrderId}\n${state.message || '请稍候...'}`);
+          updateProgressDisplay(`查询进度: (${state.currentIndex}/${state.total || 0})`, state.currentIndex, state.total || 0);
         } else if (state.allOrders && state.allOrders.length > 0) {
           // 任务已完成但有未处理的结果
           showStatus(`已恢复 ${state.allOrders.length} 条查询结果，正在导出...`, 'success');

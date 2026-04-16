@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const coverStatError = document.getElementById('coverStatError');
   const coverResults = document.getElementById('coverResults');
   const backBtn = document.getElementById('backBtn');
+  const coverDescription = document.getElementById('coverDescription');
 
   let coverDataList = [];
   let statusPollInterval = null;
@@ -164,11 +165,15 @@ document.addEventListener('DOMContentLoaded', () => {
         startStatusPolling(urls.length);
       } else {
         showStatus('启动失败: ' + (response?.error || '未知错误'), 'error');
+        coverProgressBar.classList.remove('show');
+        coverDescription.style.display = 'block';
         resetFetchUI();
       }
     } catch (error) {
       console.error('[Cover] 启动失败:', error);
       showStatus('启动失败: ' + error.message, 'error');
+      coverProgressBar.classList.remove('show');
+      coverDescription.style.display = 'block';
       resetFetchUI();
     }
   }
@@ -413,6 +418,7 @@ document.addEventListener('DOMContentLoaded', () => {
           coverFetchBtn.style.opacity = '0.7';
           coverClearBtn.style.display = 'none';
           coverStopBtn.style.display = 'inline-block';
+          coverDescription.style.display = 'none';
           coverProgressBar.classList.add('show');
           coverStatsRow.classList.add('show');
           startStatusPolling(status.total);

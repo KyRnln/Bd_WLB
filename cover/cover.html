@@ -17,7 +17,13 @@
 
   <div class="card">
     <div id="coverPanelStatus" class="panel-status info"></div>
-    <div class="description">粘贴TikTok视频链接（每行一个）获取封面并导出XLSX</div>
+    <div id="coverDescription" class="description">粘贴TikTok视频链接（每行一个）获取封面并导出XLSX</div>
+    <div id="coverProgressBar" class="progress-display" style="padding: 12px; min-height: auto; margin-bottom: 16px; gap: 12px;">
+      <div class="progress-track">
+        <div id="coverProgressFill" class="progress-fill"></div>
+      </div>
+      <span id="coverProgressText" class="progress-text">0/0</span>
+    </div>
 
     <div>
       <textarea id="coverUrlInput"
@@ -30,13 +36,6 @@
       <button id="coverClearBtn">清空</button>
       <button id="coverStopBtn" style="display:none;background:#ef4444;color:#fff;">停止</button>
       <button class="btn-sm" id="coverExportBtn" style="display:none;">导出XLSX</button>
-    </div>
-
-    <div id="coverProgressBar" class="progress-bar">
-      <div class="progress-track">
-        <div id="coverProgressFill" class="progress-fill"></div>
-      </div>
-      <span id="coverProgressText" class="progress-text">0/0</span>
     </div>
 
     <div id="coverStatsRow" class="stats-row">

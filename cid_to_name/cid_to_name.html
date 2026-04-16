@@ -17,7 +17,13 @@
 
   <div class="card">
     <div id="cidToNamePanelStatus" class="panel-status info"></div>
-    <div class="description">批量输入CID查询达人用户名与头像并导出XLSX</div>
+    <div id="cidToNameDescription" class="description">批量输入CID查询达人用户名与头像并导出XLSX</div>
+    <div id="cidToNameProgressBar" class="progress-display" style="padding: 12px; min-height: auto; margin-bottom: 16px; gap: 12px;">
+      <div class="progress-track">
+        <div id="cidToNameProgressFill" class="progress-fill"></div>
+      </div>
+      <span id="cidToNameProgressText" class="progress-text">0/0</span>
+    </div>
 
     <div>
       <textarea id="cidToNameInput"

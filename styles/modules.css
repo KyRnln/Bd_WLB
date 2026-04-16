@@ -31,7 +31,6 @@ body.page-creator .search-section {
 .page-creator .search-section input,
 body.page-creator .search-section input {
   padding: 14px 16px;
-  font-size: 14px;
 }
 
 .page-creator .stats-row,
@@ -265,7 +264,7 @@ body.page-phrase .phrase-list {
 body.page-phrase .phrase-item {
   background: var(--md3-surface);
   border: 1px solid var(--md3-outline-variant);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   padding: 16px;
   display: flex;
   flex-direction: column;
@@ -787,14 +786,6 @@ body.page-auth input[type="text"],
 body.page-auth input[type="email"],
 body.page-auth input[type="password"] {
   width: 100%;
-  padding: 10px 12px;
-  font-size: 14px;
-  color: var(--md3-on-surface);
-  background: var(--md3-surface);
-  border: 1px solid var(--md3-outline);
-  border-radius: var(--radius-md);
-  transition: border-color 0.2s, box-shadow 0.2s;
-  box-sizing: border-box;
 }
 
 .page-auth input[type="text"]:focus,
@@ -803,9 +794,6 @@ body.page-auth input[type="password"] {
 body.page-auth input[type="text"]:focus,
 body.page-auth input[type="email"]:focus,
 body.page-auth input[type="password"]:focus {
-  outline: none;
-  border-color: var(--md3-primary);
-  box-shadow: 0 0 0 2px var(--md3-primary-container);
 }
 
 .page-auth input::placeholder,
@@ -900,14 +888,6 @@ body.page-profile input[type="text"],
 body.page-profile input[type="email"],
 body.page-profile input[type="password"] {
   width: 100%;
-  padding: 10px 12px;
-  font-size: 14px;
-  color: var(--md3-on-surface);
-  background: var(--md3-surface);
-  border: 1px solid var(--md3-outline);
-  border-radius: var(--radius-md);
-  transition: border-color 0.2s, box-shadow 0.2s;
-  box-sizing: border-box;
 }
 
 .page-profile input:focus,
@@ -920,7 +900,7 @@ body.page-profile input:focus {
 .page-profile input::placeholder,
 body.page-profile input::placeholder {
   color: var(--md3-on-surface-variant);
-  opacity: 0.6;
+  opacity: 0.7;
 }
 
 .page-profile .error-message,
