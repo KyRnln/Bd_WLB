@@ -20,14 +20,11 @@
     '隐藏达人': { bg: '#f5f5f5', color: '#616161' }
   };
 
-  // 高亮样式类名映射 - 用于为不同类型达人添加对应CSS类
   const HIGHLIGHT_CLASSES = {
     performance: 'quick-creator-hit',
     lost: 'quick-creator-lost',
     hidden: 'creator-id-blacklisted'
   };
-
-
 
   let creators = [];
   let creatorSets = { performance: new Set(), lost: new Set(), hidden: new Set() };
@@ -40,7 +37,6 @@
   const processedImUnames = new Set();
   let rafId = null;
 
-  // 注入高亮样式到页面
   function injectHighlightStyles() {
     if (document.getElementById('creator-highlight-styles')) return;
     const style = document.createElement('style');
@@ -62,12 +58,10 @@
     document.documentElement.appendChild(style);
   }
 
-  // 标准化达人ID，移除@前缀和多余空白
   function normalizeCreatorId(text) {
     return (text || '').trim().replace(/^[@＠]+/, '').trim();
   }
 
-  // 根据达人数据构建Set集合，用于快速查找和判断
   function buildCreatorSets() {
     const performance = new Set();
     const lost = new Set();
@@ -75,8 +69,8 @@
     const map = new Map();
 
     for (const c of creators) {
-      if (!c || !c.id) continue;
-      const norm = normalizeCreatorId(String(c.id));
+      if (!c || !c.creator_id) continue;
+      const norm = normalizeCreatorId(String(c.creator_id));
       if (!norm) continue;
 
       map.set(norm, c);
@@ -90,12 +84,10 @@
     allCreatorMap = map;
   }
 
-  // 根据标准化ID获取达人完整数据
   function getCreatorById(normalizedId) {
     return allCreatorMap.get(normalizedId) || null;
   }
 
-  // 从存储加载达人数据
   async function loadCreators() {
     try {
       const result = await new Promise(resolve =>
@@ -105,26 +97,22 @@
       buildCreatorSets();
       scheduleHighlightCreators();
     } catch (e) {
+      console.error('[Creator Highlight] 加载达人数据失败:', e);
       creators = [];
       buildCreatorSets();
     }
   }
 
-  // 保存达人数据到存储
   async function saveCreators() {
     try {
       await new Promise(resolve =>
         chrome.storage.local.set({ savedCreators: creators }, resolve)
       );
-      try {
-        chrome.runtime.sendMessage({ action: 'creatorDataUpdated' }).catch(() => {});
-      } catch (msgError) {}
-    } catch (storageError) {
-      console.debug('达人数据保存失败', storageError);
+    } catch (e) {
+      console.error('[Creator Highlight] 保存达人数据失败:', e);
     }
   }
 
-  // 创建隐藏/解除按钮
   function createBlacklistButton(creatorIdElement, creatorId) {
     const btn = document.createElement('button');
     btn.className = 'creator-blacklist-btn';
@@ -178,28 +166,26 @@
     return btn;
   }
 
-  // 更新达人数据（标签），并异步保存
-  function updateCreatorData(normId, newTag) {
+  async function updateCreatorData(normId, newTag) {
     const existingCreator = getCreatorById(normId);
-    if (newTag === '') {
-      if (existingCreator) {
-        existingCreator.tag = '';
-        saveCreators().then(() => buildCreatorSets());
-      }
-    } else {
-      if (existingCreator) {
-        existingCreator.tag = newTag;
-        saveCreators().then(() => buildCreatorSets());
-      } else {
-        creators.push({
-          id: normId, cid: '', region: '', tag: newTag, remark: '', hiddenAt: Date.now()
-        });
-        saveCreators().then(() => buildCreatorSets());
-      }
+
+    if (existingCreator) {
+      existingCreator.tag = newTag;
+      await saveCreators();
+      buildCreatorSets();
+    } else if (newTag !== '') {
+      creators.push({
+        creator_id: normId,
+        cid: '',
+        region: '',
+        tag: newTag,
+        remark: ''
+      });
+      await saveCreators();
+      buildCreatorSets();
     }
   }
 
-  // 处理达人ID元素的隐藏按钮（初始化按钮状态）
   function processCreatorIdHideButton(idElement) {
     const rawCreatorId = (idElement.textContent || '').trim();
     if (!rawCreatorId) return;
@@ -253,7 +239,6 @@
     }
   }
 
-  // 为节点应用高亮样式（绩效/流失/隐藏）
   function applyHighlight(node, norm) {
     const type = creatorSets.hidden.has(norm) ? 'hidden'
                : creatorSets.performance.has(norm) ? 'performance'
@@ -264,7 +249,6 @@
     node.classList.add(HIGHLIGHT_CLASSES[type]);
   }
 
-  // 遍历容器，为达人ID添加高亮和标签
   function highlightAndTag() {
     const { performance, lost, hidden } = creatorSets;
     if (!performance.size && !lost.size && !hidden.size) return;
@@ -306,7 +290,6 @@
     imUnameDivsLoop(container);
   }
 
-  // 替换达人ID下方的描述区域，用于显示达人标签
   function flexContainersLoop(container) {
     if (!allCreatorMap.size) return;
 
@@ -333,7 +316,6 @@
     });
   }
 
-  // 遍历IM消息中的名称div，为隐藏达人添加删除线
   function imNameDivsLoop(container) {
     if (!allCreatorMap.size) return;
 
@@ -364,7 +346,6 @@
     });
   }
 
-  // 遍历IM消息中的用户名div，为隐藏达人添加样式和标签
   function imUnameDivsLoop(container) {
     if (!allCreatorMap.size) return;
 
@@ -408,7 +389,6 @@
     });
   }
 
-  // 延迟执行高亮任务，防止频繁触发
   function scheduleHighlightCreators() {
     if (highlightScheduled) return;
     highlightScheduled = true;
@@ -422,7 +402,6 @@
     });
   }
 
-  // 更新悬停提示内容，显示达人备注信息
   function updateTooltipContent() {
     if (!creatorSets.performance.size) return;
 
@@ -439,7 +418,6 @@
     });
   }
 
-  // 防抖函数
   function debounce(func, wait) {
     let timeout;
     return function executedFunction(...args) {
@@ -448,7 +426,6 @@
     };
   }
 
-  // 更新页面上所有达人的备注显示
   function updateCreatorRemarksOnPage() {
     try {
       const creatorIdElements = document.querySelectorAll('[data-e2e="8a94f9b6-1a48-fe57"]');
@@ -473,7 +450,7 @@
             `;
             element.parentNode?.insertBefore(remarkElement, element.nextSibling);
           }
-          const newContent = `📝 备注: ${creator.remark}`;
+          const newContent = `备注: ${creator.remark}`;
           if (remarkElement.textContent !== newContent) {
             remarkElement.textContent = newContent;
           }
@@ -488,7 +465,6 @@
 
   const debouncedUpdateCreatorRemarks = debounce(updateCreatorRemarksOnPage, 500);
 
-  // 设置MutationObserver监听页面DOM变化
   function setupCreatorObserver() {
     if (creatorObserver) creatorObserver.disconnect();
     const root = document.documentElement || document.body;
@@ -518,7 +494,6 @@
     scheduleHighlightCreators();
   }
 
-  // 初始化达人高亮模块
   function init() {
     injectHighlightStyles();
     loadCreators();

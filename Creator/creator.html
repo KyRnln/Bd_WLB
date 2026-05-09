@@ -29,9 +29,15 @@
     <div class="stat">已搜索: <strong id="searchCount">0</strong></div>
   </div>
 
-  <div id="creatorTagBar" class="tagbar"></div>
+  <div id="creatorTagBar" class="segment-group"></div>
 
-  <div id="status" class="status info"></div>
+  <div id="creatorCardStatus" class="status info"></div>
+  <div id="importProgressBar" class="progress-bar" style="display: none;">
+    <div class="progress-track">
+      <div id="importProgressFill" class="progress-fill" style="width: 0%;"></div>
+    </div>
+    <span id="importProgressText" class="progress-text">0%</span>
+  </div>
 
   <div id="creatorList" class="creator-list"></div>
 
