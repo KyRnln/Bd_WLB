@@ -8,39 +8,107 @@
   <link rel="stylesheet" href="../styles/components.css">
   <link rel="stylesheet" href="../styles/utilities.css">
   <link rel="stylesheet" href="../styles/modules.css">
+  <style>
+    body.page-creator {
+      width: 100%;
+      max-width: 100%;
+      margin: 0;
+      background: var(--background);
+    }
+    body.page-creator svg.h-5.w-5 {
+      max-height: 20px;
+      width: auto;
+    }
+  </style>
 </head>
 <body class="page-creator">
-  <h1>达人管理</h1>
-  <div class="muted">查看和管理所有达人信息，支持搜索、编辑和删除。</div>
-
-  <div class="card-actions" style="margin-bottom: 16px;">
-    <button id="importCreatorBtn" class="btn-sm">导入 XLSX</button>
-    <button id="downloadCreatorTemplateBtn" class="btn-sm">下载模板</button>
-    <button id="clearAllCreatorsBtn" class="btn-sm" style="border-color: #dc2626; color: #dc2626;">删除全部</button>
-    <input id="creatorFileInput" type="file" accept=".xlsx" style="display:none;" />
-  </div>
-
-  <div class="search-section">
-    <input id="creatorSearchInput" type="text" placeholder="搜索达人ID、CID、地区或备注..." />
-  </div>
-
-  <div class="stats-row">
-    <div class="stat">总计: <strong id="totalCount">0</strong></div>
-    <div class="stat">已搜索: <strong id="searchCount">0</strong></div>
-  </div>
-
-  <div id="creatorTagBar" class="segment-group"></div>
-
-  <div id="creatorCardStatus" class="status info"></div>
-  <div id="importProgressBar" class="progress-bar" style="display: none;">
-    <div class="progress-track">
-      <div id="importProgressFill" class="progress-fill" style="width: 0%;"></div>
+  <main class="creator-main">
+    <!-- Page Header -->
+    <div class="creator-header">
+      <div class="creator-header-top">
+        <span class="creator-header-icon">
+          <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg>
+        </span>
+        <h1 class="creator-title">达人管理</h1>
+        <div id="creatorCardStatus" class="status info" style="display:none; margin-left: auto; width: auto; margin-bottom: 0;"></div>
+      </div>
+      <p class="creator-subtitle">查看和管理所有达人信息，支持搜索、编辑和删除。</p>
     </div>
-    <span id="importProgressText" class="progress-text">0%</span>
-  </div>
 
-  <div id="creatorList" class="creator-list"></div>
+    <!-- Stats Row -->
+    <div class="creator-stats-row" id="creatorStatsRow">
+      <div class="fluent-card stat-card">
+        <div class="stat-icon stat-icon-total">
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg>
+        </div>
+        <div>
+          <p class="stat-card-label">达人总计</p>
+          <p class="stat-card-value" id="totalCount">0</p>
+        </div>
+      </div>
+      <div class="fluent-card stat-card">
+        <div class="stat-icon stat-icon-lost">
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6L9 12.75l4.286-4.286a11.948 11.948 0 014.306 6.43l.776 2.898m0 0l3.182-5.511m-3.182 5.51l-5.511-3.181" /></svg>
+        </div>
+        <div>
+          <p class="stat-card-label">已流失</p>
+          <p class="stat-card-value" id="lostCount">0</p>
+        </div>
+      </div>
+      <div class="fluent-card stat-card">
+        <div class="stat-icon stat-icon-perf">
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg>
+        </div>
+        <div>
+          <p class="stat-card-label">绩效达人</p>
+          <p class="stat-card-value" id="perfCount">0</p>
+        </div>
+      </div>
+    </div>
 
+    <!-- Action Toolbar -->
+    <div class="fluent-card creator-toolbar">
+      <div class="toolbar-buttons">
+        <button id="importCreatorBtn" class="toolbar-btn toolbar-btn-primary">
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" /></svg>
+          导入 XLSX
+        </button>
+        <button id="downloadCreatorTemplateBtn" class="toolbar-btn toolbar-btn-secondary">
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+          下载模板
+        </button>
+        <button id="clearAllCreatorsBtn" class="toolbar-btn toolbar-btn-danger">
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+          删除全部
+        </button>
+        <input id="creatorFileInput" type="file" accept=".xlsx" style="display:none;" />
+      </div>
+      <div class="toolbar-search">
+        <div class="search-box">
+          <svg class="h-4 w-4 search-box-icon" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>
+          <input id="creatorSearchInput" type="text" class="search-box-input" placeholder="通过 ID、CID、地区搜索..." />
+        </div>
+      </div>
+    </div>
+
+    <!-- Filter Tabs -->
+    <div class="creator-filters" id="creatorTagBar">
+      <button class="filter-tab active" data-id="all">全部</button>
+    </div>
+
+    <!-- Progress Bar -->
+    <div id="importProgressBar" class="progress-bar" style="display: none;">
+      <div class="progress-track">
+        <div id="importProgressFill" class="progress-fill" style="width: 0%;"></div>
+      </div>
+      <span id="importProgressText" class="progress-text">0%</span>
+    </div>
+
+    <!-- Creator Grid -->
+    <div id="creatorList" class="creator-grid"></div>
+  </main>
+
+  <!-- Edit Dialog -->
   <div id="creatorEditDialog" class="dialog-mask">
     <div class="dialog">
       <h3>编辑达人信息</h3>
@@ -56,8 +124,8 @@
       <textarea id="creatorEditRemark" placeholder="输入达人的备注信息" style="min-height: 60px;"></textarea>
       <div class="footer">
         <button id="cancelCreatorEditBtn" class="btn-sm">取消</button>
-        <button id="saveCreatorEditBtn" class="btn-sm">保存</button>
-        <button id="deleteCreatorBtn" class="btn-sm">删除</button>
+        <button id="saveCreatorEditBtn" class="btn-sm btn-primary">保存</button>
+        <button id="deleteCreatorBtn" class="btn-sm" style="color: var(--stat-perf-text); border-color: rgba(255, 100, 100, 0.3);">删除</button>
       </div>
     </div>
   </div>

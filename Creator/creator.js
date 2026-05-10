@@ -18,8 +18,7 @@
       return;
     }
     statusDiv.textContent = message;
-    statusDiv.className = 'status ' + type;
-    statusDiv.style.display = 'block';
+    statusDiv.style.display = 'flex';
     setTimeout(() => {
       statusDiv.style.display = 'none';
     }, 20000);
@@ -75,11 +74,11 @@
 
     const chips = [];
     for (const t of allTags) {
-      chips.push(`<button class="segment-item ${activeCreatorTagId === t.id ? 'active' : ''}" data-id="${escapeHtml(t.id)}">${escapeHtml(t.name)}</button>`);
+      chips.push(`<button class="filter-tab ${activeCreatorTagId === t.id ? 'active' : ''}" data-id="${escapeHtml(t.id)}">${escapeHtml(t.name)}</button>`);
     }
     tagBar.innerHTML = chips.join('');
 
-    tagBar.querySelectorAll('.segment-item[data-id]').forEach(el => {
+    tagBar.querySelectorAll('.filter-tab[data-id]').forEach(el => {
       el.addEventListener('click', async () => {
         const id = el.dataset.id;
         activeCreatorTagId = id;
@@ -100,36 +99,16 @@
   }
 
   function renderCreators() {
-    const creatorPreview = document.getElementById('creatorPreview');
     const creatorSearchInput = document.getElementById('creatorSearchInput');
     const creatorSearchList = document.getElementById('creatorSearchList');
 
-    if (creatorPreview) {
-      if (creators.length) {
-        const performanceCount = creators.filter(c => c.tag === '绩效达人').length;
-        const lostCount = creators.filter(c => c.tag === '流失达人').length;
-        const hiddenCount = creators.filter(c => c.tag === '隐藏达人').length;
-
-        let statsHtml = `<div class="creator-stats">`;
-        statsHtml += `<div class="stat-item"><span class="stat-label">总计</span><span class="stat-value">${creators.length}</span></div>`;
-        if (performanceCount > 0) {
-          statsHtml += `<div class="stat-item performance"><span class="stat-label">绩效</span><span class="stat-value">${performanceCount}</span></div>`;
-        }
-        if (lostCount > 0) {
-          statsHtml += `<div class="stat-item lost"><span class="stat-label">流失</span><span class="stat-value">${lostCount}</span></div>`;
-        }
-        if (hiddenCount > 0) {
-          statsHtml += `<div class="stat-item hidden"><span class="stat-label">隐藏</span><span class="stat-value">${hiddenCount}</span></div>`;
-        }
-        statsHtml += `</div>`;
-
-        creatorPreview.innerHTML = statsHtml;
-        creatorPreview.className = 'mt-2';
-      } else {
-        creatorPreview.textContent = '尚未导入达人，点击"导入 XLSX"上传 creator_id/creator_cid/region_code';
-        creatorPreview.className = 'mt-2 text-base text-muted text-left';
-      }
-    }
+    // Update stats
+    const totalCount = document.getElementById('totalCount');
+    const lostCount = document.getElementById('lostCount');
+    const perfCount = document.getElementById('perfCount');
+    if (totalCount) totalCount.textContent = creators.length;
+    if (lostCount) lostCount.textContent = creators.filter(c => c.tag === '流失达人').length;
+    if (perfCount) perfCount.textContent = creators.filter(c => c.tag === '绩效达人').length;
 
     const creatorList = document.getElementById('creatorList');
     if (creatorList) {
@@ -160,8 +139,6 @@
 
   function renderCreatorList() {
     const creatorList = document.getElementById('creatorList');
-    const totalCount = document.getElementById('totalCount');
-    const searchCount = document.getElementById('searchCount');
     const creatorSearchInput = document.getElementById('creatorSearchInput');
 
     if (!creatorList) return;
@@ -169,9 +146,6 @@
     const query = creatorSearchInput ? creatorSearchInput.value.trim().toLowerCase() : '';
     const baseList = getFilteredCreators();
     const displayList = query ? searchResults : baseList;
-
-    if (totalCount) totalCount.textContent = creators.length;
-    if (searchCount) searchCount.textContent = query ? searchResults.length : '-';
 
     if (displayList.length === 0) {
       creatorList.innerHTML = `
@@ -183,28 +157,36 @@
     }
 
     creatorList.innerHTML = displayList.map((creator, index) => {
-      let tagClass = '';
-      if (creator.tag === '绩效达人') tagClass = 'performance';
-      else if (creator.tag === '流失达人') tagClass = 'lost';
-      else if (creator.tag === '隐藏达人') tagClass = 'hidden';
+      let tagClass = 'card-tag-default';
+      let tagName = creator.tag || '未分组';
+      if (creator.tag === '绩效达人') tagClass = 'card-tag-performance';
+      else if (creator.tag === '流失达人') tagClass = 'card-tag-lost';
+
+      const remarkHtml = creator.remark
+        ? `<p class="card-remark-text">${escapeHtml(creator.remark)}</p>`
+        : `<p class="card-remark-empty">暂无备注</p>`;
 
       return `
-        <div class="creator-item">
-          <div class="creator-info">
-            <div class="creator-main">
-              <div class="creator-id">${escapeHtml(creator.creator_id)}</div>
-              <div class="creator-meta">
-                ${creator.cid ? `CID: ${escapeHtml(creator.cid)}` : '无CID'}
-                ${creator.region ? ` • REG: ${escapeHtml(creator.region)}` : ''}
+        <div class="fluent-card creator-card">
+          <div class="card-top">
+            <div class="card-info">
+              <div class="card-creator-id">${escapeHtml(creator.creator_id)}</div>
+              <p class="card-cid">CID: ${creator.cid ? escapeHtml(creator.cid) : '无'}</p>
+              <div class="card-region">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" /></svg>
+                <span class="card-region-text">地区: ${creator.region ? escapeHtml(creator.region) : '无'}</span>
               </div>
-              ${creator.tag ? `<div class="creator-tag ${tagClass}">${escapeHtml(creator.tag)}</div>` : ''}
             </div>
-            <div class="creator-actions">
-              <button type="button" class="jump-creator btn-sm" data-index="${index}" ${creator.cid && creator.region ? '' : 'disabled'}>跳转</button>
-              <button type="button" class="edit-creator btn-sm" data-index="${index}">编辑</button>
-            </div>
+            <span class="card-tag ${tagClass}">${escapeHtml(tagName)}</span>
           </div>
-          ${creator.remark ? `<div class="creator-remark">备注: ${escapeHtml(creator.remark)}</div>` : ''}
+          <div class="card-remark">
+            <p class="card-remark-label">备注</p>
+            ${remarkHtml}
+          </div>
+          <div class="card-actions">
+            <button type="button" class="card-action-btn jump-creator" data-index="${index}" ${creator.cid && creator.region ? '' : 'disabled'}>跳转</button>
+            <button type="button" class="card-action-btn edit-creator" data-index="${index}">编辑</button>
+          </div>
         </div>
       `;
     }).join('');
@@ -239,31 +221,42 @@
 
     if (searchResults.length === 0) {
       creatorSearchResults.classList.remove('show');
+      creatorSearchList.innerHTML = '';
       return;
     }
 
     creatorSearchResults.classList.add('show');
     creatorSearchList.innerHTML = searchResults.map((creator, index) => {
-      const isLost = creator.tag === '流失达人';
-      const itemClass = isLost ? 'creator-item lost' : 'creator-item';
-      const tagHtml = creator.tag ? `<span class="creator-tag-badge ${isLost ? 'lost' : 'performance'}">${escapeHtml(creator.tag)}</span>` : '';
+      let tagClass = 'card-tag-default';
+      let tagName = creator.tag || '未分组';
+      if (creator.tag === '绩效达人') tagClass = 'card-tag-performance';
+      else if (creator.tag === '流失达人') tagClass = 'card-tag-lost';
+
+      const remarkHtml = creator.remark
+        ? `<p class="card-remark-text">${escapeHtml(creator.remark)}</p>`
+        : `<p class="card-remark-empty">暂无备注</p>`;
 
       return `
-        <div class="${itemClass}">
-          <div class="creator-info">
-            <div class="creator-main">
-              <div class="creator-id">${tagHtml} ${escapeHtml(creator.creator_id)}</div>
-              <div class="creator-meta">
-                ${creator.cid ? `CID: ${escapeHtml(creator.cid)}` : '无CID'}
-                ${creator.region ? ` • REG: ${escapeHtml(creator.region)}` : ''}
+        <div class="fluent-card creator-card">
+          <div class="card-top">
+            <div class="card-info">
+              <div class="card-creator-id">${escapeHtml(creator.creator_id)}</div>
+              <p class="card-cid">CID: ${creator.cid ? escapeHtml(creator.cid) : '无'}</p>
+              <div class="card-region">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" /></svg>
+                <span class="card-region-text">地区: ${creator.region ? escapeHtml(creator.region) : '无'}</span>
               </div>
             </div>
-            <div class="creator-actions">
-              <button type="button" class="jump-creator btn-sm ${creator.cid && creator.region ? 'danger' : 'muted'}" data-index="${index}" ${creator.cid && creator.region ? '' : 'disabled'}>跳转</button>
-              <button type="button" class="edit-creator btn-sm secondary" data-index="${index}">编辑</button>
-            </div>
+            <span class="card-tag ${tagClass}">${escapeHtml(tagName)}</span>
           </div>
-          ${creator.remark ? `<div class="creator-remark">备注: ${escapeHtml(creator.remark)}</div>` : ''}
+          <div class="card-remark">
+            <p class="card-remark-label">备注</p>
+            ${remarkHtml}
+          </div>
+          <div class="card-actions">
+            <button type="button" class="card-action-btn jump-creator" data-index="${index}" ${creator.cid && creator.region ? '' : 'disabled'}>跳转</button>
+            <button type="button" class="card-action-btn edit-creator" data-index="${index}">编辑</button>
+          </div>
         </div>
       `;
     }).join('');

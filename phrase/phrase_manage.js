@@ -1,5 +1,3 @@
-// 快捷短语模块
-
 (function() {
   'use strict';
 
@@ -9,7 +7,7 @@
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
       return chrome.storage.local;
     }
-    console.error('存储不可用，无法使用快捷短语');
+    console.error('存储不可用');
     return null;
   }
 
@@ -20,21 +18,15 @@
   let activeTagId = DEFAULT_TAG_ID;
   let editingId = null;
 
-  function showStatus(message, type = 'info', elementId = 'status') {
-    let statusDiv = document.getElementById(elementId);
-    if (!statusDiv) {
-      statusDiv = document.getElementById('status');
-    }
-    if (!statusDiv) {
-      console.error(`找不到状态提示元素: ${elementId}`);
-      return;
-    }
+  function showStatus(message, type = 'info') {
+    const statusDiv = document.getElementById('phraseManageStatus');
+    if (!statusDiv) return;
     statusDiv.textContent = message;
     statusDiv.className = 'status ' + type;
     statusDiv.style.display = 'block';
     setTimeout(() => {
       statusDiv.style.display = 'none';
-    }, 20000);
+    }, 3000);
   }
 
   async function loadData() {
@@ -122,21 +114,30 @@
   function renderAll() {
     renderTagBar();
     renderPhraseList();
-    updateStats();
   }
 
-  function updateStats() {
-    const totalCountEl = document.getElementById('totalCount');
-    const tagCountEl = document.getElementById('tagCount');
+  function renderTagBar() {
+    const tagBar = document.getElementById('phraseTagBar');
+    if (!tagBar) return;
     
-    if (totalCountEl) {
-      totalCountEl.textContent = phrases.length;
+    const chips = [];
+    chips.push(`<button class="tag-chip ${activeTagId === '__ALL__' ? 'active' : ''}" data-id="__ALL__">全部</button>`);
+    for (const t of tags) {
+      chips.push(`<button class="tag-chip ${activeTagId === t.id ? 'active' : ''}" data-id="${escapeHtml(t.id)}">${escapeHtml(t.name)}</button>`);
     }
-    if (tagCountEl) {
-      const visibleCount = getVisiblePhrases().length;
-      const activeTag = tags.find(t => t.id === activeTagId);
-      tagCountEl.textContent = `${visibleCount} (${activeTag ? activeTag.name : '全部'})`;
-    }
+    chips.push(`<button class="tag-chip manage" data-action="manage">管理标签</button>`);
+    tagBar.innerHTML = chips.join('');
+
+    tagBar.querySelectorAll('.tag-chip[data-id]').forEach(el => {
+      el.addEventListener('click', async () => {
+        const id = el.dataset.id;
+        activeTagId = id;
+        await saveActiveTagId();
+        renderAll();
+      });
+    });
+    const manageBtn = tagBar.querySelector('.tag-chip.manage');
+    manageBtn && manageBtn.addEventListener('click', () => openTagManage());
   }
 
   function renderPhraseList() {
@@ -146,7 +147,7 @@
     const list = getVisiblePhrases();
     if (!list.length) {
       phraseList.innerHTML = `
-        <div class="empty-state" style="grid-column: 1 / -1;">
+        <div class="empty-state" style="grid-column: 1 / -1; text-align: center; padding: 40px 20px; color: #6b7280;">
           <p>暂无快捷短语</p>
           <p style="margin-top: 8px; font-size: 12px;">点击上方"添加短语"按钮创建您的第一个快捷短语</p>
         </div>
@@ -178,60 +179,22 @@
     });
   }
 
+  function getVisiblePhrases() {
+    if (activeTagId === '__ALL__') return phrases.slice();
+    return phrases.filter(p => p.tagId === activeTagId);
+  }
+
   function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
   }
 
-  function getVisiblePhrases() {
-    return phrases.filter(p => p.tagId === activeTagId);
-  }
-
-  function renderTagBar() {
-    const tagBar = document.getElementById('tagBar');
-    if (!tagBar) return;
-    
-    const chips = [];
-    for (const t of tags) {
-      chips.push(`<button class="tag-chip ${activeTagId === t.id ? 'active' : ''}" data-id="${escapeHtml(t.id)}">${escapeHtml(t.name)}</button>`);
-    }
-    chips.push(`<button class="tag-chip manage" data-action="manage">管理</button>`);
-    tagBar.innerHTML = chips.join('');
-
-    tagBar.querySelectorAll('.tag-chip[data-id]').forEach(el => {
-      el.addEventListener('click', async () => {
-        const id = el.dataset.id;
-        const tag = tags.find(t => t.id === id);
-        const tagName = tag ? tag.name : '';
-        activeTagId = id;
-        await saveActiveTagId();
-        renderAll();
-        showStatus(`✅ 已切换到：${tagName}`, 'success', 'phraseCardStatus');
-      });
-    });
-    const manageBtn = tagBar.querySelector('.tag-chip.manage');
-    manageBtn && manageBtn.addEventListener('click', () => openTagManage());
-  }
-
-  function renderPhraseTagSelect(selectedId) {
-    const phraseTag = document.getElementById('phraseTag');
-    if (!phraseTag) return;
-    
-    const opts = tags.map(t => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name)}</option>`).join('');
-    phraseTag.innerHTML = opts;
-    const next = selectedId && tags.some(t => t.id === selectedId) ? selectedId : DEFAULT_TAG_ID;
-    phraseTag.value = next;
-  }
-
   function openTagManage() {
     const tagManageDialog = document.getElementById('tagManageDialog');
-    if (tagManageDialog) {
-      renderTagManageList();
-      tagManageDialog.classList.add('show');
-    } else {
-      window.location.href = chrome.runtime.getURL('phrase/phrase_manage.html');
-    }
+    if (!tagManageDialog) return;
+    renderTagManageList();
+    tagManageDialog.classList.add('show');
   }
 
   function closeTagManage() {
@@ -297,6 +260,16 @@
     });
   }
 
+  function renderPhraseTagSelect(selectedId) {
+    const phraseTag = document.getElementById('phraseTag');
+    if (!phraseTag) return;
+    
+    const opts = tags.map(t => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name)}</option>`).join('');
+    phraseTag.innerHTML = opts;
+    const next = selectedId && tags.some(t => t.id === selectedId) ? selectedId : DEFAULT_TAG_ID;
+    phraseTag.value = next;
+  }
+
   function openEdit(id) {
     const phraseEditDialog = document.getElementById('phraseEditDialog');
     const phraseEditTitle = document.getElementById('phraseEditTitle');
@@ -314,7 +287,7 @@
     } else {
       editingId = null;
       if (phraseEditTitle) phraseEditTitle.textContent = '添加短语';
-      renderPhraseTagSelect(activeTagId);
+      renderPhraseTagSelect(activeTagId === '__ALL__' ? DEFAULT_TAG_ID : activeTagId);
       if (phraseTitle) phraseTitle.value = '';
       if (phraseContent) phraseContent.value = '';
     }
@@ -336,7 +309,7 @@
     const content = phraseContent ? phraseContent.value.trim() : '';
 
     if (!title || !content) {
-      showStatus('请填写标题和内容', 'error', 'phraseCardStatus');
+      showStatus('请填写标题和内容', 'error');
       return;
     }
 
@@ -362,7 +335,7 @@
     await savePhrases();
     closeEdit();
     renderAll();
-    showStatus(editingId ? '✅ 短语已更新' : '✅ 短语已添加', 'success', 'phraseCardStatus');
+    showStatus(editingId ? '✅ 短语已更新' : '✅ 短语已添加', 'success');
     editingId = null;
   }
 
@@ -373,28 +346,96 @@
     phrases = phrases.filter(x => x.id !== id);
     await savePhrases();
     renderAll();
-    showStatus('✅ 短语已删除', 'success', 'phraseCardStatus');
+    showStatus('✅ 短语已删除', 'success');
   }
 
-  function initPhraseModule() {
+  async function exportPhrases() {
+    const data = {
+      phrases,
+      tags,
+      exportedAt: new Date().toISOString()
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `phrases_${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showStatus('✅ 导出成功', 'success');
+  }
+
+  async function importPhrases(file) {
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      
+      if (data.phrases && Array.isArray(data.phrases)) {
+        phrases = data.phrases;
+      }
+      if (data.tags && Array.isArray(data.tags)) {
+        tags = data.tags;
+      }
+      
+      await savePhrases();
+      await saveTags();
+      await ensureTagsAndMigrate();
+      renderAll();
+      showStatus('✅ 导入成功', 'success');
+    } catch (e) {
+      console.error('导入失败', e);
+      showStatus('❌ 导入失败，请检查文件格式', 'error');
+    }
+  }
+
+  function init() {
+    const backBtn = document.getElementById('backBtn');
+    const addPhraseBtn = document.getElementById('addPhraseBtn');
     const savePhraseBtn = document.getElementById('savePhraseBtn');
     const cancelPhraseBtn = document.getElementById('cancelPhraseBtn');
+    const importPhraseBtn = document.getElementById('importPhraseBtn');
+    const exportPhraseBtn = document.getElementById('exportPhraseBtn');
+    const phraseFileInput = document.getElementById('phraseFileInput');
     const closeTagManageBtn = document.getElementById('closeTagManageBtn');
     const addTagBtn = document.getElementById('addTagBtn');
-    const addPhraseBtn = document.getElementById('addPhraseBtn');
+
+    if (backBtn) {
+      backBtn.addEventListener('click', () => {
+        window.location.href = '../popup.html';
+      });
+    }
 
     if (addPhraseBtn) {
       addPhraseBtn.addEventListener('click', () => openEdit(null));
     }
+
     if (savePhraseBtn) {
       savePhraseBtn.addEventListener('click', savePhrase);
     }
+
     if (cancelPhraseBtn) {
       cancelPhraseBtn.addEventListener('click', closeEdit);
     }
+
+    if (exportPhraseBtn) {
+      exportPhraseBtn.addEventListener('click', exportPhrases);
+    }
+
+    if (importPhraseBtn && phraseFileInput) {
+      importPhraseBtn.addEventListener('click', () => phraseFileInput.click());
+      phraseFileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          importPhrases(file);
+        }
+        e.target.value = '';
+      });
+    }
+
     if (closeTagManageBtn) {
       closeTagManageBtn.addEventListener('click', closeTagManage);
     }
+
     if (addTagBtn) {
       addTagBtn.addEventListener('click', async () => {
         const name = prompt('请输入新标签名称：');
@@ -416,14 +457,8 @@
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initPhraseModule);
+    document.addEventListener('DOMContentLoaded', init);
   } else {
-    initPhraseModule();
+    init();
   }
-
-  window.PhraseModule = {
-    loadData,
-    renderAll,
-    showStatus
-  };
 })();

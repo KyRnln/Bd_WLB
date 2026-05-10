@@ -71,24 +71,40 @@
   }
 
   function getTargetLanguages() {
-    const tags = document.querySelectorAll('#targetLanguages .lang-tag');
-    return Array.from(tags).map(tag => tag.dataset.lang);
+    const btns = document.querySelectorAll('#targetLanguages .lang-btn');
+    return Array.from(btns).map(btn => btn.dataset.lang);
   }
 
   function renderTargetLanguages() {
     const container = document.getElementById('targetLanguages');
     container.innerHTML = '';
+    container.style.display = 'flex';
+    container.style.flexWrap = 'wrap';
+    container.style.gap = '8px';
 
     currentConfig.targetLanguages.forEach(lang => {
-      const tag = document.createElement('span');
-      tag.className = 'lang-tag';
-      tag.dataset.lang = lang;
-      tag.innerHTML = `${lang}<span class="remove">×</span>`;
-      tag.querySelector('.remove').addEventListener('click', (e) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'lang-btn';
+      btn.dataset.lang = lang;
+      btn.innerHTML = `${lang}<span class="remove" style="margin-left: 6px; font-size: 12px; opacity: 0.7;">×</span>`;
+      btn.style.cssText = 'display: inline-flex; align-items: center; justify-content: center; padding: 6px 16px; font-size: 14px; font-weight: 500; border-radius: 6px; cursor: pointer; transition: all 0.15s ease; border: 1px solid #e5e7eb; background: #ffffff; color: #374151;';
+
+      btn.addEventListener('mouseenter', () => {
+        btn.style.background = '#f9fafb';
+        btn.style.borderColor = '#d1d5db';
+      });
+      btn.addEventListener('mouseleave', () => {
+        btn.style.background = '#ffffff';
+        btn.style.borderColor = '#e5e7eb';
+      });
+
+      btn.querySelector('.remove').addEventListener('click', (e) => {
         e.stopPropagation();
         removeLanguage(lang);
       });
-      container.appendChild(tag);
+
+      container.appendChild(btn);
     });
   }
 
@@ -107,8 +123,9 @@
     const status = document.getElementById('status');
     status.textContent = message;
     status.className = 'status ' + type;
+    status.style.display = 'block';
     setTimeout(() => {
-      status.className = 'status';
+      status.style.display = 'none';
     }, 20000);
   }
 
@@ -163,6 +180,16 @@
   function init() {
     loadConfig();
 
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === 'local' && changes.translateConfig) {
+        currentConfig = { ...defaultConfig, ...changes.translateConfig.newValue };
+        updateUI();
+      }
+    });
+
+    document.getElementById('backBtn').addEventListener('click', () => {
+      window.location.href = '../popup.html';
+    });
     document.getElementById('provider').addEventListener('change', handleProviderChange);
     document.getElementById('saveBtn').addEventListener('click', saveConfig);
     document.getElementById('testBtn').addEventListener('click', testConnection);

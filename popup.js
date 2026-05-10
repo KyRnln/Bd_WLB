@@ -153,14 +153,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnTranslateNow = document.getElementById('btnTranslateNow');
   if (btnTranslateNow) {
     btnTranslateNow.addEventListener('click', () => {
-      chrome.tabs.create({ url: chrome.runtime.getURL('translate/translate_now.html') });
+      window.location.href = 'translate/translate_now.html';
     });
   }
 
   const btnTranslate = document.getElementById('btnTranslate');
   if (btnTranslate) {
     btnTranslate.addEventListener('click', () => {
-      chrome.tabs.create({ url: chrome.runtime.getURL('translate/translate.html') });
+      window.location.href = 'translate/translate.html';
     });
   }
 

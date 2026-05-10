@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,71 +7,99 @@
   <link rel="stylesheet" href="styles/base.css">
   <link rel="stylesheet" href="styles/components.css">
   <link rel="stylesheet" href="styles/utilities.css">
+  <link rel="stylesheet" href="styles/modules.css">
 </head>
-
-<body>
-  <div class="main">
-    <div id="creatorCard" class="card">
+<body class="bg-fluent-bg text-fluent-text min-h-screen p-4 sm:p-6 antialiased">
+  <main class="max-w-md mx-auto space-y-4">
+    <!-- BEGIN: Creator Management Section -->
+    <section id="creatorCard" class="bg-fluent-panel border border-fluent-border rounded-xl p-4 backdrop-blur-md shadow-lg">
       <div id="creatorCardStatus" class="status info" style="display:none;"></div>
-      <div class="card-header">
-        <div class="card-title">达人管理</div>
-        <span class="card-desc">通过 XLSX 导入达人ID，页面会自动匹配并高亮达人</span>
+      <!-- Header Area -->
+      <div class="space-y-1 mb-4">
+        <div class="space-y-1 mb-4">
+          <h2 class="text-base font-semibold">达人管理</h2>
+          <p class="text-xs text-fluent-textMuted leading-tight">通过 XLSX 导入达人ID，页面会自动匹配并高亮达人</p>
+        </div>
       </div>
-      <div class="card-actions">
-        <button id="openCreatorManageBtn" class="btn-sm">达人管理</button>
-      </div>
-      <div class="mt-3">
-        <input id="creatorSearchInput" type="text" placeholder="通过达人ID，CID，地区搜索..." class="search-input" />
+      <!-- Action Button -->
+      <button id="openCreatorManageBtn" class="mb-4 px-4 py-1.5 bg-fluent-button hover:bg-fluent-buttonHover border border-fluent-border rounded-md text-sm transition-colors duration-200">
+        达人管理
+      </button>
+      <!-- Search Input -->
+      <div class="mb-5 relative">
+        <input id="creatorSearchInput" type="text" class="w-full bg-fluent-input border-t-0 border-l-0 border-r-0 border-b border-fluent-inputBorder rounded-md px-3 py-2 text-sm text-fluent-text placeholder-fluent-textMuted fluent-input transition-colors duration-200" placeholder="通过达人ID，CID，地区搜索..."/>
       </div>
       <div id="creatorPreview"></div>
       <div id="creatorSearchResults" class="search-results">
-        <div class="text-sm text-muted mb-2">搜索结果：</div>
+        <div class="text-sm text-fluent-textMuted mb-2">搜索结果：</div>
         <div id="creatorSearchList" class="search-list"></div>
       </div>
-    </div>
+    </section>
+    <!-- END: Creator Management Section -->
 
-    <div id="toolsCard" class="card">
-      <div class="text-base text-muted text-center mb-3">选择要使用的功能</div>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-        <button id="btnCover" class="tool-btn" style="padding: 6px 8px; font-size: 13px;">📹 获取视频封面</button>
-        <button id="btnCid" class="tool-btn" style="padding: 6px 8px; font-size: 13px;">👤 获取头像/CID</button>
-        <button id="btnCidToName" class="tool-btn" style="padding: 6px 8px; font-size: 13px;">🔍 CID获取达人</button>
-        <button id="btnOrder" class="tool-btn" style="padding: 6px 8px; font-size: 13px;">📦 订单履约情况</button>
+    <!-- BEGIN: Function Selection Section -->
+    <section id="toolsCard" class="bg-fluent-panel border border-fluent-border rounded-xl p-4 backdrop-blur-md shadow-lg flex flex-col items-center">
+      <h3 class="text-sm text-fluent-textMuted mb-4">选择要使用的功能</h3>
+      <!-- Buttons Grid -->
+      <div class="grid grid-cols-2 gap-3 w-full">
+        <button id="btnCover" class="flex items-center justify-center gap-2 px-4 py-2 bg-fluent-button hover:bg-fluent-buttonHover border border-fluent-border rounded-md text-sm transition-colors duration-200">
+          获取视频封面
+        </button>
+        <button id="btnCid" class="flex items-center justify-center gap-2 px-4 py-2 bg-fluent-button hover:bg-fluent-buttonHover border border-fluent-border rounded-md text-sm transition-colors duration-200">
+          获取头像/CID
+        </button>
+        <button id="btnCidToName" class="flex items-center justify-center gap-2 px-4 py-2 bg-fluent-button hover:bg-fluent-buttonHover border border-fluent-border rounded-md text-sm transition-colors duration-200">
+          CID获取达人
+        </button>
+        <button id="btnOrder" class="flex items-center justify-center gap-2 px-4 py-2 bg-fluent-button hover:bg-fluent-buttonHover border border-fluent-border rounded-md text-sm transition-colors duration-200">
+          订单履约情况
+        </button>
       </div>
-    </div>
+    </section>
+    <!-- END: Function Selection Section -->
 
-    <div id="translateCard" class="card">
-      <div class="card-header">
-        <div class="card-title">AI翻译</div>
-        <span id="translateModelInfo" class="card-desc">未配置</span>
+    <!-- BEGIN: AI Translation Section -->
+    <section id="translateCard" class="bg-fluent-panel border border-fluent-border rounded-xl p-4 backdrop-blur-md shadow-lg">
+      <div class="flex items-baseline gap-2 mb-3">
+        <h3 class="text-sm font-semibold">AI翻译</h3>
+        <span id="translateModelInfo" class="text-xs text-fluent-textMuted">未配置</span>
       </div>
-      <div class="card-actions">
-        <button id="btnTranslateNow" class="btn-sm">📝 即时翻译</button>
-        <button id="btnTranslate" class="btn-sm">🌐 翻译配置</button>
+      <div class="flex gap-3 w-full">
+        <button id="btnTranslateNow" class="flex-1 flex items-center justify-center gap-2 px-4 py-1.5 bg-fluent-button hover:bg-fluent-buttonHover border border-fluent-border rounded-md text-sm transition-colors duration-200">
+          即时翻译
+        </button>
+        <button id="btnTranslate" class="flex-1 flex items-center justify-center gap-2 px-4 py-1.5 bg-fluent-button hover:bg-fluent-buttonHover border border-fluent-border rounded-md text-sm transition-colors duration-200">
+          翻译配置
+        </button>
       </div>
-    </div>
+    </section>
+    <!-- END: AI Translation Section -->
 
-    <div id="phraseCard" class="card">
+    <!-- BEGIN: Phrase Management Section -->
+    <section id="phraseCard" class="bg-fluent-panel border border-fluent-border rounded-xl p-4 backdrop-blur-md shadow-lg">
       <div id="phraseCardStatus" class="status info" style="display:none;"></div>
-      <div class="card-header">
-        <div class="card-title">短语管理</div>
-        <span class="card-desc">快捷短语输入"/"触发</span>
+      <div class="flex items-baseline gap-2 mb-4">
+        <h3 class="text-sm font-semibold">短语管理</h3>
+        <span class="text-xs text-fluent-textMuted">快捷短语输入"/"触发</span>
       </div>
-      <div id="tagBar" class="tagbar"></div>
+      <div id="tagBar" class="tagbar mt-3"></div>
       <div id="phraseList" style="display:none;"></div>
-    </div>
+    </section>
+    <!-- END: Phrase Management Section -->
 
-    <div id="dataCard" class="card">
+    <!-- BEGIN: Data Management Section -->
+    <section id="dataCard" class="bg-fluent-panel border border-fluent-border rounded-xl p-4 backdrop-blur-md shadow-lg">
       <div id="dataCardStatus" class="status info" style="display:none;"></div>
-      <div class="card-header">
-        <div class="card-title">数据管理</div>
-        <span class="card-desc">备份与恢复数据</span>
+      <div class="flex items-baseline gap-2 mb-4">
+        <h3 class="text-sm font-semibold">数据管理</h3>
+        <span class="text-xs text-fluent-textMuted">备份与恢复数据</span>
       </div>
-      <div class="card-actions">
-        <button id="btnBackup" class="btn-sm">📦 数据备份</button>
-      </div>
-    </div>
-  </div>
+      <button id="btnBackup" class="px-4 py-1.5 bg-fluent-button hover:bg-fluent-buttonHover border border-fluent-border rounded-md text-sm transition-colors duration-200">
+        数据备份
+      </button>
+    </section>
+    <!-- END: Data Management Section -->
+  </main>
 
   <div id="phraseEditDialog" class="dialog-mask">
     <div class="dialog">
@@ -80,12 +107,12 @@
       <label for="phraseTag">标签（必选）</label>
       <select id="phraseTag"></select>
       <label for="phraseTitle">标题</label>
-      <input id="phraseTitle" type="text" placeholder="例如：常用回复" />
+      <input id="phraseTitle" type="text" placeholder="例如：常用回复"/>
       <label for="phraseContent">内容</label>
       <textarea id="phraseContent" placeholder="输入要插入的文本"></textarea>
       <div class="footer">
         <button id="cancelPhraseBtn" class="btn-sm">取消</button>
-        <button id="savePhraseBtn" class="btn-sm">保存</button>
+        <button id="savePhraseBtn" class="btn-sm btn-primary">保存</button>
       </div>
     </div>
   </div>
@@ -94,19 +121,19 @@
     <div class="dialog">
       <h3>编辑达人信息</h3>
       <label for="creatorEditId">达人ID</label>
-      <input id="creatorEditId" type="text" readonly />
+      <input id="creatorEditId" type="text" readonly/>
       <label for="creatorEditCid">达人CID（选填）</label>
-      <input id="creatorEditCid" type="text" placeholder="输入达人CID" />
+      <input id="creatorEditCid" type="text" placeholder="输入达人CID"/>
       <label for="creatorEditRegion">地区代码（选填）</label>
-      <input id="creatorEditRegion" type="text" placeholder="例如：MY/TH/ID/SG/PH/VN" />
+      <input id="creatorEditRegion" type="text" placeholder="例如：MY/TH/ID/SG/PH/VN"/>
       <label for="creatorEditTag">标签（选填）</label>
-      <input id="creatorEditTag" type="text" placeholder="例如：绩效达人、流失达人、隐藏达人" />
+      <input id="creatorEditTag" type="text" placeholder="例如：绩效达人、流失达人、隐藏达人"/>
       <label for="creatorEditRemark">备注信息（选填）</label>
       <textarea id="creatorEditRemark" placeholder="输入达人的备注信息" style="min-height: 60px;"></textarea>
       <div class="footer">
         <button id="cancelCreatorEditBtn" class="btn-sm">取消</button>
-        <button id="saveCreatorEditBtn" class="btn-sm">保存</button>
-        <button id="deleteCreatorBtn" class="btn-sm">删除</button>
+        <button id="saveCreatorEditBtn" class="btn-sm btn-primary">保存</button>
+        <button id="deleteCreatorBtn" class="btn-sm" style="color: var(--fluent-statPerfText); border-color: rgba(255,100,100,0.3);">删除</button>
       </div>
     </div>
   </div>
@@ -120,5 +147,4 @@
     Powered by "电子恐龙" with AI
   </div>
 </body>
-
 </html>
