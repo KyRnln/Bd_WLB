@@ -198,4 +198,28 @@ document.addEventListener('DOMContentLoaded', () => {
       loadTranslateModelInfo();
     }
   });
+
+  async function updatePopupCreatorStats() {
+    try {
+      const result = await new Promise(resolve =>
+        storageAPI.get(['savedCreators'], resolve)
+      );
+      const creators = Array.isArray(result.savedCreators) ? result.savedCreators : [];
+      const totalEl = document.getElementById('popupTotalCount');
+      const lostEl = document.getElementById('popupLostCount');
+      const perfEl = document.getElementById('popupPerfCount');
+      if (totalEl) totalEl.textContent = creators.length;
+      if (lostEl) lostEl.textContent = creators.filter(c => c.tag === '流失达人').length;
+      if (perfEl) perfEl.textContent = creators.filter(c => c.tag === '绩效达人').length;
+    } catch (e) {
+      console.error('更新达人统计失败', e);
+    }
+  }
+  updatePopupCreatorStats();
+
+  storageAPI.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes.savedCreators) {
+      updatePopupCreatorStats();
+    }
+  });
 });

@@ -438,7 +438,7 @@ label {
 }
 
 .form-group {
-  margin-bottom: 24px;
+  margin-bottom: 0;
 }
 
 .button-group {
@@ -485,8 +485,20 @@ label {
   display: none;
 }
 
+.custom-summary .chevron-icon {
+  transition: transform 0.2s ease;
+}
+
+details[open] .custom-summary .chevron-icon {
+  transform: rotate(180deg);
+}
+
 details[open] .custom-summary {
-  margin-bottom: 6px;
+  margin-bottom: 0;
+}
+
+.custom-summary.card-header {
+  margin-bottom: 0;
 }
 
 .action-card {

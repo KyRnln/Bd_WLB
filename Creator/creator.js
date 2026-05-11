@@ -222,10 +222,14 @@
     if (searchResults.length === 0) {
       creatorSearchResults.classList.remove('show');
       creatorSearchList.innerHTML = '';
+      const searchLabel = creatorSearchResults.querySelector('.text-sm.text-fluent-textMuted');
+      if (searchLabel) searchLabel.style.display = 'none';
       return;
     }
 
     creatorSearchResults.classList.add('show');
+    const searchLabel = creatorSearchResults.querySelector('.text-sm.text-fluent-textMuted');
+    if (searchLabel) searchLabel.style.display = 'block';
     creatorSearchList.innerHTML = searchResults.map((creator, index) => {
       let tagClass = 'card-tag-default';
       let tagName = creator.tag || '未分组';

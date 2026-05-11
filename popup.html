@@ -21,17 +21,48 @@
           <p class="text-xs text-fluent-textMuted leading-tight">通过 XLSX 导入达人ID，页面会自动匹配并高亮达人</p>
         </div>
       </div>
-      <!-- Action Button -->
-      <button id="openCreatorManageBtn" class="mb-4 px-4 py-1.5 bg-fluent-button hover:bg-fluent-buttonHover border border-fluent-border rounded-md text-sm transition-colors duration-200">
-        达人管理
-      </button>
+      <!-- Action Button + Stats Row -->
+      <div class="flex items-center gap-2 mb-4">
+        <div class="creator-stats-row" id="creatorStatsRow" style="margin-bottom: 0; flex: 1; min-width: 0;">
+          <div class="fluent-card stat-card" style="padding: 4px 6px; min-height: 34px;">
+            <div class="stat-icon" style="width: 16px; height: 16px; border-radius: 4px;">
+              <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg>
+            </div>
+            <div>
+              <p class="stat-card-label" style="font-size: 9px; line-height: 12px; margin-bottom: 0;">总计</p>
+              <p class="stat-card-value" id="popupTotalCount" style="font-size: 13px; line-height: 16px;">0</p>
+            </div>
+          </div>
+          <div class="fluent-card stat-card" style="padding: 4px 6px; min-height: 34px;">
+             <div class="stat-icon" style="width: 16px; height: 16px; border-radius: 4px;">
+               <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6L9 12.75l4.286-4.286a11.948 11.948 0 014.306 6.43l.776 2.898m0 0l3.182-5.511m-3.182 5.51l-5.511-3.181" /></svg>
+             </div>
+            <div>
+              <p class="stat-card-label" style="font-size: 9px; line-height: 12px; margin-bottom: 0;">流失</p>
+              <p class="stat-card-value" id="popupLostCount" style="font-size: 13px; line-height: 16px;">0</p>
+            </div>
+          </div>
+          <div class="fluent-card stat-card" style="padding: 4px 6px; min-height: 34px;">
+            <div class="stat-icon" style="width: 16px; height: 16px; border-radius: 4px;">
+              <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg>
+            </div>
+            <div>
+              <p class="stat-card-label" style="font-size: 9px; line-height: 12px; margin-bottom: 0;">绩效</p>
+              <p class="stat-card-value" id="popupPerfCount" style="font-size: 13px; line-height: 16px;">0</p>
+            </div>
+          </div>
+        </div>
+        <button id="openCreatorManageBtn" class="px-4 py-1.5 bg-fluent-button hover:bg-fluent-buttonHover border border-fluent-border rounded-md text-sm transition-colors duration-200 whitespace-nowrap" style="padding: 4px 13px; line-height: 1.2; text-align: center; min-height: 34px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 11px;">
+          达人<br>管理
+        </button>
+      </div>
       <!-- Search Input -->
       <div class="mb-5 relative">
         <input id="creatorSearchInput" type="text" class="w-full bg-fluent-input border-t-0 border-l-0 border-r-0 border-b border-fluent-inputBorder rounded-md px-3 py-2 text-sm text-fluent-text placeholder-fluent-textMuted fluent-input transition-colors duration-200" placeholder="通过达人ID，CID，地区搜索..."/>
       </div>
       <div id="creatorPreview"></div>
       <div id="creatorSearchResults" class="search-results">
-        <div class="text-sm text-fluent-textMuted mb-2">搜索结果：</div>
+        <div class="text-sm text-fluent-textMuted mb-2" style="display:none;">搜索结果：</div>
         <div id="creatorSearchList" class="search-list"></div>
       </div>
     </section>
