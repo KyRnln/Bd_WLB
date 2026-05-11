@@ -1,17 +1,93 @@
 (function () {
   'use strict';
 
+  const API_BASE_URL = 'https://kyrnln.cloud/api';
+
   let config = null;
   let translateBox = null;
   let isVisible = false;
   let currentTextarea = null;
+  let cachedToken = null;
+  let focusedInput = null;
+  let lastSelectedTarget = null;
+
+  function getTokenFromStorage() {
+    return new Promise((resolve) => {
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        chrome.storage.local.get(['auth_token'], (result) => {
+          resolve(result.auth_token || null);
+        });
+      } else {
+        resolve(null);
+      }
+    });
+  }
+
+  async function apiRequest(endpoint, options = {}) {
+    if (!cachedToken) {
+      cachedToken = await getTokenFromStorage();
+    }
+    const url = `${API_BASE_URL}${endpoint}`;
+    const headers = {
+      'Content-Type': 'application/json',
+      ...options.headers
+    };
+
+    if (cachedToken) {
+      headers['Authorization'] = `Bearer ${cachedToken}`;
+    }
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          console.warn('[Translate Content] 用户未登录');
+        }
+        throw new Error(data.message || '请求失败');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('[Translate Content] API 请求错误:', error);
+      throw error;
+    }
+  }
+
+  function normalizeConfig(raw) {
+    if (!raw) return null;
+    return {
+      provider: raw.provider || 'qwen',
+      api_url: raw.api_url || raw.apiUrl || '',
+      api_key: raw.api_key || raw.apiKey || '',
+      model_name: raw.model_name || raw.modelName || '',
+      target_langs: raw.target_langs || raw.targetLanguages || ['英语', '泰语', '越南语', '印尼语'],
+      prompt_template: raw.prompt_template || raw.promptTemplate || '将以下内容翻译成{target}，只返回翻译结果，不要添加任何解释：'
+    };
+  }
 
   async function loadConfig() {
     try {
       const result = await chrome.storage.local.get(['translateConfig']);
-      config = result.translateConfig || null;
+      if (result.translateConfig) {
+        config = normalizeConfig(result.translateConfig);
+        return;
+      }
     } catch (e) {
-      console.error('加载翻译配置失败', e);
+      console.warn('[Translate Content] 本地存储读取失败', e);
+    }
+
+    try {
+      const result = await apiRequest('/translate/config');
+      config = normalizeConfig(result.data);
+    } catch (e) {
+      console.warn('[Translate Content] API 加载配置失败，使用空配置', e);
+      config = normalizeConfig(null);
     }
   }
 
@@ -20,64 +96,26 @@
 
     translateBox = document.createElement('div');
     translateBox.id = 'wlb-translate-box';
-    translateBox.style.cssText = `
-      position: fixed;
-      z-index: 999999;
-      background: #fff;
-      border: 1px solid #1890ff;
-      border-radius: 999px;
-      box-shadow: 0 4px 20px rgba(24, 144, 255, 0.3);
-      padding: 6px;
-      display: none;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      white-space: nowrap;
-    `;
+    translateBox.className = 'wlb-translate-box';
 
     translateBox.innerHTML = `
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <select id="wlb-translate-target" style="
-          height: 28px;
-          padding: 0 8px;
-          border: 1px solid #1890ff;
-          border-radius: 999px;
-          font-size: 13px;
-          outline: none;
-          background: #fff;
-          cursor: pointer;
-          color: #1890ff;
-        "></select>
-        <input type="text" id="wlb-translate-input" placeholder="输入中文，回车翻译" style="
-          min-width: 100px;
-          max-width: 1000px;
-          height: 28px;
-          border: none;
-          border-bottom: 1px solid #e0e0e0;
-          padding: 0 8px;
-          font-size: 14px;
-          outline: none;
-          background: transparent;
-        " />
-        <span id="wlb-translate-close" style="
-          cursor: pointer;
-          color: #1890ff;
-          font-size: 16px;
-          padding: 0 4px;
-          line-height: 28px;
-          font-weight: bold;
-        ">×</span>
+      <div class="translate-row">
+        <select id="wlb-translate-target" class="translate-target"></select>
+        <input type="text" id="wlb-translate-input" class="translate-input" placeholder="输入中文，回车翻译" />
+        <button id="wlb-translate-close" class="translate-close">×</button>
       </div>
     `;
 
     document.body.appendChild(translateBox);
 
     document.getElementById('wlb-translate-close').addEventListener('click', hideTranslateBox);
-    
+
     const inputEl = document.getElementById('wlb-translate-input');
-    inputEl.addEventListener('input', function() {
+    inputEl.addEventListener('input', function () {
       this.style.width = 'auto';
       const newWidth = Math.max(100, Math.min(1000, this.scrollWidth + 16));
       this.style.width = newWidth + 'px';
-      
+
       if (translateBox) {
         const boxRect = translateBox.getBoundingClientRect();
         if (boxRect.right > window.innerWidth - 10) {
@@ -99,19 +137,30 @@
 
   function updateTargetLanguages() {
     const select = document.getElementById('wlb-translate-target');
-    if (!select || !config || !config.targetLanguages) return;
+    if (!select || !config || !config.target_langs) return;
 
     select.innerHTML = '';
-    config.targetLanguages.forEach(lang => {
+    config.target_langs.forEach(lang => {
       const option = document.createElement('option');
       option.value = lang;
       option.textContent = lang;
       select.appendChild(option);
     });
+
+    if (lastSelectedTarget && config.target_langs.includes(lastSelectedTarget)) {
+      select.value = lastSelectedTarget;
+    }
+
+    select.addEventListener('change', () => {
+      lastSelectedTarget = select.value;
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        chrome.storage.local.set({ 'translate_last_target': lastSelectedTarget });
+      }
+    });
   }
 
   function showTranslateBox(x, y, textarea) {
-    if (!config || !config.apiKey) {
+    if (!config || !config.api_key) {
       showNotification('请先配置翻译服务', 'error');
       return;
     }
@@ -136,12 +185,14 @@
     translateBox.style.display = 'inline-block';
     isVisible = true;
 
-    document.getElementById('wlb-translate-input').focus();
+    setTimeout(() => {
+      document.getElementById('wlb-translate-input')?.focus();
+    }, 50);
   }
 
   function hideTranslateBox(keepFocus = false) {
     const textareaToFocus = keepFocus ? currentTextarea : null;
-    
+
     if (translateBox) {
       translateBox.style.display = 'none';
       document.getElementById('wlb-translate-input').value = '';
@@ -162,23 +213,25 @@
       return;
     }
 
-    if (!config || !config.apiKey) {
+    if (!config || !config.api_key) {
       showNotification('请先配置翻译服务', 'error');
       return;
     }
 
-    const prompt = (config.promptTemplate || '将以下内容翻译成{target}：')
+    const prompt = (config.prompt_template || '将以下内容翻译成{target}：')
       .replace('{target}', target);
 
+    const textarea = currentTextarea;
+
     try {
-      const response = await fetch(config.apiUrl, {
+      const response = await fetch(config.api_url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${config.apiKey}`
+          'Authorization': `Bearer ${config.api_key}`
         },
         body: JSON.stringify({
-          model: config.modelName,
+          model: config.model_name,
           messages: [
             { role: 'user', content: `你是一个专业的翻译助手，请准确翻译用户的内容。\n\n${prompt}\n\n${input}` }
           ],
@@ -194,15 +247,15 @@
       const data = await response.json();
       const translation = data.choices?.[0]?.message?.content || '翻译失败';
 
-      if (currentTextarea) {
+      if (textarea && document.body.contains(textarea)) {
         const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
           window.HTMLTextAreaElement.prototype,
           'value'
         ).set;
-        nativeInputValueSetter.call(currentTextarea, translation);
-        currentTextarea.dispatchEvent(new Event('input', { bubbles: true }));
-        currentTextarea.dispatchEvent(new Event('change', { bubbles: true }));
-        currentTextarea.focus();
+        nativeInputValueSetter.call(textarea, translation);
+        textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        textarea.dispatchEvent(new Event('change', { bubbles: true }));
+        textarea.focus();
       }
 
       setTimeout(() => {
@@ -210,6 +263,7 @@
       }, 500);
 
     } catch (e) {
+      console.error('翻译错误详情:', e);
       showNotification('翻译失败: ' + e.message, 'error');
     }
   }
@@ -242,31 +296,55 @@
     }
   }
 
-  function handleKeydown(e) {
-    if (e.key !== 'ArrowUp') return;
-    if (isVisible) return;
-
-    const target = e.target;
-    if (target.tagName !== 'TEXTAREA' && target.tagName !== 'INPUT') return;
-    if (target.id !== 'imTextarea' && !target.placeholder?.includes('发送消息')) return;
-
-    e.preventDefault();
-    loadConfig().then(() => {
-      const rect = target.getBoundingClientRect();
-      showTranslateBox(rect.left, rect.top, target);
-    });
-  }
-
   function init() {
     loadConfig();
 
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.get(['translate_last_target'], (result) => {
+        if (result.translate_last_target) {
+          lastSelectedTarget = result.translate_last_target;
+        }
+      });
+    }
+
+    document.addEventListener('mousedown', (e) => {
+      const target = e.target;
+      if (target.tagName === 'TEXTAREA' || (target.tagName === 'INPUT' && /^(text|search|tel|url|email|password|number)$/.test(target.type))) {
+        focusedInput = target;
+      }
+    }, true);
+
+    chrome.runtime.onMessage.addListener((request) => {
+      if (request.action === 'showTranslate') {
+        if (!focusedInput) {
+          showNotification('请先点击选择一个文本输入框', 'error');
+          return;
+        }
+        loadConfig().then(() => {
+          const rect = focusedInput.getBoundingClientRect();
+          showTranslateBox(rect.left, rect.top, focusedInput);
+        });
+      } else if (request.action === 'triggerTranslateQuickInput') {
+        if (!focusedInput) {
+          showNotification('请先点击选择一个文本输入框', 'error');
+          return;
+        }
+        loadConfig().then(() => {
+          const rect = focusedInput.getBoundingClientRect();
+          showTranslateBox(rect.left, rect.top, focusedInput);
+        });
+      }
+    });
+
     document.addEventListener('click', handleClick, true);
-    document.addEventListener('keydown', handleKeydown, true);
 
     chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === 'local' && changes.auth_token) {
+        cachedToken = changes.auth_token.newValue || null;
+        loadConfig();
+      }
       if (area === 'local' && changes.translateConfig) {
-        config = changes.translateConfig.newValue;
-        updateTargetLanguages();
+        config = normalizeConfig(changes.translateConfig.newValue);
       }
     });
   }

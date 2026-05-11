@@ -50,6 +50,9 @@
       "js": [
         "phrase/phrase_content.js"
       ],
+      "css": [
+        "styles/content.css"
+      ],
       "run_at": "document_start",
       "all_frames": true
     },
@@ -96,6 +99,9 @@
       "js": [
         "translate/translate_content.js"
       ],
+      "css": [
+        "styles/content.css"
+      ],
       "run_at": "document_end"
     }
   ],
@@ -114,6 +120,23 @@
   "background": {
     "service_worker": "background.js",
     "type": "module"
+  },
+
+  "commands": {
+    "triggerPhraseSelector": {
+      "suggested_key": {
+        "default": "Alt+Y",
+        "mac": "Alt+Y"
+      },
+      "description": "触发快捷短语选择"
+    },
+    "triggerTranslateQuickInput": {
+      "suggested_key": {
+        "default": "Alt+Q",
+        "mac": "Alt+Q"
+      },
+      "description": "触发快捷翻译输入"
+    }
   },
 
   "web_accessible_resources": [

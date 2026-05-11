@@ -224,3 +224,19 @@ async function handleFetchFeishuSheetData(config) {
     return { success: false, error: err.message };
   }
 }
+
+chrome.commands.onCommand.addListener((command) => {
+  if (command === 'triggerPhraseSelector') {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (tabs && tabs.length > 0) {
+        chrome.tabs.sendMessage(tabs[0].id, { action: 'triggerPhraseSelector' }).catch(() => {});
+      }
+    });
+  } else if (command === 'triggerTranslateQuickInput') {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (tabs && tabs.length > 0) {
+        chrome.tabs.sendMessage(tabs[0].id, { action: 'showTranslate' }).catch(() => {});
+      }
+    });
+  }
+});

@@ -222,4 +222,21 @@ document.addEventListener('DOMContentLoaded', () => {
       updatePopupCreatorStats();
     }
   });
+
+  async function updatePhraseShortcutHint() {
+    const hintEl = document.getElementById('phraseShortcutHint');
+    if (!hintEl) return;
+    try {
+      const commands = await chrome.commands.getAll();
+      const triggerCmd = commands.find(c => c.name === 'triggerPhraseSelector');
+      if (triggerCmd && triggerCmd.shortcut) {
+        hintEl.textContent = `快捷短语 ${triggerCmd.shortcut} 触发`;
+      } else {
+        hintEl.textContent = '快捷短语 (未设置快捷键)';
+      }
+    } catch (e) {
+      hintEl.textContent = '快捷短语输入"/"触发';
+    }
+  }
+  updatePhraseShortcutHint();
 });
