@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "商务WLB插件",
-  "version": "1.7",
+  "version": "1.7.2",
   "description": "工作是为了更好的生活",
 
   "icons": {
@@ -30,11 +30,12 @@
     "https://*.tiktokcdn-us.com/*",
     "https://*.tiktokv.com/*",
     "https://dav.jianguiyun.com/*",
+    "https://open.feishu.cn/*",
     "*://*/*"
   ],
 
   "content_security_policy": {
-    "extension_pages": "default-src 'self'; connect-src https://*.tiktok.com https://*.tiktokcdn.com https://*.tiktokcdn-us.com https://*.tiktokv.com https://dav.jianguiyun.com https://*.aliyuncs.com https://api.openai.com https://api.deepseek.com https://*; img-src 'self' https: data:; style-src 'self' 'unsafe-inline'; script-src 'self'"
+    "extension_pages": "default-src 'self'; connect-src https://*.tiktok.com https://*.tiktokcdn.com https://*.tiktokcdn-us.com https://*.tiktokv.com https://dav.jianguiyun.com https://*.aliyuncs.com https://api.openai.com https://api.deepseek.com https://open.feishu.cn https://*; img-src 'self' https: data:; style-src 'self' 'unsafe-inline'; script-src 'self'"
   },
 
   "content_scripts": [

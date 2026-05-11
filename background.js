@@ -141,6 +141,9 @@ async function handleMessage(request, sender) {
       });
       return { success: true };
     }
+    case 'fetchFeishuSheetData': {
+      return await handleFetchFeishuSheetData(request.config);
+    }
     default: {
       const coverResult = await handleCoverMessage(request);
       if (coverResult) {
@@ -165,4 +168,59 @@ async function downloadExcel(data, customFilename = null) {
   const dataUrl = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${btoa(bin)}`;
   const filename = customFilename || `orders_${new Date().toISOString().split('T')[0]}.xlsx`;
   await chrome.downloads.download({ url: dataUrl, filename, saveAs: true });
+}
+
+async function handleFetchFeishuSheetData(config) {
+  try {
+    const tokenResponse = await fetch('https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        app_id: config.appId,
+        app_secret: config.appSecret
+      })
+    });
+
+    if (!tokenResponse.ok) {
+      const errText = await tokenResponse.text();
+      throw new Error(`获取飞书 token 失败 (${tokenResponse.status}): ${errText}`);
+    }
+
+    const tokenData = await tokenResponse.json();
+    if (tokenData.code !== 0) {
+      throw new Error(`飞书 token 返回错误: ${tokenData.msg || JSON.stringify(tokenData)}`);
+    }
+
+    const accessToken = tokenData.tenant_access_token;
+    const range = config.range || 'A:E';
+    const url = `https://open.feishu.cn/open-apis/sheets/v2/spreadsheets/${config.spreadsheetToken}/values/${encodeURIComponent(range)}`;
+
+    const sheetResponse = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!sheetResponse.ok) {
+      const errText = await sheetResponse.text();
+      throw new Error(`读取飞书表格失败 (${sheetResponse.status}): ${errText}`);
+    }
+
+    const sheetData = await sheetResponse.json();
+    if (sheetData.code !== 0) {
+      throw new Error(`飞书表格返回错误: ${sheetData.msg || JSON.stringify(sheetData)}`);
+    }
+
+    const values = sheetData.data?.valueRange?.values;
+    if (!Array.isArray(values) || values.length === 0) {
+      return { success: true, data: [] };
+    }
+
+    return { success: true, data: values };
+  } catch (err) {
+    console.error('[Feishu] 获取数据失败:', err);
+    return { success: false, error: err.message };
+  }
 }

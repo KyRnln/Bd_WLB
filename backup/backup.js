@@ -40,7 +40,8 @@
         'savedCreators',
         'creatorBlacklist',
         'translateConfig',
-        'webdavConfig'
+        'webdavConfig',
+        'feishuConfig'
       ], resolve);
     });
   }
@@ -51,9 +52,8 @@
         savedPhrases: data.phrases || [],
         savedTags: data.tags || [],
         activeTagId: data.activeTagId || '__ALL__',
-        savedCreators: data.creators || [],
-        creatorBlacklist: data.creatorBlacklist || [],
-        translateConfig: data.translateConfig || null
+        translateConfig: data.translateConfig || null,
+        feishuConfig: data.feishuConfig || null
       }, resolve);
     });
   }
@@ -65,8 +65,6 @@
       phrases: [],
       tags: [],
       activeTagId: '__ALL__',
-      creators: [],
-      creatorBlacklist: [],
       translateConfig: null
     };
   }
@@ -80,9 +78,8 @@
         phrases: result.savedPhrases || [],
         tags: result.savedTags || [],
         activeTagId: result.activeTagId || '__ALL__',
-        creators: result.savedCreators || [],
-        creatorBlacklist: result.creatorBlacklist || [],
-        translateConfig: result.translateConfig || null
+        translateConfig: result.translateConfig || null,
+        feishuConfig: result.feishuConfig || null
       };
 
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -145,9 +142,8 @@
         phrases: result.savedPhrases || [],
         tags: result.savedTags || [],
         activeTagId: result.activeTagId || '__ALL__',
-        creators: result.savedCreators || [],
-        creatorBlacklist: result.creatorBlacklist || [],
-        translateConfig: result.translateConfig || null
+        translateConfig: result.translateConfig || null,
+        feishuConfig: result.feishuConfig || null
       };
 
       const fileUrl = url + 'wlb_backup.json';

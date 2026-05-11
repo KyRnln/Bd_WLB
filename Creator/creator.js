@@ -7,6 +7,7 @@
   let searchResults = [];
   let editingCreatorIndex = -1;
   let activeCreatorTagId = 'all';
+  let feishuConfig = null;
 
   function showStatus(message, type = 'info', elementId = 'creatorCardStatus') {
     let statusDiv = document.getElementById(elementId);
@@ -347,6 +348,186 @@
     showStatus('达人已删除', 'success', 'creatorCardStatus');
   }
 
+  async function loadFeishuConfig() {
+    try {
+      const result = await new Promise(resolve =>
+        chrome.storage.local.get(['feishuConfig'], resolve)
+      );
+      feishuConfig = result.feishuConfig || null;
+    } catch (e) {
+      console.error('加载飞书配置失败', e);
+      feishuConfig = null;
+    }
+  }
+
+  async function saveFeishuConfigToStorage() {
+    try {
+      await new Promise(resolve =>
+        chrome.storage.local.set({ feishuConfig }, resolve)
+      );
+    } catch (e) {
+      console.error('保存飞书配置失败', e);
+    }
+  }
+
+  function parseFeishuUrl(url) {
+    const result = { spreadsheetToken: '', range: 'A:E' };
+    if (!url) return result;
+
+    const match = url.match(/sheets\/([^\/?]+)/);
+    if (!match) return result;
+    result.spreadsheetToken = match[1];
+
+    const sheetMatch = url.match(/[?&]sheet=([^&]+)/);
+    if (sheetMatch) {
+      result.range = sheetMatch[1] + '!A:E';
+    }
+
+    return result;
+  }
+
+  function openFeishuConfig() {
+    const dialog = document.getElementById('feishuConfigDialog');
+    if (!dialog) return;
+    document.getElementById('feishuAppId').value = feishuConfig?.appId || '';
+    document.getElementById('feishuAppSecret').value = feishuConfig?.appSecret || '';
+    document.getElementById('feishuUrl').value = feishuConfig?.feishuUrl || '';
+    dialog.classList.add('show');
+  }
+
+  function closeFeishuConfig() {
+    const dialog = document.getElementById('feishuConfigDialog');
+    if (dialog) dialog.classList.remove('show');
+  }
+
+  async function handleSaveFeishuConfig() {
+    const appId = document.getElementById('feishuAppId').value.trim();
+    const appSecret = document.getElementById('feishuAppSecret').value.trim();
+    const feishuUrl = document.getElementById('feishuUrl').value.trim();
+
+    if (!appId || !appSecret || !feishuUrl) {
+      showStatus('请填写 App ID、App Secret 和飞书表格 URL', 'error', 'creatorCardStatus');
+      return;
+    }
+
+    const parsed = parseFeishuUrl(feishuUrl);
+    if (!parsed.spreadsheetToken) {
+      showStatus('飞书表格 URL 格式不正确，请检查', 'error', 'creatorCardStatus');
+      return;
+    }
+
+    feishuConfig = {
+      appId,
+      appSecret,
+      feishuUrl,
+      spreadsheetToken: parsed.spreadsheetToken,
+      range: parsed.range
+    };
+    await saveFeishuConfigToStorage();
+    closeFeishuConfig();
+    showStatus('飞书配置已保存', 'success', 'creatorCardStatus');
+  }
+
+  async function handleImportFromFeishu() {
+    if (!feishuConfig) {
+      showStatus('请先在「飞书配置」中设置飞书信息', 'error', 'creatorCardStatus');
+      return;
+    }
+
+    const progressBar = document.getElementById('importProgressBar');
+    const progressFill = document.getElementById('importProgressFill');
+    const progressText = document.getElementById('importProgressText');
+    if (progressBar) progressBar.style.display = 'flex';
+    if (progressFill) progressFill.style.width = '10%';
+    if (progressText) progressText.textContent = '正在连接飞书...';
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        action: 'fetchFeishuSheetData',
+        config: feishuConfig
+      });
+
+      if (!response || !response.success) {
+        throw new Error(response?.error || '获取飞书数据失败');
+      }
+
+      if (progressFill) progressFill.style.width = '60%';
+      if (progressText) progressText.textContent = '正在解析数据...';
+
+      const rows = response.data || [];
+      const newCreators = [];
+
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        if (i === 0) continue;
+        const id = row[0]?.toString().trim();
+        if (!id) continue;
+        newCreators.push({
+          creator_id: id,
+          cid: (row[1]?.toString().trim()) || '',
+          region: (row[2]?.toString().trim()) || '',
+          tag: (row[3]?.toString().trim()) || '',
+          remark: (row[4]?.toString().trim()) || ''
+        });
+      }
+
+      if (progressFill) progressFill.style.width = '80%';
+      if (progressText) progressText.textContent = `正在合并数据（${newCreators.length} 条）...`;
+
+      let updatedCount = 0;
+      let addedCount = 0;
+
+      for (const newCreator of newCreators) {
+        const existingIndex = creators.findIndex(c => c.creator_id === newCreator.creator_id);
+        if (existingIndex >= 0) {
+          creators[existingIndex] = { ...creators[existingIndex], ...newCreator };
+          updatedCount++;
+        } else {
+          creators.push(newCreator);
+          addedCount++;
+        }
+      }
+
+      await saveData();
+      renderTags();
+      renderCreators();
+
+      if (progressFill) progressFill.style.width = '100%';
+      if (progressText) progressText.textContent = '导入完成';
+
+      let statusMsg = '';
+      if (addedCount > 0 && updatedCount > 0) {
+        statusMsg = `飞书导入完成：新增 ${addedCount} 个，更新 ${updatedCount} 个达人`;
+      } else if (addedCount > 0) {
+        statusMsg = `飞书导入完成：新增 ${addedCount} 个达人`;
+      } else if (updatedCount > 0) {
+        statusMsg = `飞书导入完成：已更新 ${updatedCount} 个达人`;
+      } else {
+        statusMsg = '飞书导入完成，无新增或更新数据';
+      }
+      showStatus(statusMsg, 'success', 'creatorCardStatus');
+    } catch (err) {
+      console.error('飞书导入失败', err);
+      showStatus('飞书导入失败：' + err.message, 'error', 'creatorCardStatus');
+    } finally {
+      setTimeout(() => {
+        if (progressBar) progressBar.style.display = 'none';
+        if (progressFill) progressFill.style.width = '0%';
+        if (progressText) progressText.textContent = '0%';
+      }, 2000);
+    }
+  }
+
+  function openOfflineImport() {
+    const dialog = document.getElementById('offlineImportDialog');
+    if (dialog) dialog.classList.add('show');
+  }
+
+  function closeOfflineImport() {
+    const dialog = document.getElementById('offlineImportDialog');
+    if (dialog) dialog.classList.remove('show');
+  }
+
   function initCreatorModule() {
     const importCreatorBtn = document.getElementById('importCreatorBtn');
     const downloadCreatorTemplateBtn = document.getElementById('downloadCreatorTemplateBtn');
@@ -385,7 +566,10 @@
     }
 
     if (importCreatorBtn && creatorFileInput) {
-      importCreatorBtn.addEventListener('click', () => creatorFileInput.click());
+      importCreatorBtn.addEventListener('click', () => {
+        closeOfflineImport();
+        creatorFileInput.click();
+      });
       creatorFileInput.addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -472,6 +656,35 @@
       });
     }
 
+    const importFeishuBtn = document.getElementById('importFeishuBtn');
+    if (importFeishuBtn) {
+      importFeishuBtn.addEventListener('click', handleImportFromFeishu);
+    }
+
+    const configFeishuBtn = document.getElementById('configFeishuBtn');
+    if (configFeishuBtn) {
+      configFeishuBtn.addEventListener('click', openFeishuConfig);
+    }
+
+    const offlineImportBtn = document.getElementById('offlineImportBtn');
+    if (offlineImportBtn) {
+      offlineImportBtn.addEventListener('click', openOfflineImport);
+    }
+
+    const closeOfflineImportBtn = document.getElementById('closeOfflineImportBtn');
+    if (closeOfflineImportBtn) {
+      closeOfflineImportBtn.addEventListener('click', closeOfflineImport);
+    }
+
+    const saveFeishuConfigBtn = document.getElementById('saveFeishuConfigBtn');
+    const cancelFeishuConfigBtn = document.getElementById('cancelFeishuConfigBtn');
+    if (saveFeishuConfigBtn) {
+      saveFeishuConfigBtn.addEventListener('click', handleSaveFeishuConfig);
+    }
+    if (cancelFeishuConfigBtn) {
+      cancelFeishuConfigBtn.addEventListener('click', closeFeishuConfig);
+    }
+
     if (saveCreatorEditBtn) {
       saveCreatorEditBtn.addEventListener('click', saveCreatorEdit);
     }
@@ -499,6 +712,7 @@
       });
     }
 
+    loadFeishuConfig();
     loadData();
   }
 
