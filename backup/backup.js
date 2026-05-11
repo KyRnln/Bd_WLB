@@ -150,7 +150,9 @@
         translateConfig: result.translateConfig || null
       };
 
-      const response = await fetch(url + 'wlb_backup.json', {
+      const fileUrl = url + 'wlb_backup.json';
+
+      let response = await fetch(fileUrl, {
         method: 'PUT',
         headers: {
           'Authorization': 'Basic ' + btoa(username + ':' + password),
@@ -158,6 +160,25 @@
         },
         body: JSON.stringify(data, null, 2)
       });
+
+      // If 404, the directory may not exist; try MKCOL to create it, then retry
+      if (response.status === 404) {
+        const dirUrl = fileUrl.substring(0, fileUrl.lastIndexOf('/') + 1);
+        await fetch(dirUrl, {
+          method: 'MKCOL',
+          headers: {
+            'Authorization': 'Basic ' + btoa(username + ':' + password)
+          }
+        });
+        response = await fetch(fileUrl, {
+          method: 'PUT',
+          headers: {
+            'Authorization': 'Basic ' + btoa(username + ':' + password),
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(data, null, 2)
+        });
+      }
 
       if (response.ok) {
         await new Promise(resolve => storageAPI.set({ webdavConfig: { url, username, password } }, resolve));
