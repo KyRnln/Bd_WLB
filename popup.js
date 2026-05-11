@@ -143,6 +143,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  const btnBitableCover = document.getElementById('btnBitableCover');
+  if (btnBitableCover) {
+    btnBitableCover.addEventListener('click', () => {
+      window.location.href = 'quick_module/bitable_cover/bitable_cover.html';
+    });
+  }
+
   const btnBackup = document.getElementById('btnBackup');
   if (btnBackup) {
     btnBackup.addEventListener('click', () => {

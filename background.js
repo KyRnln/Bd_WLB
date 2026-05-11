@@ -3,6 +3,7 @@ import { handleCidToNameMessage } from './quick_module/cid_to_name/cid_to_name_b
 import { handleOrderMessage } from './quick_module/order/order_background.js';
 import { handleUsernameAvatarCidMessage } from './quick_module/username_avatarcid/username_avatarcid_background.js';
 import { handleCoverMessage } from './quick_module/cover/cover_background.js';
+import { handleBitableCoverMessage } from './quick_module/bitable_cover/bitable_cover_background.js';
 
 chrome.runtime.onInstalled.addListener(() => {
   console.log('商务WLB扩展已安装');
@@ -154,11 +155,30 @@ async function handleMessage(request, sender) {
     case 'findFeishuRowByCreatorId': {
       return await handleFindFeishuRowByCreatorId(request.config, request.creatorId);
     }
+    case 'getFeishuSheetHeaders': {
+      return await handleGetFeishuSheetHeaders(request.config);
+    }
+    case 'bulkWriteFeishuSheet': {
+      return await handleBulkWriteFeishuSheet(request.config, request.startRow, request.values2D);
+    }
+    case 'listBitableRecords': {
+      return await handleListBitableRecords(request.config);
+    }
+    case 'fetchAndUploadBitableCover': {
+      return await handleFetchAndUploadBitableCover(request.config, request.recordId, request.videoUrl);
+    }
+    case 'resolveWikiToken': {
+      return await handleResolveWikiToken(request.config, request.wikiToken);
+    }
     default: {
       console.log('[Bg] default: 未匹配到处理函数, action=', request.action);
       const coverResult = await handleCoverMessage(request);
       if (coverResult) {
         return coverResult;
+      }
+      const bitableCoverResult = await handleBitableCoverMessage(request, handleListBitableRecords, handleFetchAndUploadBitableCover);
+      if (bitableCoverResult) {
+        return bitableCoverResult;
       }
       const cidToNameResult = await handleCidToNameMessage(request);
       if (cidToNameResult) {
@@ -362,6 +382,248 @@ async function handleFindFeishuRowByCreatorId(config, creatorId) {
     return { success: true, row: -1 };
   } catch (err) {
     console.error('[Feishu] 查找行失败:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+async function handleGetFeishuSheetHeaders(config) {
+  try {
+    const accessToken = await getFeishuAccessToken(config);
+    const range = config.range || 'A:E';
+    const match = range.match(/^([^!]+)!/);
+    const firstRowRange = match ? `${match[1]}!A1:Z1` : 'A1:Z1';
+    const url = `https://open.feishu.cn/open-apis/sheets/v2/spreadsheets/${config.spreadsheetToken}/values/${encodeURIComponent(firstRowRange)}`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`读取飞书表头失败 (${response.status}): ${errText}`);
+    }
+
+    const data = await response.json();
+    if (data.code !== 0) {
+      throw new Error(`飞书表格返回错误: ${data.msg || JSON.stringify(data)}`);
+    }
+
+    const headers = data.data?.valueRange?.values?.[0] || [];
+    return { success: true, headers };
+  } catch (err) {
+    console.error('[Feishu] 获取表头失败:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+async function handleBulkWriteFeishuSheet(config, startRow, values2D) {
+  try {
+    const accessToken = await getFeishuAccessToken(config);
+    const range = config.range || 'A:E';
+    const withSheet = range.match(/^([^!]+)!/);
+    const sheetName = withSheet ? withSheet[1] : '';
+    const colMatch = range.match(/[A-Z]+:[A-Z]+/);
+    const colEnd = colMatch ? colMatch[0].split(':')[1] : 'E';
+    const colStart = colMatch ? colMatch[0].split(':')[0] : 'A';
+    const rowCount = values2D.length;
+    const endRow = startRow + rowCount - 1;
+    const writeRange = sheetName ? `${sheetName}!${colStart}${startRow}:${colEnd}${endRow}` : `${colStart}${startRow}:${colEnd}${endRow}`;
+
+    const url = `https://open.feishu.cn/open-apis/sheets/v2/spreadsheets/${config.spreadsheetToken}/values`;
+
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        valueRange: {
+          range: writeRange,
+          values: values2D
+        }
+      })
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`批量写入飞书表格失败 (${response.status}): ${errText}`);
+    }
+
+    const data = await response.json();
+    if (data.code !== 0) {
+      throw new Error(`飞书表格返回错误: ${data.msg || JSON.stringify(data)}`);
+    }
+
+    return { success: true, rowCount };
+  } catch (err) {
+    console.error('[Feishu] 批量写入失败:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+async function handleListBitableRecords(config) {
+  try {
+    const accessToken = await getFeishuAccessToken(config);
+    const url = `https://open.feishu.cn/open-apis/bitable/v1/apps/${config.baseToken}/tables/${config.tableId}/records?page_size=500`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`读取多维表格失败 (${response.status}): ${errText}`);
+    }
+
+    const data = await response.json();
+    if (data.code !== 0) {
+      throw new Error(`多维表格返回错误: ${data.msg || JSON.stringify(data)}`);
+    }
+
+    const items = data.data?.items || [];
+    const records = items.map(item => ({
+      recordId: item.record_id,
+      fields: item.fields || {}
+    }));
+
+    return { success: true, records };
+  } catch (err) {
+    console.error('[Bitable] 读取记录失败:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+async function handleFetchAndUploadBitableCover(config, recordId, videoUrl) {
+  try {
+    const accessToken = await getFeishuAccessToken(config);
+
+    const apiUrl = `https://www.tiktok.com/oembed?url=${encodeURIComponent(videoUrl)}`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    const coverResp = await fetch(apiUrl, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (!coverResp.ok) throw new Error(`TikTok 返回 HTTP ${coverResp.status}`);
+
+    const contentType = coverResp.headers.get('content-type') || '';
+    const respText = await coverResp.text();
+
+    if (contentType.includes('text/html') || respText.trim().startsWith('<!DOCTYPE') || respText.trim().startsWith('<html')) {
+      throw new Error('TikTok 返回了 HTML 页面，可能受地区限制');
+    }
+
+    const coverData = JSON.parse(respText);
+    const thumbnailUrl = coverData.thumbnail_url;
+    if (!thumbnailUrl) throw new Error('未获取到封面 URL');
+
+    const imgResp = await fetch(thumbnailUrl);
+    if (!imgResp.ok) throw new Error(`下载封面失败 HTTP ${imgResp.status}`);
+    const imgBlob = await imgResp.blob();
+
+    const fileName = `cover_${recordId}_${Date.now()}.jpeg`;
+    const formData = new FormData();
+    formData.append('file_name', fileName);
+    formData.append('parent_type', 'bitable_file');
+    formData.append('parent_node', config.baseToken);
+    formData.append('size', imgBlob.size.toString());
+    formData.append('file', imgBlob, fileName);
+
+    const uploadResp = await fetch('https://open.feishu.cn/open-apis/drive/v1/medias/upload_all', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${accessToken}` },
+      body: formData
+    });
+
+    if (!uploadResp.ok) {
+      const errText = await uploadResp.text();
+      throw new Error(`上传图片到飞书失败 (${uploadResp.status}): ${errText}`);
+    }
+
+    const uploadData = await uploadResp.json();
+    if (uploadData.code !== 0) {
+      throw new Error(`飞书上传返回错误: ${uploadData.msg || JSON.stringify(uploadData)}`);
+    }
+
+    const fileToken = uploadData.data?.file_token;
+    if (!fileToken) throw new Error('未获取到 file_token');
+
+    const updateResp = await fetch(
+      `https://open.feishu.cn/open-apis/bitable/v1/apps/${config.baseToken}/tables/${config.tableId}/records/${recordId}`,
+      {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          fields: {
+            [config.coverField]: [{ file_token: fileToken }]
+          }
+        })
+      }
+    );
+
+    if (!updateResp.ok) {
+      const errText = await updateResp.text();
+      throw new Error(`更新记录失败 (${updateResp.status}): ${errText}`);
+    }
+
+    const updateData = await updateResp.json();
+    if (updateData.code !== 0) {
+      throw new Error(`更新记录返回错误: ${updateData.msg || JSON.stringify(updateData)}`);
+    }
+
+    return { success: true, thumbnailUrl, title: coverData.title || '' };
+  } catch (err) {
+    console.error('[Bitable] 获取并上传封面失败:', err);
+    return { success: false, error: err.message, videoUrl };
+  }
+}
+
+async function handleResolveWikiToken(config, wikiToken) {
+  try {
+    const accessToken = await getFeishuAccessToken(config);
+    const url = `https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=${encodeURIComponent(wikiToken)}`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`飞书 Wiki API 失败 (${response.status}): ${errText}`);
+    }
+
+    const data = await response.json();
+    if (data.code !== 0) {
+      throw new Error(`飞书 Wiki API 返回错误: ${data.msg || JSON.stringify(data)}`);
+    }
+
+    const node = data.data?.node;
+    if (!node) {
+      throw new Error('API 返回中未找到 node 信息');
+    }
+
+    return {
+      success: true,
+      baseToken: node.obj_token || '',
+      objType: node.obj_type || '',
+      title: node.title || ''
+    };
+  } catch (err) {
+    console.error('[Bitable] 解析 wiki token 失败:', err);
     return { success: false, error: err.message };
   }
 }
