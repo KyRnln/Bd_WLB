@@ -23,6 +23,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 async function handleMessage(request, sender) {
+  console.log('[Bg] 收到消息:', JSON.stringify({ action: request.action, keys: Object.keys(request) }));
   const usernameAvatarCidResult = await handleUsernameAvatarCidMessage(request, sender, downloadExcel);
   if (usernameAvatarCidResult) {
     return usernameAvatarCidResult;
@@ -144,7 +145,17 @@ async function handleMessage(request, sender) {
     case 'fetchFeishuSheetData': {
       return await handleFetchFeishuSheetData(request.config);
     }
+    case 'updateFeishuSheetRow': {
+      return await handleUpdateFeishuSheetRow(request.config, request.row, request.values);
+    }
+    case 'appendFeishuSheetRow': {
+      return await handleAppendFeishuSheetRow(request.config, request.values);
+    }
+    case 'findFeishuRowByCreatorId': {
+      return await handleFindFeishuRowByCreatorId(request.config, request.creatorId);
+    }
     default: {
+      console.log('[Bg] default: 未匹配到处理函数, action=', request.action);
       const coverResult = await handleCoverMessage(request);
       if (coverResult) {
         return coverResult;
@@ -170,28 +181,44 @@ async function downloadExcel(data, customFilename = null) {
   await chrome.downloads.download({ url: dataUrl, filename, saveAs: true });
 }
 
+async function getFeishuAccessToken(config) {
+  const tokenResponse = await fetch('https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      app_id: config.appId,
+      app_secret: config.appSecret
+    })
+  });
+
+  if (!tokenResponse.ok) {
+    const errText = await tokenResponse.text();
+    throw new Error(`获取飞书 token 失败 (${tokenResponse.status}): ${errText}`);
+  }
+
+  const tokenData = await tokenResponse.json();
+  if (tokenData.code !== 0) {
+    throw new Error(`飞书 token 返回错误: ${tokenData.msg || JSON.stringify(tokenData)}`);
+  }
+
+  return tokenData.tenant_access_token;
+}
+
+function buildFeishuRowRange(baseRange, row) {
+  const withSheet = baseRange.match(/^([^!]+)!([A-Z]+):([A-Z]+)$/);
+  if (withSheet) {
+    return `${withSheet[1]}!${withSheet[2]}${row}:${withSheet[3]}${row}`;
+  }
+  const noSheet = baseRange.match(/^([A-Z]+):([A-Z]+)$/);
+  if (noSheet) {
+    return `${noSheet[1]}${row}:${noSheet[2]}${row}`;
+  }
+  return baseRange;
+}
+
 async function handleFetchFeishuSheetData(config) {
   try {
-    const tokenResponse = await fetch('https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        app_id: config.appId,
-        app_secret: config.appSecret
-      })
-    });
-
-    if (!tokenResponse.ok) {
-      const errText = await tokenResponse.text();
-      throw new Error(`获取飞书 token 失败 (${tokenResponse.status}): ${errText}`);
-    }
-
-    const tokenData = await tokenResponse.json();
-    if (tokenData.code !== 0) {
-      throw new Error(`飞书 token 返回错误: ${tokenData.msg || JSON.stringify(tokenData)}`);
-    }
-
-    const accessToken = tokenData.tenant_access_token;
+    const accessToken = await getFeishuAccessToken(config);
     const range = config.range || 'A:E';
     const url = `https://open.feishu.cn/open-apis/sheets/v2/spreadsheets/${config.spreadsheetToken}/values/${encodeURIComponent(range)}`;
 
@@ -221,6 +248,120 @@ async function handleFetchFeishuSheetData(config) {
     return { success: true, data: values };
   } catch (err) {
     console.error('[Feishu] 获取数据失败:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+async function handleUpdateFeishuSheetRow(config, row, values) {
+  try {
+    const accessToken = await getFeishuAccessToken(config);
+    const range = buildFeishuRowRange(config.range || 'A:E', row);
+    const url = `https://open.feishu.cn/open-apis/sheets/v2/spreadsheets/${config.spreadsheetToken}/values`;
+
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        valueRange: {
+          range: range,
+          values: [values]
+        }
+      })
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`更新飞书表格失败 (${response.status}): ${errText}`);
+    }
+
+    const data = await response.json();
+    if (data.code !== 0) {
+      throw new Error(`飞书表格返回错误: ${data.msg || JSON.stringify(data)}`);
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.error('[Feishu] 更新行失败:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+async function handleAppendFeishuSheetRow(config, values) {
+  try {
+    const accessToken = await getFeishuAccessToken(config);
+    const range = config.range || 'A:E';
+    const url = `https://open.feishu.cn/open-apis/sheets/v2/spreadsheets/${config.spreadsheetToken}/values_prepend`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        valueRange: {
+          range: range,
+          values: [values]
+        }
+      })
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`追加飞书表格行失败 (${response.status}): ${errText}`);
+    }
+
+    const data = await response.json();
+    if (data.code !== 0) {
+      throw new Error(`飞书表格返回错误: ${data.msg || JSON.stringify(data)}`);
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.error('[Feishu] 追加行失败:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+async function handleFindFeishuRowByCreatorId(config, creatorId) {
+  try {
+    const accessToken = await getFeishuAccessToken(config);
+    const baseRange = config.range || 'A:E';
+    const match = baseRange.match(/^([^!]+)!/);
+    const colRange = match ? `${match[1]}!A:A` : 'A:A';
+    const url = `https://open.feishu.cn/open-apis/sheets/v2/spreadsheets/${config.spreadsheetToken}/values/${encodeURIComponent(colRange)}`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`读取飞书表格失败 (${response.status}): ${errText}`);
+    }
+
+    const data = await response.json();
+    if (data.code !== 0) {
+      throw new Error(`飞书表格返回错误: ${data.msg || JSON.stringify(data)}`);
+    }
+
+    const values = data.data?.valueRange?.values || [];
+    for (let i = 0; i < values.length; i++) {
+      if (values[i][0]?.toString().trim() === creatorId) {
+        return { success: true, row: i + 1 };
+      }
+    }
+
+    return { success: true, row: -1 };
+  } catch (err) {
+    console.error('[Feishu] 查找行失败:', err);
     return { success: false, error: err.message };
   }
 }

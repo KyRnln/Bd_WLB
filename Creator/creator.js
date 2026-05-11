@@ -60,12 +60,13 @@
     }
   }
 
+  const _escapeMap = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+  const _escapeRe = /[&<>"']/g;
   function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+    return text.replace(_escapeRe, ch => _escapeMap[ch]);
   }
 
+  let _tagBarDelegated = false;
   function renderTags() {
     const tagBar = document.getElementById('creatorTagBar');
     if (!tagBar) return;
@@ -79,9 +80,12 @@
     }
     tagBar.innerHTML = chips.join('');
 
-    tagBar.querySelectorAll('.filter-tab[data-id]').forEach(el => {
-      el.addEventListener('click', async () => {
-        const id = el.dataset.id;
+    if (!_tagBarDelegated) {
+      _tagBarDelegated = true;
+      tagBar.addEventListener('click', async (e) => {
+        const btn = e.target.closest('.filter-tab[data-id]');
+        if (!btn) return;
+        const id = btn.dataset.id;
         activeCreatorTagId = id;
         await saveData();
         renderTags();
@@ -89,7 +93,7 @@
         const tag = allTags.find(t => t.id === id);
         showStatus(`已切换到：${tag ? tag.name : ''}`, 'success');
       });
-    });
+    }
   }
 
   function getFilteredCreators() {
@@ -99,17 +103,30 @@
     return creators.filter(c => c.tag === activeCreatorTagId);
   }
 
+  let _statsCache = { total: 0, lost: 0, perf: 0, _version: -1 };
+  function updateStats() {
+    if (_statsCache._version === creators.length) return;
+    _statsCache.total = creators.length;
+    _statsCache.lost = 0;
+    _statsCache.perf = 0;
+    for (let i = 0; i < creators.length; i++) {
+      if (creators[i].tag === '流失达人') _statsCache.lost++;
+      else if (creators[i].tag === '绩效达人') _statsCache.perf++;
+    }
+    _statsCache._version = creators.length;
+  }
+
   function renderCreators() {
     const creatorSearchInput = document.getElementById('creatorSearchInput');
     const creatorSearchList = document.getElementById('creatorSearchList');
 
-    // Update stats
+    updateStats();
     const totalCount = document.getElementById('totalCount');
     const lostCount = document.getElementById('lostCount');
     const perfCount = document.getElementById('perfCount');
-    if (totalCount) totalCount.textContent = creators.length;
-    if (lostCount) lostCount.textContent = creators.filter(c => c.tag === '流失达人').length;
-    if (perfCount) perfCount.textContent = creators.filter(c => c.tag === '绩效达人').length;
+    if (totalCount) totalCount.textContent = _statsCache.total;
+    if (lostCount) lostCount.textContent = _statsCache.lost;
+    if (perfCount) perfCount.textContent = _statsCache.perf;
 
     const creatorList = document.getElementById('creatorList');
     if (creatorList) {
@@ -138,6 +155,7 @@
     }
   }
 
+  let _creatorListDelegated = false;
   function renderCreatorList() {
     const creatorList = document.getElementById('creatorList');
     const creatorSearchInput = document.getElementById('creatorSearchInput');
@@ -192,29 +210,34 @@
       `;
     }).join('');
 
-    creatorList.querySelectorAll('button.edit-creator').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const index = parseInt(btn.dataset.index, 10);
-        const creator = displayList[index];
-        const mainIndex = creators.findIndex(c => c.creator_id === creator.creator_id);
-        if (mainIndex >= 0) {
-          openCreatorEdit(mainIndex, query ? index : -1);
+    if (!_creatorListDelegated) {
+      _creatorListDelegated = true;
+      creatorList.addEventListener('click', (e) => {
+        const editBtn = e.target.closest('button.edit-creator');
+        if (editBtn) {
+          const index = parseInt(editBtn.dataset.index, 10);
+          const creator = displayList[index];
+          if (!creator) return;
+          const mainIndex = creators.findIndex(c => c.creator_id === creator.creator_id);
+          if (mainIndex >= 0) {
+            openCreatorEdit(mainIndex, query ? index : -1);
+          }
+          return;
+        }
+        const jumpBtn = e.target.closest('button.jump-creator');
+        if (jumpBtn) {
+          const index = parseInt(jumpBtn.dataset.index, 10);
+          const creator = displayList[index];
+          if (creator && creator.cid && creator.region) {
+            const url = `https://affiliate.tiktokshopglobalselling.com/connection/creator/detail?cid=${creator.cid}&region=${creator.region}`;
+            chrome.tabs.create({ url });
+          }
         }
       });
-    });
-
-    creatorList.querySelectorAll('button.jump-creator').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const index = parseInt(btn.dataset.index, 10);
-        const creator = displayList[index];
-        if (creator && creator.cid && creator.region) {
-          const url = `https://affiliate.tiktokshopglobalselling.com/connection/creator/detail?cid=${creator.cid}&region=${creator.region}`;
-          chrome.tabs.create({ url });
-        }
-      });
-    });
+    }
   }
 
+  let _searchListDelegated = false;
   function renderSearchResults() {
     const creatorSearchResults = document.getElementById('creatorSearchResults');
     const creatorSearchList = document.getElementById('creatorSearchList');
@@ -223,14 +246,17 @@
     if (searchResults.length === 0) {
       creatorSearchResults.classList.remove('show');
       creatorSearchList.innerHTML = '';
-      const searchLabel = creatorSearchResults.querySelector('.text-sm.text-fluent-textMuted');
+      const searchLabel = document.getElementById('searchResultLabel');
       if (searchLabel) searchLabel.style.display = 'none';
       return;
     }
 
     creatorSearchResults.classList.add('show');
-    const searchLabel = creatorSearchResults.querySelector('.text-sm.text-fluent-textMuted');
-    if (searchLabel) searchLabel.style.display = 'block';
+    const searchLabel = document.getElementById('searchResultLabel');
+    if (searchLabel) {
+      searchLabel.textContent = `搜索结果（${searchResults.length} 条记录）：`;
+      searchLabel.style.display = 'block';
+    }
     creatorSearchList.innerHTML = searchResults.map((creator, index) => {
       let tagClass = 'card-tag-default';
       let tagName = creator.tag || '未分组';
@@ -266,27 +292,31 @@
       `;
     }).join('');
 
-    creatorSearchList.querySelectorAll('button.edit-creator').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const index = parseInt(btn.dataset.index, 10);
-        const creator = searchResults[index];
-        const mainIndex = creators.findIndex(c => c.creator_id === creator.creator_id);
-        if (mainIndex >= 0) {
-          openCreatorEdit(mainIndex, index);
+    if (!_searchListDelegated) {
+      _searchListDelegated = true;
+      creatorSearchList.addEventListener('click', (e) => {
+        const editBtn = e.target.closest('button.edit-creator');
+        if (editBtn) {
+          const index = parseInt(editBtn.dataset.index, 10);
+          const creator = searchResults[index];
+          if (!creator) return;
+          const mainIndex = creators.findIndex(c => c.creator_id === creator.creator_id);
+          if (mainIndex >= 0) {
+            openCreatorEdit(mainIndex, index);
+          }
+          return;
+        }
+        const jumpBtn = e.target.closest('button.jump-creator');
+        if (jumpBtn) {
+          const index = parseInt(jumpBtn.dataset.index, 10);
+          const creator = searchResults[index];
+          if (creator && creator.cid && creator.region) {
+            const url = `https://affiliate.tiktokshopglobalselling.com/connection/creator/detail?cid=${creator.cid}&region=${creator.region}`;
+            chrome.tabs.create({ url });
+          }
         }
       });
-    });
-
-    creatorSearchList.querySelectorAll('button.jump-creator').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const index = parseInt(btn.dataset.index, 10);
-        const creator = searchResults[index];
-        if (creator && creator.cid && creator.region) {
-          const url = `https://affiliate.tiktokshopglobalselling.com/connection/creator/detail?cid=${creator.cid}&region=${creator.region}`;
-          chrome.tabs.create({ url });
-        }
-      });
-    });
+    }
   }
 
   function openCreatorEdit(mainIndex, searchResultIndex = -1) {
@@ -331,6 +361,47 @@
     await saveData();
     closeCreatorEdit();
     renderCreators();
+
+    if (feishuConfig) {
+      try {
+        let row = creator._feishuRow;
+        if (!row) {
+          const findResult = await chrome.runtime.sendMessage({
+            action: 'findFeishuRowByCreatorId',
+            config: feishuConfig,
+            creatorId: creator.creator_id
+          });
+          if (findResult?.success && findResult.row > 0) {
+            row = findResult.row;
+            creator._feishuRow = row;
+            await saveData();
+          } else if (!findResult?.success) {
+            console.error('[Creator] 查找飞书行号失败:', findResult);
+          }
+        }
+        if (row) {
+          const values = [creator.creator_id, creator.cid || '', creator.region || '', creator.tag || '', creator.remark || ''];
+          const response = await chrome.runtime.sendMessage({
+            action: 'updateFeishuSheetRow',
+            config: feishuConfig,
+            row: row,
+            values: values
+          });
+          if (response?.success) {
+            showStatus('达人信息已更新（含飞书同步）', 'success', 'creatorCardStatus');
+          } else {
+            console.error('[Creator] 飞书更新行失败, 完整响应:', response);
+            showStatus('本地已更新，飞书同步失败：' + (response?.error || '未知错误'), 'info', 'creatorCardStatus');
+          }
+          return;
+        }
+      } catch (err) {
+        console.error('[Creator] 飞书更新行异常:', err);
+        showStatus('本地已更新，飞书同步失败：' + err.message, 'info', 'creatorCardStatus');
+        return;
+      }
+    }
+
     showStatus('达人信息已更新', 'success', 'creatorCardStatus');
   }
 
@@ -339,12 +410,38 @@
     const creator = creators[editingCreatorIndex];
     if (!confirm(`确定删除达人 "${creator.creator_id}" 吗？`)) return;
 
+    const feishuRow = creator._feishuRow;
+
     creators = creators.filter((_, i) => i !== editingCreatorIndex);
     searchResults = searchResults.filter(c => c.creator_id !== creator.creator_id);
 
     await saveData();
     closeCreatorEdit();
     renderCreators();
+
+    if (feishuConfig && feishuRow) {
+      try {
+        const values = ['', '', '', '', ''];
+        const response = await chrome.runtime.sendMessage({
+          action: 'updateFeishuSheetRow',
+          config: feishuConfig,
+          row: feishuRow,
+          values: values
+        });
+        if (response?.success) {
+          showStatus('达人已删除（含飞书同步）', 'success', 'creatorCardStatus');
+        } else {
+          console.error('[Creator] 飞书删除行（清空）失败, 完整响应:', response);
+          showStatus('本地已删除，飞书同步失败：' + (response?.error || '未知错误'), 'info', 'creatorCardStatus');
+        }
+        return;
+      } catch (err) {
+        console.error('[Creator] 飞书删除行（清空）异常:', err);
+        showStatus('本地已删除，飞书同步失败：' + err.message, 'info', 'creatorCardStatus');
+        return;
+      }
+    }
+
     showStatus('达人已删除', 'success', 'creatorCardStatus');
   }
 
@@ -467,26 +564,16 @@
           cid: (row[1]?.toString().trim()) || '',
           region: (row[2]?.toString().trim()) || '',
           tag: (row[3]?.toString().trim()) || '',
-          remark: (row[4]?.toString().trim()) || ''
+          remark: (row[4]?.toString().trim()) || '',
+          _feishuRow: i + 1
         });
       }
 
       if (progressFill) progressFill.style.width = '80%';
-      if (progressText) progressText.textContent = `正在合并数据（${newCreators.length} 条）...`;
+      if (progressText) progressText.textContent = `正在写入数据（${newCreators.length} 条）...`;
 
-      let updatedCount = 0;
-      let addedCount = 0;
-
-      for (const newCreator of newCreators) {
-        const existingIndex = creators.findIndex(c => c.creator_id === newCreator.creator_id);
-        if (existingIndex >= 0) {
-          creators[existingIndex] = { ...creators[existingIndex], ...newCreator };
-          updatedCount++;
-        } else {
-          creators.push(newCreator);
-          addedCount++;
-        }
-      }
+      creators = newCreators;
+      searchResults = [];
 
       await saveData();
       renderTags();
@@ -495,17 +582,7 @@
       if (progressFill) progressFill.style.width = '100%';
       if (progressText) progressText.textContent = '导入完成';
 
-      let statusMsg = '';
-      if (addedCount > 0 && updatedCount > 0) {
-        statusMsg = `飞书导入完成：新增 ${addedCount} 个，更新 ${updatedCount} 个达人`;
-      } else if (addedCount > 0) {
-        statusMsg = `飞书导入完成：新增 ${addedCount} 个达人`;
-      } else if (updatedCount > 0) {
-        statusMsg = `飞书导入完成：已更新 ${updatedCount} 个达人`;
-      } else {
-        statusMsg = '飞书导入完成，无新增或更新数据';
-      }
-      showStatus(statusMsg, 'success', 'creatorCardStatus');
+      showStatus(`飞书导入完成：共 ${newCreators.length} 条达人`, 'success', 'creatorCardStatus');
     } catch (err) {
       console.error('飞书导入失败', err);
       showStatus('飞书导入失败：' + err.message, 'error', 'creatorCardStatus');
@@ -518,21 +595,8 @@
     }
   }
 
-  function openOfflineImport() {
-    const dialog = document.getElementById('offlineImportDialog');
-    if (dialog) dialog.classList.add('show');
-  }
-
-  function closeOfflineImport() {
-    const dialog = document.getElementById('offlineImportDialog');
-    if (dialog) dialog.classList.remove('show');
-  }
-
   function initCreatorModule() {
-    const importCreatorBtn = document.getElementById('importCreatorBtn');
-    const downloadCreatorTemplateBtn = document.getElementById('downloadCreatorTemplateBtn');
     const openCreatorManageBtn = document.getElementById('openCreatorManageBtn');
-    const creatorFileInput = document.getElementById('creatorFileInput');
     const creatorSearchInput = document.getElementById('creatorSearchInput');
     const saveCreatorEditBtn = document.getElementById('saveCreatorEditBtn');
     const cancelCreatorEditBtn = document.getElementById('cancelCreatorEditBtn');
@@ -545,114 +609,27 @@
     }
 
     if (creatorSearchInput) {
+      let _searchTimer = null;
       creatorSearchInput.addEventListener('input', () => {
-        const query = creatorSearchInput.value.trim().toLowerCase();
-        if (!query) {
-          searchResults = [];
-          renderCreators();
-          return;
-        }
+        clearTimeout(_searchTimer);
+        _searchTimer = setTimeout(() => {
+          const query = creatorSearchInput.value.trim().toLowerCase();
+          if (!query) {
+            searchResults = [];
+            renderCreators();
+            return;
+          }
 
-        searchResults = creators.filter(c => {
-          if (c.tag === '隐藏达人') return false;
-          return (c.creator_id && c.creator_id.toLowerCase().includes(query)) ||
-                 (c.cid && c.cid.toLowerCase().includes(query)) ||
-                 (c.region && c.region.toLowerCase().includes(query)) ||
-                 (c.tag && c.tag.toLowerCase().includes(query)) ||
-                 (c.remark && c.remark.toLowerCase().includes(query));
-        });
-        renderCreators();
-      });
-    }
-
-    if (importCreatorBtn && creatorFileInput) {
-      importCreatorBtn.addEventListener('click', () => {
-        closeOfflineImport();
-        creatorFileInput.click();
-      });
-      creatorFileInput.addEventListener('change', async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        try {
-          const arrayBuffer = await file.arrayBuffer();
-          const workbook = new ExcelJS.Workbook();
-          await workbook.xlsx.load(arrayBuffer);
-          const worksheet = workbook.worksheets[0];
-
-          const newCreators = [];
-          worksheet.eachRow((row, rowNumber) => {
-            if (rowNumber === 1) return;
-            const id = row.getCell(1).value?.toString().trim();
-            const cid = row.getCell(2).value?.toString().trim();
-            const region = row.getCell(3).value?.toString().trim();
-            const tag = row.getCell(4).value?.toString().trim();
-            const remark = row.getCell(5).value?.toString().trim();
-            if (id) {
-              newCreators.push({ creator_id: id, cid: cid || '', region: region || '', tag: tag || '', remark: remark || '' });
-            }
+          searchResults = creators.filter(c => {
+            if (c.tag === '隐藏达人') return false;
+            return (c.creator_id && c.creator_id.toLowerCase().includes(query)) ||
+                   (c.cid && c.cid.toLowerCase().includes(query)) ||
+                   (c.region && c.region.toLowerCase().includes(query)) ||
+                   (c.tag && c.tag.toLowerCase().includes(query)) ||
+                   (c.remark && c.remark.toLowerCase().includes(query));
           });
-
-          let updatedCount = 0;
-          let addedCount = 0;
-
-          for (const newCreator of newCreators) {
-            const existingIndex = creators.findIndex(c => c.creator_id === newCreator.creator_id);
-            if (existingIndex >= 0) {
-              creators[existingIndex] = { ...creators[existingIndex], ...newCreator };
-              updatedCount++;
-            } else {
-              creators.push(newCreator);
-              addedCount++;
-            }
-          }
-
-          await saveData();
-          renderTags();
           renderCreators();
-
-          let statusMsg = '';
-          if (addedCount > 0 && updatedCount > 0) {
-            statusMsg = `新增 ${addedCount} 个，更新 ${updatedCount} 个达人`;
-          } else if (addedCount > 0) {
-            statusMsg = `已导入 ${addedCount} 个新达人`;
-          } else if (updatedCount > 0) {
-            statusMsg = `已更新 ${updatedCount} 个达人`;
-          } else {
-            statusMsg = `导入完成`;
-          }
-          showStatus(statusMsg, 'success', 'creatorCardStatus');
-        } catch (err) {
-          console.error('导入失败', err);
-          showStatus('导入失败，请检查文件格式', 'error', 'creatorCardStatus');
-        }
-
-        creatorFileInput.value = '';
-      });
-    }
-
-    if (downloadCreatorTemplateBtn) {
-      downloadCreatorTemplateBtn.addEventListener('click', () => {
-        const workbook = new ExcelJS.Workbook();
-        const worksheet = workbook.addWorksheet('达人模板');
-        worksheet.columns = [
-          { header: '达人ID', key: 'id' },
-          { header: 'CID', key: 'cid' },
-          { header: '地区', key: 'region' },
-          { header: '标签', key: 'tag' },
-          { header: '备注', key: 'remark' }
-        ];
-        worksheet.addRow({ id: 'example_creator_id', cid: '123456789', region: 'MY', tag: 'VIP', remark: '示例备注' });
-
-        workbook.xlsx.writeBuffer().then(buffer => {
-          const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = 'creator_template.xlsx';
-          a.click();
-          URL.revokeObjectURL(url);
-        });
+        }, 200);
       });
     }
 
@@ -664,16 +641,6 @@
     const configFeishuBtn = document.getElementById('configFeishuBtn');
     if (configFeishuBtn) {
       configFeishuBtn.addEventListener('click', openFeishuConfig);
-    }
-
-    const offlineImportBtn = document.getElementById('offlineImportBtn');
-    if (offlineImportBtn) {
-      offlineImportBtn.addEventListener('click', openOfflineImport);
-    }
-
-    const closeOfflineImportBtn = document.getElementById('closeOfflineImportBtn');
-    if (closeOfflineImportBtn) {
-      closeOfflineImportBtn.addEventListener('click', closeOfflineImport);
     }
 
     const saveFeishuConfigBtn = document.getElementById('saveFeishuConfigBtn');
@@ -693,23 +660,6 @@
     }
     if (deleteCreatorBtn) {
       deleteCreatorBtn.addEventListener('click', deleteCreator);
-    }
-
-    const clearAllCreatorsBtn = document.getElementById('clearAllCreatorsBtn');
-    if (clearAllCreatorsBtn) {
-      clearAllCreatorsBtn.addEventListener('click', async () => {
-        if (creators.length === 0) {
-          showStatus('暂无达人数据', 'error');
-          return;
-        }
-        if (!confirm(`确定删除全部 ${creators.length} 个达人吗？此操作不可恢复！`)) return;
-
-        creators = [];
-        searchResults = [];
-        await saveData();
-        renderCreators();
-        showStatus('已删除全部达人', 'success');
-      });
     }
 
     loadFeishuConfig();
