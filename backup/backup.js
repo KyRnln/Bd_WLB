@@ -161,28 +161,36 @@
         body: JSON.stringify(data, null, 2)
       });
 
-      // If 404, the directory may not exist; try MKCOL to create it, then retry
-      if (response.status === 404) {
+      // If 404 or 409, the directory may not exist; try MKCOL to create it, then retry
+      if (response.status === 404 || response.status === 409) {
         const dirUrl = fileUrl.substring(0, fileUrl.lastIndexOf('/') + 1);
-        await fetch(dirUrl, {
-          method: 'MKCOL',
-          headers: {
-            'Authorization': 'Basic ' + btoa(username + ':' + password)
+        const rootPattern = /^https?:\/\/[^\/]+\/dav\/$/i;
+        const isRoot = rootPattern.test(dirUrl);
+        if (!isRoot) {
+          const mkcolRes = await fetch(dirUrl, {
+            method: 'MKCOL',
+            headers: {
+              'Authorization': 'Basic ' + btoa(username + ':' + password)
+            }
+          });
+          if (mkcolRes.ok || mkcolRes.status === 405 || mkcolRes.status === 201) {
+            response = await fetch(fileUrl, {
+              method: 'PUT',
+              headers: {
+                'Authorization': 'Basic ' + btoa(username + ':' + password),
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(data, null, 2)
+            });
           }
-        });
-        response = await fetch(fileUrl, {
-          method: 'PUT',
-          headers: {
-            'Authorization': 'Basic ' + btoa(username + ':' + password),
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(data, null, 2)
-        });
+        }
       }
 
       if (response.ok) {
         await new Promise(resolve => storageAPI.set({ webdavConfig: { url, username, password } }, resolve));
         showStatus('✅ 已备份到WebDAV', 'success', 'webdavStatus');
+      } else if (response.status === 404 || response.status === 409) {
+        showStatus('备份失败: 目录不存在，请在坚果云网页端手动创建文件夹 (如 wlb_backup)，然后将服务器地址改为对应的子目录路径', 'error', 'webdavStatus');
       } else {
         showStatus(`备份失败: ${response.status}`, 'error', 'webdavStatus');
       }
@@ -222,6 +230,8 @@
 
         showStatus('✅ 已从WebDAV恢复，正在刷新...', 'success', 'webdavStatus');
         setTimeout(() => window.location.reload(), 1000);
+      } else if (response.status === 404) {
+        showStatus('恢复失败: 备份文件不存在，请先备份', 'error', 'webdavStatus');
       } else {
         showStatus(`恢复失败: ${response.status}`, 'error', 'webdavStatus');
       }
@@ -265,7 +275,7 @@
         const webdavUsername = document.getElementById('webdavUsername');
         const webdavPassword = document.getElementById('webdavPassword');
 
-        if (webdavUrl) webdavUrl.value = result.webdavConfig.url || 'https://dav.jianguoyun.com/dav/';
+        if (webdavUrl) webdavUrl.value = result.webdavConfig.url || 'https://dav.jianguoyun.com/dav/wlb_backup/';
         if (webdavUsername) webdavUsername.value = result.webdavConfig.username || '';
         if (webdavPassword) webdavPassword.value = result.webdavConfig.password || '';
       }
