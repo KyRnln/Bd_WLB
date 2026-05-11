@@ -284,6 +284,6 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('beforeunload', stopPolling);
 
   backBtn.addEventListener('click', () => {
-    window.location.href = '../popup.html';
+    window.location.href = '../../popup.html';
   });
 });

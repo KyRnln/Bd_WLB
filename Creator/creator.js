@@ -359,7 +359,7 @@
 
     if (openCreatorManageBtn) {
       openCreatorManageBtn.addEventListener('click', () => {
-        chrome.tabs.create({ url: chrome.runtime.getURL('Creator/creator.html') });
+        chrome.tabs.create({ url: chrome.runtime.getURL('creator/creator.html') });
       });
     }
 

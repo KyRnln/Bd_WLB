@@ -124,22 +124,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (btnCover) {
     btnCover.addEventListener('click', () => {
-      window.location.href = 'cover/cover.html';
+      window.location.href = 'quick_module/cover/cover.html';
     });
   }
   if (btnCid) {
     btnCid.addEventListener('click', () => {
-      window.location.href = 'username_avatarcid/username_avatarcid.html';
+      window.location.href = 'quick_module/username_avatarcid/username_avatarcid.html';
     });
   }
   if (btnCidToName) {
     btnCidToName.addEventListener('click', () => {
-      window.location.href = 'cid_to_name/cid_to_name.html';
+      window.location.href = 'quick_module/cid_to_name/cid_to_name.html';
     });
   }
   if (btnOrder) {
     btnOrder.addEventListener('click', () => {
-      window.location.href = 'order/order.html';
+      window.location.href = 'quick_module/order/order.html';
     });
   }
 

@@ -447,7 +447,7 @@
     checkRunningTask();
 
     backBtn.addEventListener('click', () => {
-      window.location.href = '../popup.html';
+      window.location.href = '../../popup.html';
     });
   });
 })();

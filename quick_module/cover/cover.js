@@ -399,7 +399,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   backBtn.addEventListener('click', () => {
-    window.location.href = '../popup.html';
+    window.location.href = '../../popup.html';
   });
 
   // 初始化：检查是否有正在运行的任务或已完成的结果

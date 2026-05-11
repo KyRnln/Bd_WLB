@@ -1,8 +1,8 @@
 // 背景脚本：合并「批量获取CID」功能
-import { handleCidToNameMessage } from './cid_to_name/cid_to_name_background.js';
-import { handleOrderMessage } from './order/order_background.js';
-import { handleUsernameAvatarCidMessage } from './username_avatarcid/username_avatarcid_background.js';
-import { handleCoverMessage } from './cover/cover_background.js';
+import { handleCidToNameMessage } from './quick_module/cid_to_name/cid_to_name_background.js';
+import { handleOrderMessage } from './quick_module/order/order_background.js';
+import { handleUsernameAvatarCidMessage } from './quick_module/username_avatarcid/username_avatarcid_background.js';
+import { handleCoverMessage } from './quick_module/cover/cover_background.js';
 
 chrome.runtime.onInstalled.addListener(() => {
   console.log('商务WLB扩展已安装');
