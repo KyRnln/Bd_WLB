@@ -17,10 +17,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnCidToName = document.getElementById('btnCidToName');
   const btnOrder = document.getElementById('btnOrder');
 
-  const btnCoverOriginalText = btnCover ? btnCover.textContent : '📹 获取视频封面';
-  const btnCidOriginalText = btnCid ? btnCid.textContent : '👤 获取头像/CID';
-  const btnCidToNameOriginalText = btnCidToName ? btnCidToName.textContent : '🔍 通过CID获取达人信息';
-  const btnOrderOriginalText = btnOrder ? btnOrder.textContent : '📦 获取订单履约情况';
+  const btnSampleCrawl = document.getElementById('btnSampleCrawl');
+  const btnCoverOriginalText = btnCover ? btnCover.textContent : '获取视频封面';
+  const btnCidOriginalText = btnCid ? btnCid.textContent : '获取头像/CID';
+  const btnCidToNameOriginalText = btnCidToName ? btnCidToName.textContent : 'CID获取达人';
+  const btnOrderOriginalText = btnOrder ? btnOrder.textContent : '订单履约情况';
+  const btnSampleCrawlOriginalText = btnSampleCrawl ? btnSampleCrawl.textContent : '样品申请采集';
 
   function setButtonRunning(btn, text) {
     if (!btn) return;
@@ -108,10 +110,28 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  async function updateSampleCrawlButtonStatus() {
+    if (!btnSampleCrawl) return;
+    try {
+      const result = await new Promise(resolve =>
+        storageAPI.get(['sampleCrawlState'], resolve)
+      );
+      const status = result.sampleCrawlState;
+      if (status && status.isRunning) {
+        setButtonRunning(btnSampleCrawl, `${status.collectedCount || 0}/${status.totalCount || 0}`);
+      } else {
+        resetButton(btnSampleCrawl, btnSampleCrawlOriginalText);
+      }
+    } catch (e) {
+      resetButton(btnSampleCrawl, btnSampleCrawlOriginalText);
+    }
+  }
+
   updateCoverButtonStatus();
   updateCidButtonStatus();
   updateCidToNameButtonStatus();
   updateOrderButtonStatus();
+  updateSampleCrawlButtonStatus();
 
   storageAPI.onChanged.addListener((changes, area) => {
     if (area === 'local') {
@@ -119,6 +139,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (changes.batchSearchStatus) updateCidButtonStatus();
       if (changes.batchQueryState_cidToName) updateCidToNameButtonStatus();
       if (changes.orderQueryState) updateOrderButtonStatus();
+      if (changes.sampleCrawlState) updateSampleCrawlButtonStatus();
     }
   });
 
@@ -147,6 +168,12 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnBitableCover) {
     btnBitableCover.addEventListener('click', () => {
       window.location.href = 'quick_module/bitable_cover/bitable_cover.html';
+    });
+  }
+
+  if (btnSampleCrawl) {
+    btnSampleCrawl.addEventListener('click', () => {
+      window.location.href = 'quick_module/sample_crawl/sample_crawl.html';
     });
   }
 

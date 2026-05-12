@@ -4,6 +4,7 @@ import { handleOrderMessage } from './quick_module/order/order_background.js';
 import { handleUsernameAvatarCidMessage } from './quick_module/username_avatarcid/username_avatarcid_background.js';
 import { handleCoverMessage } from './quick_module/cover/cover_background.js';
 import { handleBitableCoverMessage } from './quick_module/bitable_cover/bitable_cover_background.js';
+import { handleSampleCrawlMessage } from './quick_module/sample_crawl/sample_crawl_background.js';
 
 chrome.runtime.onInstalled.addListener(() => {
   console.log('商务WLB扩展已安装');
@@ -187,6 +188,10 @@ async function handleMessage(request, sender) {
       const orderResult = await handleOrderMessage(request, downloadExcel);
       if (orderResult) {
         return orderResult;
+      }
+      const sampleCrawlResult = await handleSampleCrawlMessage(request, sender, appendBitableRecords);
+      if (sampleCrawlResult) {
+        return sampleCrawlResult;
       }
       return { success: false, error: '未知操作' };
     }
@@ -624,6 +629,52 @@ async function handleResolveWikiToken(config, wikiToken) {
     };
   } catch (err) {
     console.error('[Bitable] 解析 wiki token 失败:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+async function handleAppendBitableRecords(config, recordsData) {
+  try {
+    const accessToken = await getFeishuAccessToken(config);
+    const url = `https://open.feishu.cn/open-apis/bitable/v1/apps/${config.baseToken}/tables/${config.tableId}/records/batch_create`;
+
+    const chunkSize = 500;
+    let allSuccess = true;
+    for (let i = 0; i < recordsData.length; i += chunkSize) {
+      const chunk = recordsData.slice(i, i + chunkSize);
+      const body = {
+        records: chunk.map(r => ({
+          fields: {
+            [config.creatorNameField]: r.creator_name,
+            [config.creatorIdField]: r.creator_id,
+            [config.productIdField]: r.apply_product_id
+          }
+        }))
+      };
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`批量写入多维表格失败 (${response.status}): ${errText}`);
+      }
+
+      const data = await response.json();
+      if (data.code !== 0) {
+        throw new Error(`多维表格返回错误: ${data.msg || JSON.stringify(data)}`);
+      }
+    }
+
+    return { success: true, total: recordsData.length };
+  } catch (err) {
+    console.error('[Feishu] 追加记录失败:', err);
     return { success: false, error: err.message };
   }
 }

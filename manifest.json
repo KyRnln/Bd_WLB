@@ -103,6 +103,15 @@
         "styles/content.css"
       ],
       "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "https://affiliate.tiktokshopglobalselling.com/product/sample-request*"
+      ],
+      "js": [
+        "quick_module/sample_crawl/sample_crawl_content.js"
+      ],
+      "run_at": "document_end"
     }
   ],
 
@@ -143,7 +152,8 @@
     {
       "resources": [
         "page_bridge.js",
-        "translate/translate.html"
+        "translate/translate.html",
+        "quick_module/sample_crawl/sample_crawl_hook.js"
       ],
       "matches": [
         "https://*.tiktok.com/*",
