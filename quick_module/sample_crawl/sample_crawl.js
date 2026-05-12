@@ -58,12 +58,18 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function parseFeishuUrl(url) {
-    const result = { baseToken: '', tableId: '' };
+    const result = { baseToken: '', tableId: '', wikiToken: '', isWiki: false };
     if (!url) return result;
     try {
       const u = new URL(url);
       const baseMatch = u.pathname.match(/\/base\/([A-Za-z0-9]+)/);
-      if (baseMatch) result.baseToken = baseMatch[1];
+      const wikiMatch = u.pathname.match(/\/wiki\/([A-Za-z0-9]+)/);
+      if (baseMatch) {
+        result.baseToken = baseMatch[1];
+      } else if (wikiMatch) {
+        result.wikiToken = wikiMatch[1];
+        result.isWiki = true;
+      }
       const tableParam = u.searchParams.get('table');
       if (tableParam) result.tableId = tableParam;
     } catch (e) {}
@@ -76,8 +82,8 @@ document.addEventListener('DOMContentLoaded', () => {
       appSecret: feishuAppSecret.value.trim(),
       baseToken: baseToken.value.trim(),
       tableId: tableId.value.trim(),
-      creatorNameField: creatorNameField.value.trim() || '达人名称',
-      creatorIdField: creatorIdField.value.trim() || '达人ID',
+      creatorNameField: creatorNameField.value.trim() || '达人ID',
+      creatorIdField: creatorIdField.value.trim() || '达人CID',
       productIdField: productIdField.value.trim() || '商品ID'
     };
   }
@@ -118,8 +124,8 @@ document.addEventListener('DOMContentLoaded', () => {
         feishuAppSecret.value = feishuConfig.appSecret || '';
         baseToken.value = feishuConfig.baseToken || '';
         tableId.value = feishuConfig.tableId || '';
-        creatorNameField.value = feishuConfig.creatorNameField || '达人名称';
-        creatorIdField.value = feishuConfig.creatorIdField || '达人ID';
+        creatorNameField.value = feishuConfig.creatorNameField || '达人ID';
+        creatorIdField.value = feishuConfig.creatorIdField || '达人CID';
         productIdField.value = feishuConfig.productIdField || '商品ID';
       }
       updateFeishuStatus();
@@ -143,16 +149,42 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  parseUrlBtn.addEventListener('click', () => {
+  parseUrlBtn.addEventListener('click', async () => {
     const url = feishuUrl.value.trim();
     if (!url) { showStatus('请粘贴多维表格链接', 'error'); return; }
     const parsed = parseFeishuUrl(url);
-    if (!parsed.baseToken) { showStatus('未识别到链接，请检查链接格式', 'error'); return; }
+    if (!parsed.baseToken && !parsed.wikiToken) { showStatus('未识别到链接，请检查链接格式', 'error'); return; }
     if (!parsed.tableId) { showStatus('未识别到 Table ID', 'error'); return; }
     tableId.value = parsed.tableId;
-    baseToken.value = parsed.baseToken;
-    showStatus('已自动填入 Base Token 和 Table ID', 'success');
-    autoSaveConfig();
+
+    if (parsed.isWiki) {
+      const cfg = readConfigFromFields();
+      if (!cfg.appId || !cfg.appSecret) {
+        showStatus('请先填写并保存 App ID 和 App Secret，再解析 wiki 链接', 'error');
+        return;
+      }
+      showStatus('正在解析 wiki 链接，请稍候...', 'info');
+      try {
+        const response = await chrome.runtime.sendMessage({
+          action: 'resolveWikiToken',
+          config: cfg,
+          wikiToken: parsed.wikiToken
+        });
+        if (response && response.success) {
+          baseToken.value = response.baseToken;
+          showStatus('解析成功！已自动填入 Base Token 和 Table ID', 'success');
+          immediateSaveConfig();
+        } else {
+          showStatus('解析失败：' + (response?.error || '未知错误'), 'error');
+        }
+      } catch (err) {
+        showStatus('解析异常：' + err.message, 'error');
+      }
+    } else {
+      baseToken.value = parsed.baseToken;
+      showStatus('已自动填入 Base Token 和 Table ID', 'success');
+      immediateSaveConfig();
+    }
   });
 
   function updateProgress(collected, total) {

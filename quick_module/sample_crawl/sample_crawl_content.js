@@ -203,6 +203,10 @@ async function startCrawl() {
   }
   pendingApiBuffer = [];
 
+  if (!crawlState.isRunning) {
+    return { success: true, alreadyFinished: true };
+  }
+
   return { success: true, message: '采集已启动' };
 }
 

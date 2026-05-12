@@ -104,10 +104,21 @@ async function executeSampleCrawl(tabId) {
       return;
     }
 
+    if (startResponse.alreadyFinished) {
+      await new Promise(r => setTimeout(r, 1500));
+      return;
+    }
+
+    await new Promise(r => setTimeout(r, 2000));
+
+    const checkResult = await chrome.storage.local.get('sampleCrawlResult');
+    if (checkResult.sampleCrawlResult) {
+      return;
+    }
+
     sampleCrawlState.isRunning = true;
     sampleCrawlState.message = '采集中...';
     await saveSampleCrawlState();
-    await chrome.storage.local.set({ sampleCrawlResult: null });
 
   } catch (e) {
     sampleCrawlState.isRunning = false;
