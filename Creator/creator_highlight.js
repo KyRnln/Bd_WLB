@@ -46,13 +46,13 @@
       .quick-creator-lost { color: #117a42 !important; font-weight: 700; opacity: 0.5; text-decoration: line-through; }
       .creator-blacklist-btn {
         display: inline-flex; align-items: center; justify-content: center;
-        min-width: 32px; height: 18px; margin-left: 6px; padding: 0 4px;
-        background: #ffe0e6; border: 1px solid #ff0050; border-radius: 100px;
-        cursor: pointer; font-size: 10px; font-weight: 500; transition: all 0.3s ease;
-        color: #ff0050; white-space: nowrap;
+        min-width: 28px; height: 22px; margin-left: 6px; padding: 0 8px;
+        background: #fff; border: 1px solid #d1d5db; border-radius: 6px;
+        cursor: pointer; font-size: 11px; font-weight: 500; transition: all 0.15s ease;
+        color: #374151; white-space: nowrap;
       }
-      .creator-blacklist-btn:hover { background: #ffc9d9; border-color: #ff0050; color: #ff0050; }
-      .creator-blacklist-btn.blacklisted { background: #f5f5f5; border-color: #d9d9d9; color: #666; }
+      .creator-blacklist-btn:hover { background: #f3f4f6; border-color: #9ca3af; }
+      .creator-blacklist-btn.blacklisted { background: #f9fafb; border-color: #e5e7eb; color: #9ca3af; }
       .creator-id-blacklisted { text-decoration: line-through !important; opacity: 0.5 !important; color: #999 !important; }
     `;
     document.documentElement.appendChild(style);
