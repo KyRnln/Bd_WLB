@@ -41,7 +41,8 @@
         'creatorBlacklist',
         'translateConfig',
         'webdavConfig',
-        'feishuConfig'
+        'feishuConfig',
+        'hiddenFeishuConfig'
       ], resolve);
     });
   }
@@ -53,7 +54,8 @@
         savedTags: data.tags || [],
         activeTagId: data.activeTagId || '__ALL__',
         translateConfig: data.translateConfig || null,
-        feishuConfig: data.feishuConfig || null
+        feishuConfig: data.feishuConfig || null,
+        hiddenFeishuConfig: data.hiddenFeishuConfig || null
       }, resolve);
     });
   }
@@ -79,7 +81,8 @@
         tags: result.savedTags || [],
         activeTagId: result.activeTagId || '__ALL__',
         translateConfig: result.translateConfig || null,
-        feishuConfig: result.feishuConfig || null
+        feishuConfig: result.feishuConfig || null,
+        hiddenFeishuConfig: result.hiddenFeishuConfig || null
       };
 
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -143,7 +146,8 @@
         tags: result.savedTags || [],
         activeTagId: result.activeTagId || '__ALL__',
         translateConfig: result.translateConfig || null,
-        feishuConfig: result.feishuConfig || null
+        feishuConfig: result.feishuConfig || null,
+        hiddenFeishuConfig: result.hiddenFeishuConfig || null
       };
 
       const fileUrl = url + 'wlb_backup.json';

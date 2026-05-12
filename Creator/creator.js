@@ -8,6 +8,7 @@
   let editingCreatorIndex = -1;
   let activeCreatorTagId = 'all';
   let feishuConfig = null;
+  let hiddenFeishuConfig = null;
 
   function showStatus(message, type = 'info', elementId = 'creatorCardStatus') {
     let statusDiv = document.getElementById(elementId);
@@ -362,13 +363,14 @@
     closeCreatorEdit();
     renderCreators();
 
-    if (feishuConfig) {
+    const config = getFeishuConfigForTag(creator.tag);
+    if (config) {
       try {
         let row = creator._feishuRow;
         if (!row) {
           const findResult = await chrome.runtime.sendMessage({
             action: 'findFeishuRowByCreatorId',
-            config: feishuConfig,
+            config: config,
             creatorId: creator.creator_id
           });
           if (findResult?.success && findResult.row > 0) {
@@ -383,7 +385,7 @@
           const values = [creator.creator_id, creator.cid || '', creator.region || '', creator.tag || '', creator.remark || ''];
           const response = await chrome.runtime.sendMessage({
             action: 'updateFeishuSheetRow',
-            config: feishuConfig,
+            config: config,
             row: row,
             values: values
           });
@@ -419,12 +421,13 @@
     closeCreatorEdit();
     renderCreators();
 
-    if (feishuConfig && feishuRow) {
+    const config = getFeishuConfigForTag(creator.tag);
+    if (config && feishuRow) {
       try {
         const values = ['', '', '', '', ''];
         const response = await chrome.runtime.sendMessage({
           action: 'updateFeishuSheetRow',
-          config: feishuConfig,
+          config: config,
           row: feishuRow,
           values: values
         });
@@ -595,6 +598,143 @@
     }
   }
 
+  function getFeishuConfigForTag(tag) {
+    return tag === '隐藏达人' && hiddenFeishuConfig ? hiddenFeishuConfig : feishuConfig;
+  }
+
+  async function loadHiddenFeishuConfig() {
+    try {
+      const result = await new Promise(resolve =>
+        chrome.storage.local.get(['hiddenFeishuConfig'], resolve)
+      );
+      hiddenFeishuConfig = result.hiddenFeishuConfig || null;
+    } catch (e) {
+      console.error('加载隐藏数据源配置失败', e);
+      hiddenFeishuConfig = null;
+    }
+  }
+
+  async function saveHiddenFeishuConfigToStorage() {
+    try {
+      await new Promise(resolve =>
+        chrome.storage.local.set({ hiddenFeishuConfig }, resolve)
+      );
+    } catch (e) {
+      console.error('保存隐藏数据源配置失败', e);
+    }
+  }
+
+  function openHiddenFeishuConfig() {
+    const dialog = document.getElementById('hiddenFeishuConfigDialog');
+    if (!dialog) return;
+    document.getElementById('hiddenFeishuAppId').value = hiddenFeishuConfig?.appId || '';
+    document.getElementById('hiddenFeishuAppSecret').value = hiddenFeishuConfig?.appSecret || '';
+    document.getElementById('hiddenFeishuUrl').value = hiddenFeishuConfig?.feishuUrl || '';
+    dialog.classList.add('show');
+  }
+
+  function closeHiddenFeishuConfig() {
+    const dialog = document.getElementById('hiddenFeishuConfigDialog');
+    if (dialog) dialog.classList.remove('show');
+  }
+
+  async function handleSaveHiddenFeishuConfig() {
+    const appId = document.getElementById('hiddenFeishuAppId').value.trim();
+    const appSecret = document.getElementById('hiddenFeishuAppSecret').value.trim();
+    const feishuUrl = document.getElementById('hiddenFeishuUrl').value.trim();
+
+    if (!appId || !appSecret || !feishuUrl) {
+      showStatus('请填写 App ID、App Secret 和飞书表格 URL', 'error', 'creatorCardStatus');
+      return;
+    }
+
+    const parsed = parseFeishuUrl(feishuUrl);
+    if (!parsed.spreadsheetToken) {
+      showStatus('飞书表格 URL 格式不正确，请检查', 'error', 'creatorCardStatus');
+      return;
+    }
+
+    hiddenFeishuConfig = {
+      appId,
+      appSecret,
+      feishuUrl,
+      spreadsheetToken: parsed.spreadsheetToken,
+      range: parsed.range
+    };
+    await saveHiddenFeishuConfigToStorage();
+    closeHiddenFeishuConfig();
+    showStatus('隐藏数据源配置已保存', 'success', 'creatorCardStatus');
+  }
+
+  async function handleImportFromHiddenFeishu() {
+    if (!hiddenFeishuConfig) {
+      showStatus('请先在「隐藏数据源」中设置飞书信息', 'error', 'creatorCardStatus');
+      return;
+    }
+
+    const progressBar = document.getElementById('importProgressBar');
+    const progressFill = document.getElementById('importProgressFill');
+    const progressText = document.getElementById('importProgressText');
+    if (progressBar) progressBar.style.display = 'flex';
+    if (progressFill) progressFill.style.width = '10%';
+    if (progressText) progressText.textContent = '正在连接飞书...';
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        action: 'fetchFeishuSheetData',
+        config: hiddenFeishuConfig
+      });
+
+      if (!response || !response.success) {
+        throw new Error(response?.error || '获取飞书数据失败');
+      }
+
+      if (progressFill) progressFill.style.width = '60%';
+      if (progressText) progressText.textContent = '正在解析数据...';
+
+      const rows = response.data || [];
+
+      creators = creators.filter(c => c.tag !== '隐藏达人');
+
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        if (i === 0) continue;
+        const id = row[0]?.toString().trim();
+        if (!id) continue;
+
+        creators.push({
+          creator_id: id,
+          cid: (row[1]?.toString().trim()) || '',
+          region: (row[2]?.toString().trim()) || '',
+          tag: '隐藏达人',
+          remark: (row[4]?.toString().trim()) || '',
+          _feishuRow: i + 1
+        });
+      }
+
+      if (progressFill) progressFill.style.width = '80%';
+      if (progressText) progressText.textContent = `正在写入数据...`;
+
+      await saveData();
+      renderTags();
+      renderCreators();
+
+      if (progressFill) progressFill.style.width = '100%';
+      if (progressText) progressText.textContent = '导入完成';
+
+      showStatus(`隐藏数据源同步完成：共 ${rows.length - 1} 条`, 'success', 'creatorCardStatus');
+    } catch (err) {
+      console.error('隐藏数据源导入失败', err);
+      showStatus('隐藏数据源导入失败：' + err.message, 'error', 'creatorCardStatus');
+    } finally {
+      setTimeout(() => {
+        if (progressBar) progressBar.style.display = 'none';
+        if (progressFill) progressFill.style.width = '0%';
+        if (progressText) progressText.textContent = '0%';
+      }, 2000);
+    }
+  }
+
   function initCreatorModule() {
     const openCreatorManageBtn = document.getElementById('openCreatorManageBtn');
     const creatorSearchInput = document.getElementById('creatorSearchInput');
@@ -662,7 +802,27 @@
       deleteCreatorBtn.addEventListener('click', deleteCreator);
     }
 
+    const configHiddenFeishuBtn = document.getElementById('configHiddenFeishuBtn');
+    if (configHiddenFeishuBtn) {
+      configHiddenFeishuBtn.addEventListener('click', openHiddenFeishuConfig);
+    }
+
+    const importHiddenFeishuBtn = document.getElementById('importHiddenFeishuBtn');
+    if (importHiddenFeishuBtn) {
+      importHiddenFeishuBtn.addEventListener('click', handleImportFromHiddenFeishu);
+    }
+
+    const saveHiddenFeishuConfigBtn = document.getElementById('saveHiddenFeishuConfigBtn');
+    const cancelHiddenFeishuConfigBtn = document.getElementById('cancelHiddenFeishuConfigBtn');
+    if (saveHiddenFeishuConfigBtn) {
+      saveHiddenFeishuConfigBtn.addEventListener('click', handleSaveHiddenFeishuConfig);
+    }
+    if (cancelHiddenFeishuConfigBtn) {
+      cancelHiddenFeishuConfigBtn.addEventListener('click', closeHiddenFeishuConfig);
+    }
+
     loadFeishuConfig();
+    loadHiddenFeishuConfig();
     loadData();
   }
 

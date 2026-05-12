@@ -184,6 +184,36 @@
       await saveCreators();
       buildCreatorSets();
     }
+
+    try {
+      const result = await chrome.storage.local.get(['hiddenFeishuConfig']);
+      const hiddenConfig = result.hiddenFeishuConfig;
+      if (!hiddenConfig) return;
+
+      const hiddenCreators = creators.filter(c => c.tag === '隐藏达人');
+
+      const headerRow = ['达人ID', 'CID', '地区', '标签', '备注'];
+      const dataRows = hiddenCreators.map(c => [
+        c.creator_id || '',
+        c.cid || '',
+        c.region || '',
+        c.tag || '隐藏达人',
+        c.remark || ''
+      ]);
+      const allValues = [headerRow, ...dataRows];
+      for (let i = 0; i < 5; i++) {
+        allValues.push(['', '', '', '', '']);
+      }
+
+      await chrome.runtime.sendMessage({
+        action: 'bulkWriteFeishuSheet',
+        config: hiddenConfig,
+        startRow: 1,
+        values2D: allValues
+      });
+    } catch (e) {
+      console.error('[Creator Highlight] 同步隐藏数据源失败:', e);
+    }
   }
 
   function processCreatorIdHideButton(idElement) {
