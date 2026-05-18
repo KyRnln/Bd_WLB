@@ -242,9 +242,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const totalEl = document.getElementById('popupTotalCount');
       const lostEl = document.getElementById('popupLostCount');
       const perfEl = document.getElementById('popupPerfCount');
+      const reconnectEl = document.getElementById('popupReconnectCount');
       if (totalEl) totalEl.textContent = creators.length;
       if (lostEl) lostEl.textContent = creators.filter(c => c.tag === '流失达人').length;
       if (perfEl) perfEl.textContent = creators.filter(c => c.tag === '绩效达人').length;
+      if (reconnectEl) reconnectEl.textContent = creators.filter(c => c.tag === '复联达人').length;
     } catch (e) {
       console.error('更新达人统计失败', e);
     }

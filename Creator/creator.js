@@ -8,6 +8,7 @@
   let editingCreatorIndex = -1;
   let activeCreatorTagId = 'all';
   let feishuConfigs = [];
+  let hiddenFeishuConfig = null;
 
   function showStatus(message, type = 'info', elementId = 'creatorCardStatus') {
     let statusDiv = document.getElementById(elementId);
@@ -120,15 +121,17 @@
     return creators.filter(c => c.tag === activeCreatorTagId);
   }
 
-  let _statsCache = { total: 0, lost: 0, perf: 0, _version: -1 };
+  let _statsCache = { total: 0, lost: 0, perf: 0, reconnect: 0, _version: -1 };
   function updateStats() {
     if (_statsCache._version === creators.length) return;
     _statsCache.total = creators.length;
     _statsCache.lost = 0;
     _statsCache.perf = 0;
+    _statsCache.reconnect = 0;
     for (let i = 0; i < creators.length; i++) {
       if (creators[i].tag === '流失达人') _statsCache.lost++;
       else if (creators[i].tag === '绩效达人') _statsCache.perf++;
+      else if (creators[i].tag === '复联达人') _statsCache.reconnect++;
     }
     _statsCache._version = creators.length;
   }
@@ -141,9 +144,11 @@
     const totalCount = document.getElementById('totalCount');
     const lostCount = document.getElementById('lostCount');
     const perfCount = document.getElementById('perfCount');
+    const reconnectCount = document.getElementById('reconnectCount');
     if (totalCount) totalCount.textContent = _statsCache.total;
     if (lostCount) lostCount.textContent = _statsCache.lost;
     if (perfCount) perfCount.textContent = _statsCache.perf;
+    if (reconnectCount) reconnectCount.textContent = _statsCache.reconnect;
 
     const creatorList = document.getElementById('creatorList');
     if (creatorList) {
@@ -195,7 +200,7 @@
     creatorList.innerHTML = displayList.map((creator, index) => {
       let tagClass = 'card-tag-default';
       let tagName = creator.tag || '未分组';
-      if (creator.tag === '绩效达人') tagClass = 'card-tag-performance';
+      if (creator.tag === '绩效达人' || creator.tag === '复联达人') tagClass = 'card-tag-performance';
       else if (creator.tag === '流失达人') tagClass = 'card-tag-lost';
 
       const remarkHtml = creator.remark
@@ -220,8 +225,8 @@
             ${remarkHtml}
           </div>
           <div class="card-actions">
-            <button type="button" class="card-action-btn jump-creator" data-index="${index}" ${creator.cid && creator.region ? '' : 'disabled'}>跳转</button>
-            <button type="button" class="card-action-btn edit-creator" data-index="${index}">编辑</button>
+            <button type="button" class="card-action-btn jump-creator" data-creator-id="${escapeHtml(creator.creator_id)}" data-cid="${escapeHtml(creator.cid || '')}" data-region="${escapeHtml(creator.region || '')}" ${creator.cid && creator.region ? '' : 'disabled'}>跳转</button>
+            <button type="button" class="card-action-btn edit-creator" data-creator-id="${escapeHtml(creator.creator_id)}">编辑</button>
           </div>
         </div>
       `;
@@ -232,21 +237,20 @@
       creatorList.addEventListener('click', (e) => {
         const editBtn = e.target.closest('button.edit-creator');
         if (editBtn) {
-          const index = parseInt(editBtn.dataset.index, 10);
-          const creator = displayList[index];
-          if (!creator) return;
-          const mainIndex = creators.findIndex(c => c.creator_id === creator.creator_id);
+          const creatorId = editBtn.dataset.creatorId;
+          if (!creatorId) return;
+          const mainIndex = creators.findIndex(c => c.creator_id === creatorId);
           if (mainIndex >= 0) {
-            openCreatorEdit(mainIndex, query ? index : -1);
+            openCreatorEdit(mainIndex);
           }
           return;
         }
         const jumpBtn = e.target.closest('button.jump-creator');
         if (jumpBtn) {
-          const index = parseInt(jumpBtn.dataset.index, 10);
-          const creator = displayList[index];
-          if (creator && creator.cid && creator.region) {
-            const url = `https://affiliate.tiktokshopglobalselling.com/connection/creator/detail?cid=${creator.cid}&region=${creator.region}`;
+          const cid = jumpBtn.dataset.cid;
+          const region = jumpBtn.dataset.region;
+          if (cid && region) {
+            const url = `https://affiliate.tiktokshopglobalselling.com/connection/creator/detail?cid=${cid}&region=${region}`;
             chrome.tabs.create({ url });
           }
         }
@@ -277,7 +281,7 @@
     creatorSearchList.innerHTML = searchResults.map((creator, index) => {
       let tagClass = 'card-tag-default';
       let tagName = creator.tag || '未分组';
-      if (creator.tag === '绩效达人') tagClass = 'card-tag-performance';
+      if (creator.tag === '绩效达人' || creator.tag === '复联达人') tagClass = 'card-tag-performance';
       else if (creator.tag === '流失达人') tagClass = 'card-tag-lost';
 
       const remarkHtml = creator.remark
@@ -302,8 +306,8 @@
             ${remarkHtml}
           </div>
           <div class="card-actions">
-            <button type="button" class="card-action-btn jump-creator" data-index="${index}" ${creator.cid && creator.region ? '' : 'disabled'}>跳转</button>
-            <button type="button" class="card-action-btn edit-creator" data-index="${index}">编辑</button>
+            <button type="button" class="card-action-btn jump-creator" data-creator-id="${escapeHtml(creator.creator_id)}" data-cid="${escapeHtml(creator.cid || '')}" data-region="${escapeHtml(creator.region || '')}" ${creator.cid && creator.region ? '' : 'disabled'}>跳转</button>
+            <button type="button" class="card-action-btn edit-creator" data-creator-id="${escapeHtml(creator.creator_id)}">编辑</button>
           </div>
         </div>
       `;
@@ -314,21 +318,20 @@
       creatorSearchList.addEventListener('click', (e) => {
         const editBtn = e.target.closest('button.edit-creator');
         if (editBtn) {
-          const index = parseInt(editBtn.dataset.index, 10);
-          const creator = searchResults[index];
-          if (!creator) return;
-          const mainIndex = creators.findIndex(c => c.creator_id === creator.creator_id);
+          const creatorId = editBtn.dataset.creatorId;
+          if (!creatorId) return;
+          const mainIndex = creators.findIndex(c => c.creator_id === creatorId);
           if (mainIndex >= 0) {
-            openCreatorEdit(mainIndex, index);
+            openCreatorEdit(mainIndex);
           }
           return;
         }
         const jumpBtn = e.target.closest('button.jump-creator');
         if (jumpBtn) {
-          const index = parseInt(jumpBtn.dataset.index, 10);
-          const creator = searchResults[index];
-          if (creator && creator.cid && creator.region) {
-            const url = `https://affiliate.tiktokshopglobalselling.com/connection/creator/detail?cid=${creator.cid}&region=${creator.region}`;
+          const cid = jumpBtn.dataset.cid;
+          const region = jumpBtn.dataset.region;
+          if (cid && region) {
+            const url = `https://affiliate.tiktokshopglobalselling.com/connection/creator/detail?cid=${cid}&region=${region}`;
             chrome.tabs.create({ url });
           }
         }
@@ -457,6 +460,7 @@
     if (!confirm(`确定删除达人 "${creator.creator_id}" 吗？`)) return;
 
     const feishuRecordId = creator._feishuRecordId;
+    const config = getFeishuConfigForDataSource(creator._dataSourceId);
 
     creators = creators.filter((_, i) => i !== editingCreatorIndex);
     searchResults = searchResults.filter(c => c.creator_id !== creator.creator_id);
@@ -465,23 +469,12 @@
     closeCreatorEdit();
     renderCreators();
 
-    const config = getFeishuConfigForDataSource(creator._dataSourceId);
     if (config && config.baseToken && feishuRecordId) {
       try {
-        const nameField = config.creatorNameField || '达人名称';
-        const cidField = config.creatorCidField || '达人CID';
-        const statusField = config.creatorStatusField || '达人状态';
-        const fields = {
-          [nameField]: '',
-          [cidField]: '',
-          [statusField]: '',
-          '备注': ''
-        };
         const response = await chrome.runtime.sendMessage({
-          action: 'updateBitableRecord',
+          action: 'deleteBitableRecord',
           config: config,
-          recordId: feishuRecordId,
-          fields: fields
+          recordId: feishuRecordId
         });
         if (response?.success) {
           showStatus('达人已删除（含飞书同步）', 'success', 'creatorCardStatus');
@@ -502,6 +495,7 @@
 
   function getFeishuConfigForDataSource(dataSourceId) {
     if (!dataSourceId) return null;
+    if (dataSourceId === 'hidden') return hiddenFeishuConfig;
     return feishuConfigs.find(c => c.id === dataSourceId) || null;
   }
 
@@ -546,6 +540,28 @@
       );
     } catch (e) {
       console.error('保存飞书配置失败', e);
+    }
+  }
+
+  async function loadHiddenFeishuConfig() {
+    try {
+      const result = await new Promise(resolve =>
+        chrome.storage.local.get(['hiddenFeishuConfig'], resolve)
+      );
+      hiddenFeishuConfig = result.hiddenFeishuConfig || null;
+    } catch (e) {
+      console.error('加载隐藏达人配置失败', e);
+      hiddenFeishuConfig = null;
+    }
+  }
+
+  async function saveHiddenFeishuConfigToStorage() {
+    try {
+      await new Promise(resolve =>
+        chrome.storage.local.set({ hiddenFeishuConfig }, resolve)
+      );
+    } catch (e) {
+      console.error('保存隐藏达人配置失败', e);
     }
   }
 
@@ -612,7 +628,13 @@
             <label>达人状态字段名（作为标签）</label>
             <input type="text" class="ds-field ds-statusField" value="${escapeHtml(config.creatorStatusField || '达人状态')}" placeholder="达人状态" />
             <label>地区代码</label>
-            <input type="text" class="ds-field ds-regionCode" value="${escapeHtml(config.regionCode || '')}" placeholder="例如：MY" />
+            <select class="ds-field ds-regionCode">
+              <option value="">请选择地区</option>
+              <option value="MY"${config.regionCode === 'MY' ? ' selected' : ''}>MY</option>
+              <option value="SG"${config.regionCode === 'SG' ? ' selected' : ''}>SG</option>
+              <option value="TH"${config.regionCode === 'TH' ? ' selected' : ''}>TH</option>
+              <option value="PH"${config.regionCode === 'PH' ? ' selected' : ''}>PH</option>
+            </select>
             <div class="flex gap-3 mt-3 w-full" style="min-width: 0; gap: 8px;">
               <button class="btn-sm btn-primary ds-import-btn" style="flex:1;">导入数据</button>
               <button class="btn-sm ds-save-btn">保存配置</button>
@@ -814,7 +836,7 @@
           region: region,
           tag: tag,
           remark: remark,
-          _feishuRecordId: item.record_id || null,
+          _feishuRecordId: item.recordId || null,
           _dataSourceId: config.id
         });
       }
@@ -857,6 +879,166 @@
     const dialog = document.getElementById('feishuConfigDialog');
     if (!dialog) return;
     dialog.classList.remove('show');
+  }
+
+  function handleConfigHidden() {
+    openHiddenConfigDialog();
+  }
+
+  async function handleImportHidden() {
+    if (!hiddenFeishuConfig || !hiddenFeishuConfig.baseToken) {
+      showStatus('请先配置隐藏达人的飞书数据源', 'error', 'creatorCardStatus');
+      return;
+    }
+
+    const progressBar = document.getElementById('importProgressBar');
+    const progressFill = document.getElementById('importProgressFill');
+    const progressText = document.getElementById('importProgressText');
+    if (progressBar) progressBar.style.display = 'flex';
+    if (progressFill) progressFill.style.width = '0%';
+    if (progressText) progressText.textContent = '正在从隐藏达人数据源导入...';
+
+    let totalImported = 0;
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        action: 'listBitableRecords',
+        config: hiddenFeishuConfig
+      });
+
+      if (!response || !response.success) {
+        throw new Error(response?.error || '获取飞书数据失败');
+      }
+
+      const records = response.records || [];
+      const nameField = hiddenFeishuConfig.creatorNameField || '达人名称';
+      const cidField = hiddenFeishuConfig.creatorCidField || '达人CID';
+      const statusField = hiddenFeishuConfig.creatorStatusField || '达人状态';
+      const remark = hiddenFeishuConfig.remark || '隐藏达人';
+      const newCreators = [];
+
+      for (const item of records) {
+        const fields = item.fields || {};
+        const name = extractFieldValue(fields[nameField]);
+        if (!name) continue;
+        const nameStr = name.trim();
+        if (!nameStr) continue;
+
+        newCreators.push({
+          creator_id: nameStr,
+          cid: extractFieldValue(fields[cidField]),
+          region: '',
+          tag: extractFieldValue(fields[statusField]) || '隐藏达人',
+          remark: extractFieldValue(fields['备注']) || remark,
+          _feishuRecordId: item.recordId || null,
+          _dataSourceId: 'hidden'
+        });
+      }
+
+      if (progressFill) progressFill.style.width = '60%';
+      if (progressText) progressText.textContent = `处理 ${newCreators.length} 条隐藏达人数据...`;
+
+      creators = creators.filter(c => c._dataSourceId !== 'hidden');
+      creators = creators.concat(newCreators);
+      totalImported = newCreators.length;
+
+      searchResults = [];
+      await saveData();
+      renderTags();
+      renderCreators();
+
+      if (progressFill) progressFill.style.width = '100%';
+      if (progressText) progressText.textContent = '导入完成';
+
+      showStatus(`隐藏达人导入完成：共 ${totalImported} 条`, 'success', 'creatorCardStatus');
+    } catch (err) {
+      console.error('[Creator] 隐藏达人导入失败', err);
+      showStatus('隐藏达人导入失败：' + err.message, 'error', 'creatorCardStatus');
+    } finally {
+      setTimeout(() => {
+        if (progressBar) progressBar.style.display = 'none';
+        if (progressFill) progressFill.style.width = '0%';
+        if (progressText) progressText.textContent = '0%';
+      }, 3000);
+    }
+  }
+
+  function openHiddenConfigDialog() {
+    const dialog = document.getElementById('hiddenConfigDialog');
+    if (!dialog) return;
+    dialog.classList.add('show');
+
+    if (hiddenFeishuConfig) {
+      document.getElementById('hiddenConfigRemark').value = hiddenFeishuConfig.remark || '';
+      document.getElementById('hiddenConfigAppId').value = hiddenFeishuConfig.appId || '';
+      document.getElementById('hiddenConfigAppSecret').value = hiddenFeishuConfig.appSecret || '';
+      document.getElementById('hiddenConfigUrl').value = hiddenFeishuConfig.feishuUrl || '';
+      document.getElementById('hiddenConfigNameField').value = hiddenFeishuConfig.creatorNameField || '达人名称';
+      document.getElementById('hiddenConfigCidField').value = hiddenFeishuConfig.creatorCidField || '达人CID';
+      document.getElementById('hiddenConfigStatusField').value = hiddenFeishuConfig.creatorStatusField || '达人状态';
+    }
+  }
+
+  function closeHiddenConfigDialog() {
+    const dialog = document.getElementById('hiddenConfigDialog');
+    if (!dialog) return;
+    dialog.classList.remove('show');
+  }
+
+  async function saveHiddenConfig() {
+    const appId = document.getElementById('hiddenConfigAppId').value.trim();
+    const appSecret = document.getElementById('hiddenConfigAppSecret').value.trim();
+    const feishuUrl = document.getElementById('hiddenConfigUrl').value.trim();
+    const remark = document.getElementById('hiddenConfigRemark').value.trim() || '隐藏达人';
+    const creatorNameField = document.getElementById('hiddenConfigNameField').value.trim() || '达人名称';
+    const creatorCidField = document.getElementById('hiddenConfigCidField').value.trim() || '达人CID';
+    const creatorStatusField = document.getElementById('hiddenConfigStatusField').value.trim() || '达人状态';
+
+    if (!feishuUrl) {
+      showStatus('请输入飞书多维表格 URL', 'error', 'creatorCardStatus');
+      return;
+    }
+
+    const parsed = parseFeishuUrl(feishuUrl);
+    if (!parsed.baseToken && !parsed.wikiToken) {
+      showStatus('无法解析飞书链接，请检查 URL 格式', 'error', 'creatorCardStatus');
+      return;
+    }
+
+    let baseToken = parsed.baseToken;
+    let tableId = parsed.tableId;
+
+    if (parsed.isWiki && !baseToken) {
+      try {
+        const response = await chrome.runtime.sendMessage({
+          action: 'resolveWikiToken',
+          wikiToken: parsed.wikiToken
+        });
+        if (response && response.success && response.baseToken) {
+          baseToken = response.baseToken;
+        } else {
+          baseToken = parsed.wikiToken;
+        }
+      } catch (e) {
+        baseToken = parsed.wikiToken;
+      }
+    }
+
+    hiddenFeishuConfig = {
+      appId,
+      appSecret,
+      feishuUrl,
+      baseToken,
+      tableId,
+      remark,
+      creatorNameField,
+      creatorCidField,
+      creatorStatusField
+    };
+
+    await saveHiddenFeishuConfigToStorage();
+    closeHiddenConfigDialog();
+    showStatus('隐藏达人配置已保存', 'success', 'creatorCardStatus');
   }
 
   async function handleImportFromFeishu() {
@@ -918,7 +1100,7 @@
             region: regionCode,
             tag: extractFieldValue(fields[statusField]),
             remark: extractFieldValue(fields['备注']),
-            _feishuRecordId: item.record_id || null,
+            _feishuRecordId: item.recordId || null,
             _dataSourceId: config.id
           });
         }
@@ -1011,6 +1193,26 @@
       configFeishuBtn.addEventListener('click', openFeishuConfigDialog);
     }
 
+    const importHiddenBtn = document.getElementById('importHiddenBtn');
+    if (importHiddenBtn) {
+      importHiddenBtn.addEventListener('click', handleImportHidden);
+    }
+
+    const configHiddenBtn = document.getElementById('configHiddenBtn');
+    if (configHiddenBtn) {
+      configHiddenBtn.addEventListener('click', handleConfigHidden);
+    }
+
+    const closeHiddenConfigBtn = document.getElementById('closeHiddenConfigBtn');
+    if (closeHiddenConfigBtn) {
+      closeHiddenConfigBtn.addEventListener('click', closeHiddenConfigDialog);
+    }
+
+    const saveHiddenConfigBtn = document.getElementById('saveHiddenConfigBtn');
+    if (saveHiddenConfigBtn) {
+      saveHiddenConfigBtn.addEventListener('click', saveHiddenConfig);
+    }
+
     const closeFeishuConfigBtn = document.getElementById('closeFeishuConfigBtn');
     if (closeFeishuConfigBtn) {
       closeFeishuConfigBtn.addEventListener('click', closeFeishuConfigDialog);
@@ -1040,6 +1242,7 @@
       });
     }
 
+    loadHiddenFeishuConfig();
     loadFeishuConfigs().then(() => {
       renderDataSourcePanels();
     });

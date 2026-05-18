@@ -1,6 +1,7 @@
 // 达人ID高亮与隐藏功能
 // 功能说明：
 //   - 绩效达人：红色高亮 + 加粗 (quick-creator-hit)
+//   - 复联达人：红色高亮 + 加粗 (quick-creator-hit)
 //   - 流失达人：绿色高亮 + 加粗 + 50%透明度 + 删除线 (quick-creator-lost)
 //   - 隐藏达人：灰色 + 删除线 + 50%透明度 (creator-id-blacklisted)
 // 样式实现：CSS类 + 内联样式双重保护，防止鼠标悬停时样式被页面覆盖丢失
@@ -16,6 +17,7 @@
   const CREATOR_HIT_CLASS = 'quick-creator-hit';
   const TAG_COLORS = {
     '绩效达人': { bg: '#ffebee', color: '#c62828' },
+    '复联达人': { bg: '#ffebee', color: '#c62828' },
     '流失达人': { bg: '#e8f5e9', color: '#2e7d32' },
     '隐藏达人': { bg: '#f5f5f5', color: '#616161' }
   };
@@ -76,6 +78,7 @@
       map.set(norm, c);
 
       if (c.tag === '绩效达人') performance.add(norm);
+      else if (c.tag === '复联达人') performance.add(norm);
       else if (c.tag === '流失达人') lost.add(norm);
       else if (c.tag === '隐藏达人') hidden.add(norm);
     }

@@ -24,6 +24,100 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   return true;
 });
 
+async function getFeishuAccessToken(config) {
+  const tokenResponse = await fetch('https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      app_id: config.appId,
+      app_secret: config.appSecret
+    })
+  });
+
+  if (!tokenResponse.ok) {
+    const errText = await tokenResponse.text();
+    throw new Error(`获取飞书 token 失败 (${tokenResponse.status}): ${errText}`);
+  }
+
+  const tokenData = await tokenResponse.json();
+  if (tokenData.code !== 0) {
+    throw new Error(`飞书 token 返回错误: ${tokenData.msg || JSON.stringify(tokenData)}`);
+  }
+
+  return tokenData.tenant_access_token;
+}
+
+async function handleAppendBitableRecords(config, recordsData) {
+  try {
+    const accessToken = await getFeishuAccessToken(config);
+
+    const fieldListUrl = `https://open.feishu.cn/open-apis/bitable/v1/apps/${config.baseToken}/tables/${config.tableId}/fields`;
+    const fieldResp = await fetch(fieldListUrl, {
+      headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+    });
+    const fieldData = await fieldResp.json();
+    if (fieldData.code !== 0) {
+      throw new Error(`获取字段列表失败: ${fieldData.msg || JSON.stringify(fieldData)}`);
+    }
+    const fields = fieldData.data?.items || [];
+    const fieldMap = {};
+    for (const f of fields) {
+      fieldMap[f.field_name] = f.field_name;
+      fieldMap[f.field_id] = f.field_name;
+    }
+    for (const f of fields) {
+      const lower = f.field_name.toLowerCase();
+      if (lower === config.creatorNameField.toLowerCase()) fieldMap[config.creatorNameField] = f.field_name;
+      if (lower === config.creatorIdField.toLowerCase()) fieldMap[config.creatorIdField] = f.field_name;
+      if (lower === config.productIdField.toLowerCase()) fieldMap[config.productIdField] = f.field_name;
+    }
+
+    const nameField = fieldMap[config.creatorNameField] || config.creatorNameField;
+    const idField = fieldMap[config.creatorIdField] || config.creatorIdField;
+    const productField = fieldMap[config.productIdField] || config.productIdField;
+
+    const url = `https://open.feishu.cn/open-apis/bitable/v1/apps/${config.baseToken}/tables/${config.tableId}/records/batch_create`;
+
+    const chunkSize = 500;
+    for (let i = 0; i < recordsData.length; i += chunkSize) {
+      const chunk = recordsData.slice(i, i + chunkSize);
+      const body = {
+        records: chunk.map(r => ({
+          fields: {
+            [nameField]: r.creator_name,
+            [idField]: r.creator_id,
+            [productField]: r.apply_product_id
+          }
+        }))
+      };
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`批量写入多维表格失败 (${response.status}): ${errText}`);
+      }
+
+      const data = await response.json();
+      if (data.code !== 0) {
+        throw new Error(`多维表格返回错误: ${data.msg || JSON.stringify(data)}，发送的字段: ${JSON.stringify([nameField, idField, productField])}，表格实际字段: ${JSON.stringify(fields.map(f => f.field_name))}`);
+      }
+    }
+
+    return { success: true, total: recordsData.length };
+  } catch (err) {
+    console.error('[Feishu] 追加记录失败:', err);
+    return { success: false, error: err.message };
+  }
+}
+
 async function handleMessage(request, sender) {
   console.log('[Bg] 收到消息:', JSON.stringify({ action: request.action, keys: Object.keys(request) }));
   const usernameAvatarCidResult = await handleUsernameAvatarCidMessage(request, sender, downloadExcel);
@@ -168,6 +262,9 @@ async function handleMessage(request, sender) {
     case 'updateBitableRecord': {
       return await handleUpdateBitableRecord(request.config, request.recordId, request.fields);
     }
+    case 'deleteBitableRecord': {
+      return await handleDeleteBitableRecord(request.config, request.recordId);
+    }
     case 'findBitableRecordByField': {
       return await handleFindBitableRecordByField(request.config, request.fieldName, request.fieldValue);
     }
@@ -210,29 +307,6 @@ async function downloadExcel(data, customFilename = null) {
   const dataUrl = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${btoa(bin)}`;
   const filename = customFilename || `orders_${new Date().toISOString().split('T')[0]}.xlsx`;
   await chrome.downloads.download({ url: dataUrl, filename, saveAs: true });
-}
-
-async function getFeishuAccessToken(config) {
-  const tokenResponse = await fetch('https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      app_id: config.appId,
-      app_secret: config.appSecret
-    })
-  });
-
-  if (!tokenResponse.ok) {
-    const errText = await tokenResponse.text();
-    throw new Error(`获取飞书 token 失败 (${tokenResponse.status}): ${errText}`);
-  }
-
-  const tokenData = await tokenResponse.json();
-  if (tokenData.code !== 0) {
-    throw new Error(`飞书 token 返回错误: ${tokenData.msg || JSON.stringify(tokenData)}`);
-  }
-
-  return tokenData.tenant_access_token;
 }
 
 function buildFeishuRowRange(baseRange, row) {
@@ -557,6 +631,36 @@ async function handleUpdateBitableRecord(config, recordId, fields) {
   }
 }
 
+async function handleDeleteBitableRecord(config, recordId) {
+  try {
+    const accessToken = await getFeishuAccessToken(config);
+    const url = `https://open.feishu.cn/open-apis/bitable/v1/apps/${config.baseToken}/tables/${config.tableId}/records/${recordId}`;
+
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`删除多维表格记录失败 (${response.status}): ${errText}`);
+    }
+
+    const data = await response.json();
+    if (data.code !== 0) {
+      throw new Error(`多维表格返回错误: ${data.msg || JSON.stringify(data)}`);
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.error('[Bitable] 删除记录失败:', err);
+    return { success: false, error: err.message };
+  }
+}
+
 async function handleFindBitableRecordByField(config, fieldName, fieldValue) {
   try {
     const accessToken = await getFeishuAccessToken(config);
@@ -750,77 +854,6 @@ async function handleResolveWikiToken(config, wikiToken) {
     throw new Error(wikiApiError || '无法解析 wiki token，请检查 App 是否拥有 wiki:wiki 权限，或手动输入 Base Token');
   } catch (err) {
     console.error('[Bitable] 解析 wiki token 失败:', err);
-    return { success: false, error: err.message };
-  }
-}
-
-async function handleAppendBitableRecords(config, recordsData) {
-  try {
-    const accessToken = await getFeishuAccessToken(config);
-
-    const fieldListUrl = `https://open.feishu.cn/open-apis/bitable/v1/apps/${config.baseToken}/tables/${config.tableId}/fields`;
-    const fieldResp = await fetch(fieldListUrl, {
-      headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
-    });
-    const fieldData = await fieldResp.json();
-    if (fieldData.code !== 0) {
-      throw new Error(`获取字段列表失败: ${fieldData.msg || JSON.stringify(fieldData)}`);
-    }
-    const fields = fieldData.data?.items || [];
-    const fieldMap = {};
-    for (const f of fields) {
-      fieldMap[f.field_name] = f.field_name;
-      fieldMap[f.field_id] = f.field_name;
-    }
-    for (const f of fields) {
-      const lower = f.field_name.toLowerCase();
-      if (lower === config.creatorNameField.toLowerCase()) fieldMap[config.creatorNameField] = f.field_name;
-      if (lower === config.creatorIdField.toLowerCase()) fieldMap[config.creatorIdField] = f.field_name;
-      if (lower === config.productIdField.toLowerCase()) fieldMap[config.productIdField] = f.field_name;
-    }
-
-    const nameField = fieldMap[config.creatorNameField] || config.creatorNameField;
-    const idField = fieldMap[config.creatorIdField] || config.creatorIdField;
-    const productField = fieldMap[config.productIdField] || config.productIdField;
-
-    const url = `https://open.feishu.cn/open-apis/bitable/v1/apps/${config.baseToken}/tables/${config.tableId}/records/batch_create`;
-
-    const chunkSize = 500;
-    for (let i = 0; i < recordsData.length; i += chunkSize) {
-      const chunk = recordsData.slice(i, i + chunkSize);
-      const body = {
-        records: chunk.map(r => ({
-          fields: {
-            [nameField]: r.creator_name,
-            [idField]: r.creator_id,
-            [productField]: r.apply_product_id
-          }
-        }))
-      };
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(body)
-      });
-
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`批量写入多维表格失败 (${response.status}): ${errText}`);
-      }
-
-      const data = await response.json();
-      if (data.code !== 0) {
-        throw new Error(`多维表格返回错误: ${data.msg || JSON.stringify(data)}，发送的字段: ${JSON.stringify([nameField, idField, productField])}，表格实际字段: ${JSON.stringify(fields.map(f => f.field_name))}`);
-      }
-    }
-
-    return { success: true, total: recordsData.length };
-  } catch (err) {
-    console.error('[Feishu] 追加记录失败:', err);
     return { success: false, error: err.message };
   }
 }
