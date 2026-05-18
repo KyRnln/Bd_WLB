@@ -165,6 +165,12 @@ async function handleMessage(request, sender) {
     case 'listBitableRecords': {
       return await handleListBitableRecords(request.config);
     }
+    case 'updateBitableRecord': {
+      return await handleUpdateBitableRecord(request.config, request.recordId, request.fields);
+    }
+    case 'findBitableRecordByField': {
+      return await handleFindBitableRecordByField(request.config, request.fieldName, request.fieldValue);
+    }
     case 'fetchAndUploadBitableCover': {
       return await handleFetchAndUploadBitableCover(request.config, request.recordId, request.videoUrl);
     }
@@ -474,6 +480,86 @@ async function handleBulkWriteFeishuSheet(config, startRow, values2D) {
 async function handleListBitableRecords(config) {
   try {
     const accessToken = await getFeishuAccessToken(config);
+    let pageToken = '';
+    let allItems = [];
+
+    do {
+      let url = `https://open.feishu.cn/open-apis/bitable/v1/apps/${config.baseToken}/tables/${config.tableId}/records?page_size=500`;
+      if (pageToken) {
+        url += `&page_token=${pageToken}`;
+      }
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`读取多维表格失败 (${response.status}): ${errText}`);
+      }
+
+      const data = await response.json();
+      if (data.code !== 0) {
+        throw new Error(`多维表格返回错误: ${data.msg || JSON.stringify(data)}`);
+      }
+
+      const items = data.data?.items || [];
+      allItems = allItems.concat(items);
+
+      pageToken = data.data?.page_token || '';
+      if (!data.data?.has_more) break;
+    } while (pageToken);
+
+    const records = allItems.map(item => ({
+      recordId: item.record_id,
+      fields: item.fields || {}
+    }));
+
+    return { success: true, records };
+  } catch (err) {
+    console.error('[Bitable] 读取记录失败:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+async function handleUpdateBitableRecord(config, recordId, fields) {
+  try {
+    const accessToken = await getFeishuAccessToken(config);
+    const url = `https://open.feishu.cn/open-apis/bitable/v1/apps/${config.baseToken}/tables/${config.tableId}/records/${recordId}`;
+
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ fields })
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`更新多维表格记录失败 (${response.status}): ${errText}`);
+    }
+
+    const data = await response.json();
+    if (data.code !== 0) {
+      throw new Error(`多维表格返回错误: ${data.msg || JSON.stringify(data)}`);
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.error('[Bitable] 更新记录失败:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+async function handleFindBitableRecordByField(config, fieldName, fieldValue) {
+  try {
+    const accessToken = await getFeishuAccessToken(config);
     const url = `https://open.feishu.cn/open-apis/bitable/v1/apps/${config.baseToken}/tables/${config.tableId}/records?page_size=500`;
 
     const response = await fetch(url, {
@@ -486,7 +572,7 @@ async function handleListBitableRecords(config) {
 
     if (!response.ok) {
       const errText = await response.text();
-      throw new Error(`读取多维表格失败 (${response.status}): ${errText}`);
+      throw new Error(`查找多维表格记录失败 (${response.status}): ${errText}`);
     }
 
     const data = await response.json();
@@ -495,14 +581,16 @@ async function handleListBitableRecords(config) {
     }
 
     const items = data.data?.items || [];
-    const records = items.map(item => ({
-      recordId: item.record_id,
-      fields: item.fields || {}
-    }));
+    for (const item of items) {
+      const fieldVal = item.fields?.[fieldName];
+      if (fieldVal !== undefined && fieldVal !== null && String(fieldVal).trim() === String(fieldValue).trim()) {
+        return { success: true, recordId: item.record_id, fields: item.fields };
+      }
+    }
 
-    return { success: true, records };
+    return { success: true, recordId: null };
   } catch (err) {
-    console.error('[Bitable] 读取记录失败:', err);
+    console.error('[Bitable] 查找记录失败:', err);
     return { success: false, error: err.message };
   }
 }
@@ -594,8 +682,11 @@ async function handleFetchAndUploadBitableCover(config, recordId, videoUrl) {
 }
 
 async function handleResolveWikiToken(config, wikiToken) {
+  let wikiApiError = '';
   try {
     const accessToken = await getFeishuAccessToken(config);
+
+    // 方案1: 尝试 Wiki API（需要 wiki:wiki 权限）
     const url = `https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=${encodeURIComponent(wikiToken)}`;
 
     const response = await fetch(url, {
@@ -606,27 +697,57 @@ async function handleResolveWikiToken(config, wikiToken) {
       }
     });
 
-    if (!response.ok) {
+    if (response.ok) {
+      const data = await response.json();
+      if (data.code === 0 && data.data?.node) {
+        const node = data.data.node;
+        if (node.obj_token) {
+          return {
+            success: true,
+            baseToken: node.obj_token,
+            objType: node.obj_type || '',
+            title: node.title || ''
+          };
+        }
+      }
+      if (data.code !== 0) {
+        wikiApiError = `Wiki API 返回错误: ${data.msg || JSON.stringify(data)}`;
+      } else {
+        wikiApiError = 'API 返回中未找到 node 信息';
+      }
+    } else {
       const errText = await response.text();
-      throw new Error(`飞书 Wiki API 失败 (${response.status}): ${errText}`);
+      wikiApiError = `Wiki API 失败 (${response.status}): ${errText}`;
     }
 
-    const data = await response.json();
-    if (data.code !== 0) {
-      throw new Error(`飞书 Wiki API 返回错误: ${data.msg || JSON.stringify(data)}`);
+    // 方案2: 回退方案 — 直接尝试将 wiki token 作为 base token 使用
+    // 飞书中，部分多维表格的 wiki token 和 base token 是相同的
+    console.log('[Bitable] Wiki API 未成功，尝试直接使用 wiki token 作为 base token...');
+    console.log('[Bitable] Wiki API 错误:', wikiApiError);
+
+    const testUrl = `https://open.feishu.cn/open-apis/bitable/v1/apps/${encodeURIComponent(wikiToken)}/tables?page_size=1`;
+    const testResponse = await fetch(testUrl, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (testResponse.ok) {
+      const testData = await testResponse.json();
+      if (testData.code === 0) {
+        console.log('[Bitable] wiki token 可直接作为 base token 使用！');
+        return {
+          success: true,
+          baseToken: wikiToken,
+          objType: 'bitable',
+          title: ''
+        };
+      }
     }
 
-    const node = data.data?.node;
-    if (!node) {
-      throw new Error('API 返回中未找到 node 信息');
-    }
-
-    return {
-      success: true,
-      baseToken: node.obj_token || '',
-      objType: node.obj_type || '',
-      title: node.title || ''
-    };
+    // 两种方案都失败：抛出 Wiki API 的原始错误（回退也失败了）
+    throw new Error(wikiApiError || '无法解析 wiki token，请检查 App 是否拥有 wiki:wiki 权限，或手动输入 Base Token');
   } catch (err) {
     console.error('[Bitable] 解析 wiki token 失败:', err);
     return { success: false, error: err.message };

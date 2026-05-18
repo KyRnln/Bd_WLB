@@ -7,8 +7,7 @@
   let searchResults = [];
   let editingCreatorIndex = -1;
   let activeCreatorTagId = 'all';
-  let feishuConfig = null;
-  let hiddenFeishuConfig = null;
+  let feishuConfigs = [];
 
   function showStatus(message, type = 'info', elementId = 'creatorCardStatus') {
     let statusDiv = document.getElementById(elementId);
@@ -65,6 +64,23 @@
   const _escapeRe = /[&<>"']/g;
   function escapeHtml(text) {
     return text.replace(_escapeRe, ch => _escapeMap[ch]);
+  }
+
+  function extractFieldValue(val) {
+    if (val === null || val === undefined) return '';
+    if (typeof val === 'string') return val;
+    if (typeof val === 'number') return String(val);
+    if (Array.isArray(val)) {
+      return val.map(v => extractFieldValue(v)).filter(v => v).join(', ');
+    }
+    if (typeof val === 'object') {
+      if (val.text !== undefined) return String(val.text);
+      if (val.name !== undefined) return String(val.name);
+      if (val.link !== undefined) return String(val.link);
+      if (val.number !== undefined) return String(val.number);
+      return JSON.stringify(val);
+    }
+    return String(val);
   }
 
   let _tagBarDelegated = false;
@@ -331,12 +347,30 @@
     if (mainIndex < 0 || mainIndex >= creators.length) return;
     editingCreatorIndex = mainIndex;
     const creator = creators[mainIndex];
+
+    updateRegionSelectOptions();
+
     if (creatorEditId) creatorEditId.value = creator.creator_id || '';
     if (creatorEditCid) creatorEditCid.value = creator.cid || '';
     if (creatorEditRegion) creatorEditRegion.value = creator.region || '';
     if (creatorEditTag) creatorEditTag.value = creator.tag || '';
     if (creatorEditRemark) creatorEditRemark.value = creator.remark || '';
     if (creatorEditDialog) creatorEditDialog.classList.add('show');
+  }
+
+  function updateRegionSelectOptions() {
+    const select = document.getElementById('creatorEditRegion');
+    if (!select) return;
+    const currentValue = select.value;
+    const options = ['MY', 'PH', 'SG', 'TH', 'ID', 'VN'];
+    select.innerHTML = '<option value="">请选择地区</option>';
+    for (const opt of options) {
+      const optionEl = document.createElement('option');
+      optionEl.value = opt;
+      optionEl.textContent = opt;
+      select.appendChild(optionEl);
+    }
+    if (currentValue) select.value = currentValue;
   }
 
   function closeCreatorEdit() {
@@ -363,42 +397,52 @@
     closeCreatorEdit();
     renderCreators();
 
-    const config = getFeishuConfigForTag(creator.tag);
-    if (config) {
+    const config = getFeishuConfigForDataSource(creator._dataSourceId);
+    if (config && config.baseToken) {
       try {
-        let row = creator._feishuRow;
-        if (!row) {
+        let recordId = creator._feishuRecordId;
+        if (!recordId) {
+          const nameField = config.creatorNameField || '达人名称';
           const findResult = await chrome.runtime.sendMessage({
-            action: 'findFeishuRowByCreatorId',
+            action: 'findBitableRecordByField',
             config: config,
-            creatorId: creator.creator_id
+            fieldName: nameField,
+            fieldValue: creator.creator_id
           });
-          if (findResult?.success && findResult.row > 0) {
-            row = findResult.row;
-            creator._feishuRow = row;
+          if (findResult?.success && findResult.recordId) {
+            recordId = findResult.recordId;
+            creator._feishuRecordId = recordId;
             await saveData();
           } else if (!findResult?.success) {
-            console.error('[Creator] 查找飞书行号失败:', findResult);
+            console.error('[Creator] 查找飞书记录失败:', findResult);
           }
         }
-        if (row) {
-          const values = [creator.creator_id, creator.cid || '', creator.region || '', creator.tag || '', creator.remark || ''];
+        if (recordId) {
+          const nameField = config.creatorNameField || '达人名称';
+          const cidField = config.creatorCidField || '达人CID';
+          const statusField = config.creatorStatusField || '达人状态';
+          const fields = {
+            [nameField]: creator.creator_id,
+            [cidField]: creator.cid || '',
+            [statusField]: creator.tag || '',
+            '备注': creator.remark || ''
+          };
           const response = await chrome.runtime.sendMessage({
-            action: 'updateFeishuSheetRow',
+            action: 'updateBitableRecord',
             config: config,
-            row: row,
-            values: values
+            recordId: recordId,
+            fields: fields
           });
           if (response?.success) {
             showStatus('达人信息已更新（含飞书同步）', 'success', 'creatorCardStatus');
           } else {
-            console.error('[Creator] 飞书更新行失败, 完整响应:', response);
+            console.error('[Creator] 飞书更新记录失败, 完整响应:', response);
             showStatus('本地已更新，飞书同步失败：' + (response?.error || '未知错误'), 'info', 'creatorCardStatus');
           }
           return;
         }
       } catch (err) {
-        console.error('[Creator] 飞书更新行异常:', err);
+        console.error('[Creator] 飞书更新记录异常:', err);
         showStatus('本地已更新，飞书同步失败：' + err.message, 'info', 'creatorCardStatus');
         return;
       }
@@ -412,7 +456,7 @@
     const creator = creators[editingCreatorIndex];
     if (!confirm(`确定删除达人 "${creator.creator_id}" 吗？`)) return;
 
-    const feishuRow = creator._feishuRow;
+    const feishuRecordId = creator._feishuRecordId;
 
     creators = creators.filter((_, i) => i !== editingCreatorIndex);
     searchResults = searchResults.filter(c => c.creator_id !== creator.creator_id);
@@ -421,25 +465,33 @@
     closeCreatorEdit();
     renderCreators();
 
-    const config = getFeishuConfigForTag(creator.tag);
-    if (config && feishuRow) {
+    const config = getFeishuConfigForDataSource(creator._dataSourceId);
+    if (config && config.baseToken && feishuRecordId) {
       try {
-        const values = ['', '', '', '', ''];
+        const nameField = config.creatorNameField || '达人名称';
+        const cidField = config.creatorCidField || '达人CID';
+        const statusField = config.creatorStatusField || '达人状态';
+        const fields = {
+          [nameField]: '',
+          [cidField]: '',
+          [statusField]: '',
+          '备注': ''
+        };
         const response = await chrome.runtime.sendMessage({
-          action: 'updateFeishuSheetRow',
+          action: 'updateBitableRecord',
           config: config,
-          row: feishuRow,
-          values: values
+          recordId: feishuRecordId,
+          fields: fields
         });
         if (response?.success) {
           showStatus('达人已删除（含飞书同步）', 'success', 'creatorCardStatus');
         } else {
-          console.error('[Creator] 飞书删除行（清空）失败, 完整响应:', response);
+          console.error('[Creator] 飞书删除记录失败, 完整响应:', response);
           showStatus('本地已删除，飞书同步失败：' + (response?.error || '未知错误'), 'info', 'creatorCardStatus');
         }
         return;
       } catch (err) {
-        console.error('[Creator] 飞书删除行（清空）异常:', err);
+        console.error('[Creator] 飞书删除记录异常:', err);
         showStatus('本地已删除，飞书同步失败：' + err.message, 'info', 'creatorCardStatus');
         return;
       }
@@ -448,22 +500,49 @@
     showStatus('达人已删除', 'success', 'creatorCardStatus');
   }
 
-  async function loadFeishuConfig() {
+  function getFeishuConfigForDataSource(dataSourceId) {
+    if (!dataSourceId) return null;
+    return feishuConfigs.find(c => c.id === dataSourceId) || null;
+  }
+
+  async function loadFeishuConfigs() {
     try {
       const result = await new Promise(resolve =>
-        chrome.storage.local.get(['feishuConfig'], resolve)
+        chrome.storage.local.get(['feishuConfigs', 'feishuConfig', 'hiddenFeishuConfig'], resolve)
       );
-      feishuConfig = result.feishuConfig || null;
+      if (result.feishuConfigs) {
+        feishuConfigs = result.feishuConfigs;
+      } else {
+        feishuConfigs = [];
+        if (result.feishuConfig) {
+          feishuConfigs.push({
+            id: Date.now().toString() + '_1',
+            remark: '绩效达人',
+            ...result.feishuConfig
+          });
+        }
+        if (result.hiddenFeishuConfig) {
+          feishuConfigs.push({
+            id: Date.now().toString() + '_2',
+            remark: '隐藏达人',
+            ...result.hiddenFeishuConfig
+          });
+        }
+        if (feishuConfigs.length > 0) {
+          await saveFeishuConfigsToStorage();
+          chrome.storage.local.remove(['feishuConfig', 'hiddenFeishuConfig']);
+        }
+      }
     } catch (e) {
       console.error('加载飞书配置失败', e);
-      feishuConfig = null;
+      feishuConfigs = [];
     }
   }
 
-  async function saveFeishuConfigToStorage() {
+  async function saveFeishuConfigsToStorage() {
     try {
       await new Promise(resolve =>
-        chrome.storage.local.set({ feishuConfig }, resolve)
+        chrome.storage.local.set({ feishuConfigs }, resolve)
       );
     } catch (e) {
       console.error('保存飞书配置失败', e);
@@ -471,66 +550,207 @@
   }
 
   function parseFeishuUrl(url) {
-    const result = { spreadsheetToken: '', range: 'A:E' };
+    const result = { baseToken: '', tableId: '', wikiToken: '', isWiki: false };
     if (!url) return result;
-
-    const match = url.match(/sheets\/([^\/?]+)/);
-    if (!match) return result;
-    result.spreadsheetToken = match[1];
-
-    const sheetMatch = url.match(/[?&]sheet=([^&]+)/);
-    if (sheetMatch) {
-      result.range = sheetMatch[1] + '!A:E';
-    }
-
+    try {
+      const u = new URL(url);
+      const baseMatch = u.pathname.match(/\/base\/([A-Za-z0-9]+)/);
+      const wikiMatch = u.pathname.match(/\/wiki\/([A-Za-z0-9]+)/);
+      if (baseMatch) {
+        result.baseToken = baseMatch[1];
+      } else if (wikiMatch) {
+        result.wikiToken = wikiMatch[1];
+        result.isWiki = true;
+      }
+      const tableParam = u.searchParams.get('table');
+      if (tableParam) result.tableId = tableParam;
+    } catch (e) {}
     return result;
   }
 
-  function openFeishuConfig() {
-    const dialog = document.getElementById('feishuConfigDialog');
-    if (!dialog) return;
-    document.getElementById('feishuAppId').value = feishuConfig?.appId || '';
-    document.getElementById('feishuAppSecret').value = feishuConfig?.appSecret || '';
-    document.getElementById('feishuUrl').value = feishuConfig?.feishuUrl || '';
-    dialog.classList.add('show');
+  function renderDataSourcePanels() {
+    const container = document.getElementById('dialogPanelContainer');
+    if (!container) return;
+
+    if (feishuConfigs.length === 0) {
+      container.innerHTML = '<p style="text-align: center; color: var(--text-muted, #888); padding: 24px 0;">暂无数据源，点击下方「添加数据源」按钮添加</p>';
+      return;
+    }
+
+    let html = '';
+    for (const config of feishuConfigs) {
+      const remark = config.remark || '未命名数据源';
+      html += `
+        <details class="panel" style="margin-bottom: 12px;" data-id="${escapeHtml(config.id)}">
+          <summary class="custom-summary" style="cursor: pointer; padding: 8px 0; list-style: none; display: flex; align-items: center; gap: 8px;">
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" /></svg>
+            <span style="flex: 1;" class="panel-remark">${escapeHtml(remark)}</span>
+            <svg class="chevron-icon h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
+          </summary>
+          <div class="panel-content" style="padding: 12px 0; overflow: hidden;">
+            <p style="font-size: 13px; color: var(--text-muted, #888); margin-bottom: 16px; line-height: 1.5;">
+              配置飞书多维表格信息，通过字段名匹配导入达人数据：<br>
+              <strong>达人名称字段</strong>：用于匹配达人ID<br>
+              <strong>达人CID字段</strong>：用于匹配达人CID<br>
+              其他字段（地区、标签、备注）将自动导入
+            </p>
+            <label>备注名称</label>
+            <input type="text" class="ds-field ds-remark" value="${escapeHtml(config.remark || '')}" placeholder="输入数据源备注名称" />
+            <label>App ID</label>
+            <input type="text" class="ds-field ds-appId" value="${escapeHtml(config.appId || '')}" placeholder="cli_xxxxxxxxxxxxx" />
+            <label>App Secret</label>
+            <input type="password" class="ds-field ds-appSecret" value="${escapeHtml(config.appSecret || '')}" placeholder="输入飞书应用的 App Secret" />
+            <label>飞书多维表格 URL</label>
+            <input type="text" class="ds-field ds-feishuUrl" value="${escapeHtml(config.feishuUrl || '')}" placeholder="https://xxx.feishu.cn/base/BASCxxxxx?table=tblxxx" />
+            <p style="font-size: 12px; color: var(--text-muted, #888); margin: 8px 0 8px 0;">
+              支持多维表格直链（/base/）和 Wiki 链接（/wiki/），系统将自动解析 Base Token 和 Table ID
+            </p>
+            <label>达人名称字段名</label>
+            <input type="text" class="ds-field ds-nameField" value="${escapeHtml(config.creatorNameField || '达人名称')}" placeholder="达人名称" />
+            <label>达人CID字段名</label>
+            <input type="text" class="ds-field ds-cidField" value="${escapeHtml(config.creatorCidField || '达人CID')}" placeholder="达人CID" />
+            <label>达人状态字段名（作为标签）</label>
+            <input type="text" class="ds-field ds-statusField" value="${escapeHtml(config.creatorStatusField || '达人状态')}" placeholder="达人状态" />
+            <label>地区代码</label>
+            <input type="text" class="ds-field ds-regionCode" value="${escapeHtml(config.regionCode || '')}" placeholder="例如：MY" />
+            <div class="flex gap-3 mt-3 w-full" style="min-width: 0; gap: 8px;">
+              <button class="btn-sm btn-primary ds-import-btn" style="flex:1;">导入数据</button>
+              <button class="btn-sm ds-save-btn">保存配置</button>
+              <button class="btn-sm ds-delete-btn" style="color: var(--stat-perf-text); border-color: rgba(255, 100, 100, 0.3);">删除</button>
+            </div>
+          </div>
+        </details>
+      `;
+    }
+    container.innerHTML = html;
   }
 
-  function closeFeishuConfig() {
-    const dialog = document.getElementById('feishuConfigDialog');
-    if (dialog) dialog.classList.remove('show');
+  function addNewDataSource() {
+    const newConfig = {
+      id: Date.now().toString(),
+      remark: '新数据源',
+      appId: '',
+      appSecret: '',
+      feishuUrl: '',
+      baseToken: '',
+      tableId: '',
+      wikiToken: '',
+      isWiki: false,
+      creatorNameField: '达人名称',
+      creatorCidField: '达人CID',
+      creatorStatusField: '达人状态',
+      regionCode: ''
+    };
+    feishuConfigs.push(newConfig);
+    saveFeishuConfigsToStorage();
+    renderDataSourcePanels();
+    const container = document.getElementById('dialogPanelContainer');
+    if (container) {
+      const newPanel = container.querySelector(`details[data-id="${newConfig.id}"]`);
+      if (newPanel) newPanel.setAttribute('open', '');
+    }
+    showStatus('已添加新数据源，请填写配置信息', 'success', 'creatorCardStatus');
   }
 
-  async function handleSaveFeishuConfig() {
-    const appId = document.getElementById('feishuAppId').value.trim();
-    const appSecret = document.getElementById('feishuAppSecret').value.trim();
-    const feishuUrl = document.getElementById('feishuUrl').value.trim();
+  function getPanelConfig(detailsEl) {
+    const id = detailsEl.dataset.id;
+    const inputs = detailsEl.querySelectorAll('.ds-field');
+    const getVal = (className) => {
+      const input = detailsEl.querySelector('.' + className);
+      return input ? input.value.trim() : '';
+    };
+    return {
+      id: id,
+      remark: getVal('ds-remark') || '未命名数据源',
+      appId: getVal('ds-appId'),
+      appSecret: getVal('ds-appSecret'),
+      feishuUrl: getVal('ds-feishuUrl'),
+      creatorNameField: getVal('ds-nameField') || '达人名称',
+      creatorCidField: getVal('ds-cidField') || '达人CID',
+      creatorStatusField: getVal('ds-statusField') || '达人状态',
+      regionCode: getVal('ds-regionCode')
+    };
+  }
 
-    if (!appId || !appSecret || !feishuUrl) {
-      showStatus('请填写 App ID、App Secret 和飞书表格 URL', 'error', 'creatorCardStatus');
+  async function handleSaveDataSource(detailsEl) {
+    const panelConfig = getPanelConfig(detailsEl);
+    const id = panelConfig.id;
+    const index = feishuConfigs.findIndex(c => c.id === id);
+    if (index === -1) {
+      showStatus('数据源不存在', 'error', 'creatorCardStatus');
+      return;
+    }
+
+    const feishuUrl = panelConfig.feishuUrl;
+    if (!panelConfig.appId || !panelConfig.appSecret || !feishuUrl) {
+      showStatus('请填写 App ID、App Secret 和飞书多维表格 URL', 'error', 'creatorCardStatus');
       return;
     }
 
     const parsed = parseFeishuUrl(feishuUrl);
-    if (!parsed.spreadsheetToken) {
-      showStatus('飞书表格 URL 格式不正确，请检查', 'error', 'creatorCardStatus');
+    if (!parsed.baseToken && !parsed.wikiToken) {
+      showStatus('飞书多维表格 URL 格式不正确，请检查', 'error', 'creatorCardStatus');
+      return;
+    }
+    if (!parsed.tableId) {
+      showStatus('URL 中未找到 Table ID，请检查链接是否包含 ?table=tblxxx 参数', 'error', 'creatorCardStatus');
       return;
     }
 
-    feishuConfig = {
-      appId,
-      appSecret,
-      feishuUrl,
-      spreadsheetToken: parsed.spreadsheetToken,
-      range: parsed.range
+    feishuConfigs[index] = {
+      ...feishuConfigs[index],
+      ...panelConfig,
+      baseToken: parsed.baseToken,
+      tableId: parsed.tableId,
+      wikiToken: parsed.wikiToken,
+      isWiki: parsed.isWiki
     };
-    await saveFeishuConfigToStorage();
-    closeFeishuConfig();
-    showStatus('飞书配置已保存', 'success', 'creatorCardStatus');
+
+    if (parsed.isWiki) {
+      showStatus('正在解析 wiki 链接，请稍候...', 'info', 'creatorCardStatus');
+      try {
+        const response = await chrome.runtime.sendMessage({
+          action: 'resolveWikiToken',
+          config: { appId: panelConfig.appId, appSecret: panelConfig.appSecret },
+          wikiToken: parsed.wikiToken
+        });
+        if (response && response.success) {
+          feishuConfigs[index].baseToken = response.baseToken;
+          showStatus('Wiki 链接解析成功，配置已保存', 'success', 'creatorCardStatus');
+        } else {
+          showStatus('Wiki 链接解析失败：' + (response?.error || '未知错误') + '，可手动填写 Base Token', 'error', 'creatorCardStatus');
+        }
+      } catch (err) {
+        showStatus('Wiki 链接解析异常：' + err.message + '，可手动填写 Base Token', 'error', 'creatorCardStatus');
+      }
+    }
+
+    await saveFeishuConfigsToStorage();
+    renderDataSourcePanels();
+    showStatus('数据源配置已保存', 'success', 'creatorCardStatus');
   }
 
-  async function handleImportFromFeishu() {
-    if (!feishuConfig) {
-      showStatus('请先在「飞书配置」中设置飞书信息', 'error', 'creatorCardStatus');
+  async function handleDeleteDataSource(detailsEl) {
+    const id = detailsEl.dataset.id;
+    const config = feishuConfigs.find(c => c.id === id);
+    const remark = config ? (config.remark || '未命名') : '未命名';
+    if (!confirm(`确定删除数据源「${remark}」吗？`)) return;
+
+    feishuConfigs = feishuConfigs.filter(c => c.id !== id);
+    await saveFeishuConfigsToStorage();
+    renderDataSourcePanels();
+    showStatus('数据源已删除', 'success', 'creatorCardStatus');
+  }
+
+  async function handleImportFromDataSource(detailsEl) {
+    const id = detailsEl.dataset.id;
+    const config = feishuConfigs.find(c => c.id === id);
+    if (!config) {
+      showStatus('数据源不存在', 'error', 'creatorCardStatus');
+      return;
+    }
+    if (!config.baseToken) {
+      showStatus('Base Token 未配置，请先保存配置', 'error', 'creatorCardStatus');
       return;
     }
 
@@ -543,8 +763,8 @@
 
     try {
       const response = await chrome.runtime.sendMessage({
-        action: 'fetchFeishuSheetData',
-        config: feishuConfig
+        action: 'listBitableRecords',
+        config: config
       });
 
       if (!response || !response.success) {
@@ -554,28 +774,56 @@
       if (progressFill) progressFill.style.width = '60%';
       if (progressText) progressText.textContent = '正在解析数据...';
 
-      const rows = response.data || [];
+      const records = response.records || [];
+      const nameField = config.creatorNameField || '达人名称';
+      const cidField = config.creatorCidField || '达人CID';
+      const statusField = config.creatorStatusField || '达人状态';
+      const regionCode = config.regionCode || '';
       const newCreators = [];
 
-      for (let i = 0; i < rows.length; i++) {
-        const row = rows[i];
-        if (i === 0) continue;
-        const id = row[0]?.toString().trim();
-        if (!id) continue;
+      if (records.length > 0) {
+        const sampleFields = Object.keys(records[0].fields || {});
+        console.log('[Creator] 飞书多维表格可用字段:', sampleFields);
+        console.log('[Creator] 配置的达人名称字段:', nameField);
+        console.log('[Creator] 配置的达人CID字段:', cidField);
+        console.log('[Creator] 配置的达人状态字段:', statusField);
+        if (!sampleFields.includes(nameField)) {
+          console.warn('[Creator] 警告: 配置的达人名称字段 "' + nameField + '" 不在可用字段列表中');
+        }
+        if (!sampleFields.includes(statusField)) {
+          console.warn('[Creator] 警告: 配置的达人状态字段 "' + statusField + '" 不在可用字段列表中');
+        }
+      }
+
+      for (const item of records) {
+        const fields = item.fields || {};
+        const name = extractFieldValue(fields[nameField]);
+        if (!name) continue;
+
+        const nameStr = name.trim();
+        if (!nameStr) continue;
+
+        const cid = extractFieldValue(fields[cidField]);
+        const tag = extractFieldValue(fields[statusField]);
+        const region = regionCode;
+        const remark = extractFieldValue(fields['备注']);
+
         newCreators.push({
-          creator_id: id,
-          cid: (row[1]?.toString().trim()) || '',
-          region: (row[2]?.toString().trim()) || '',
-          tag: (row[3]?.toString().trim()) || '',
-          remark: (row[4]?.toString().trim()) || '',
-          _feishuRow: i + 1
+          creator_id: nameStr,
+          cid: cid,
+          region: region,
+          tag: tag,
+          remark: remark,
+          _feishuRecordId: item.record_id || null,
+          _dataSourceId: config.id
         });
       }
 
       if (progressFill) progressFill.style.width = '80%';
       if (progressText) progressText.textContent = `正在写入数据（${newCreators.length} 条）...`;
 
-      creators = newCreators;
+      creators = creators.filter(c => c._dataSourceId !== config.id);
+      creators = creators.concat(newCreators);
       searchResults = [];
 
       await saveData();
@@ -598,77 +846,22 @@
     }
   }
 
-  function getFeishuConfigForTag(tag) {
-    return tag === '隐藏达人' && hiddenFeishuConfig ? hiddenFeishuConfig : feishuConfig;
-  }
-
-  async function loadHiddenFeishuConfig() {
-    try {
-      const result = await new Promise(resolve =>
-        chrome.storage.local.get(['hiddenFeishuConfig'], resolve)
-      );
-      hiddenFeishuConfig = result.hiddenFeishuConfig || null;
-    } catch (e) {
-      console.error('加载隐藏数据源配置失败', e);
-      hiddenFeishuConfig = null;
-    }
-  }
-
-  async function saveHiddenFeishuConfigToStorage() {
-    try {
-      await new Promise(resolve =>
-        chrome.storage.local.set({ hiddenFeishuConfig }, resolve)
-      );
-    } catch (e) {
-      console.error('保存隐藏数据源配置失败', e);
-    }
-  }
-
-  function openHiddenFeishuConfig() {
-    const dialog = document.getElementById('hiddenFeishuConfigDialog');
+  function openFeishuConfigDialog() {
+    const dialog = document.getElementById('feishuConfigDialog');
     if (!dialog) return;
-    document.getElementById('hiddenFeishuAppId').value = hiddenFeishuConfig?.appId || '';
-    document.getElementById('hiddenFeishuAppSecret').value = hiddenFeishuConfig?.appSecret || '';
-    document.getElementById('hiddenFeishuUrl').value = hiddenFeishuConfig?.feishuUrl || '';
     dialog.classList.add('show');
+    renderDataSourcePanels();
   }
 
-  function closeHiddenFeishuConfig() {
-    const dialog = document.getElementById('hiddenFeishuConfigDialog');
-    if (dialog) dialog.classList.remove('show');
+  function closeFeishuConfigDialog() {
+    const dialog = document.getElementById('feishuConfigDialog');
+    if (!dialog) return;
+    dialog.classList.remove('show');
   }
 
-  async function handleSaveHiddenFeishuConfig() {
-    const appId = document.getElementById('hiddenFeishuAppId').value.trim();
-    const appSecret = document.getElementById('hiddenFeishuAppSecret').value.trim();
-    const feishuUrl = document.getElementById('hiddenFeishuUrl').value.trim();
-
-    if (!appId || !appSecret || !feishuUrl) {
-      showStatus('请填写 App ID、App Secret 和飞书表格 URL', 'error', 'creatorCardStatus');
-      return;
-    }
-
-    const parsed = parseFeishuUrl(feishuUrl);
-    if (!parsed.spreadsheetToken) {
-      showStatus('飞书表格 URL 格式不正确，请检查', 'error', 'creatorCardStatus');
-      return;
-    }
-
-    hiddenFeishuConfig = {
-      appId,
-      appSecret,
-      feishuUrl,
-      spreadsheetToken: parsed.spreadsheetToken,
-      range: parsed.range
-    };
-    await saveHiddenFeishuConfigToStorage();
-    closeHiddenFeishuConfig();
-    showStatus('隐藏数据源配置已保存', 'success', 'creatorCardStatus');
-  }
-
-  async function handleImportFromHiddenFeishu() {
-    if (!hiddenFeishuConfig) {
-      showStatus('请先在「隐藏数据源」中设置飞书信息', 'error', 'creatorCardStatus');
+  async function handleImportFromFeishu() {
+    if (feishuConfigs.length === 0) {
+      showStatus('暂无数据源，请先配置飞书数据源', 'error', 'creatorCardStatus');
       return;
     }
 
@@ -676,63 +869,88 @@
     const progressFill = document.getElementById('importProgressFill');
     const progressText = document.getElementById('importProgressText');
     if (progressBar) progressBar.style.display = 'flex';
-    if (progressFill) progressFill.style.width = '10%';
-    if (progressText) progressText.textContent = '正在连接飞书...';
 
-    try {
-      const response = await chrome.runtime.sendMessage({
-        action: 'fetchFeishuSheetData',
-        config: hiddenFeishuConfig
-      });
+    let totalImported = 0;
+    let totalErrors = 0;
 
-      if (!response || !response.success) {
-        throw new Error(response?.error || '获取飞书数据失败');
+    for (let i = 0; i < feishuConfigs.length; i++) {
+      const config = feishuConfigs[i];
+      const remark = config.remark || '未命名';
+
+      if (!config.baseToken) {
+        console.warn(`[Creator] 数据源「${remark}」未配置 Base Token，跳过`);
+        totalErrors++;
+        continue;
       }
 
-      if (progressFill) progressFill.style.width = '60%';
-      if (progressText) progressText.textContent = '正在解析数据...';
+      if (progressFill) progressFill.style.width = `${Math.round((i / feishuConfigs.length) * 80)}%`;
+      if (progressText) progressText.textContent = `正在从「${remark}」导入...`;
 
-      const rows = response.data || [];
-
-      creators = creators.filter(c => c.tag !== '隐藏达人');
-
-      for (let i = 0; i < rows.length; i++) {
-        const row = rows[i];
-        if (i === 0) continue;
-        const id = row[0]?.toString().trim();
-        if (!id) continue;
-
-        creators.push({
-          creator_id: id,
-          cid: (row[1]?.toString().trim()) || '',
-          region: (row[2]?.toString().trim()) || '',
-          tag: '隐藏达人',
-          remark: (row[4]?.toString().trim()) || '',
-          _feishuRow: i + 1
+      try {
+        const response = await chrome.runtime.sendMessage({
+          action: 'listBitableRecords',
+          config: config
         });
+
+        if (!response || !response.success) {
+          console.error(`[Creator] 数据源「${remark}」获取失败:`, response?.error);
+          totalErrors++;
+          continue;
+        }
+
+        const records = response.records || [];
+        const nameField = config.creatorNameField || '达人名称';
+        const cidField = config.creatorCidField || '达人CID';
+        const statusField = config.creatorStatusField || '达人状态';
+        const regionCode = config.regionCode || '';
+        const newCreators = [];
+
+        for (const item of records) {
+          const fields = item.fields || {};
+          const name = extractFieldValue(fields[nameField]);
+          if (!name) continue;
+          const nameStr = name.trim();
+          if (!nameStr) continue;
+
+          newCreators.push({
+            creator_id: nameStr,
+            cid: extractFieldValue(fields[cidField]),
+            region: regionCode,
+            tag: extractFieldValue(fields[statusField]),
+            remark: extractFieldValue(fields['备注']),
+            _feishuRecordId: item.record_id || null,
+            _dataSourceId: config.id
+          });
+        }
+
+        creators = creators.filter(c => c._dataSourceId !== config.id);
+        creators = creators.concat(newCreators);
+        totalImported += newCreators.length;
+
+        if (progressFill) progressFill.style.width = `${Math.round(((i + 1) / feishuConfigs.length) * 80)}%`;
+        if (progressText) progressText.textContent = `「${remark}」导入 ${newCreators.length} 条`;
+      } catch (err) {
+        console.error(`[Creator] 数据源「${remark}」导入异常:`, err);
+        totalErrors++;
       }
-
-      if (progressFill) progressFill.style.width = '80%';
-      if (progressText) progressText.textContent = `正在写入数据...`;
-
-      await saveData();
-      renderTags();
-      renderCreators();
-
-      if (progressFill) progressFill.style.width = '100%';
-      if (progressText) progressText.textContent = '导入完成';
-
-      showStatus(`隐藏数据源同步完成：共 ${rows.length - 1} 条`, 'success', 'creatorCardStatus');
-    } catch (err) {
-      console.error('隐藏数据源导入失败', err);
-      showStatus('隐藏数据源导入失败：' + err.message, 'error', 'creatorCardStatus');
-    } finally {
-      setTimeout(() => {
-        if (progressBar) progressBar.style.display = 'none';
-        if (progressFill) progressFill.style.width = '0%';
-        if (progressText) progressText.textContent = '0%';
-      }, 2000);
     }
+
+    searchResults = [];
+    await saveData();
+    renderTags();
+    renderCreators();
+
+    if (progressFill) progressFill.style.width = '100%';
+    if (progressText) progressText.textContent = '导入完成';
+
+    const msg = `飞书导入完成：共 ${totalImported} 条达人` + (totalErrors > 0 ? `，${totalErrors} 个数据源失败` : '');
+    showStatus(msg, totalErrors > 0 ? 'info' : 'success', 'creatorCardStatus');
+
+    setTimeout(() => {
+      if (progressBar) progressBar.style.display = 'none';
+      if (progressFill) progressFill.style.width = '0%';
+      if (progressText) progressText.textContent = '0%';
+    }, 3000);
   }
 
   function initCreatorModule() {
@@ -773,25 +991,6 @@
       });
     }
 
-    const importFeishuBtn = document.getElementById('importFeishuBtn');
-    if (importFeishuBtn) {
-      importFeishuBtn.addEventListener('click', handleImportFromFeishu);
-    }
-
-    const configFeishuBtn = document.getElementById('configFeishuBtn');
-    if (configFeishuBtn) {
-      configFeishuBtn.addEventListener('click', openFeishuConfig);
-    }
-
-    const saveFeishuConfigBtn = document.getElementById('saveFeishuConfigBtn');
-    const cancelFeishuConfigBtn = document.getElementById('cancelFeishuConfigBtn');
-    if (saveFeishuConfigBtn) {
-      saveFeishuConfigBtn.addEventListener('click', handleSaveFeishuConfig);
-    }
-    if (cancelFeishuConfigBtn) {
-      cancelFeishuConfigBtn.addEventListener('click', closeFeishuConfig);
-    }
-
     if (saveCreatorEditBtn) {
       saveCreatorEditBtn.addEventListener('click', saveCreatorEdit);
     }
@@ -802,27 +1001,48 @@
       deleteCreatorBtn.addEventListener('click', deleteCreator);
     }
 
-    const configHiddenFeishuBtn = document.getElementById('configHiddenFeishuBtn');
-    if (configHiddenFeishuBtn) {
-      configHiddenFeishuBtn.addEventListener('click', openHiddenFeishuConfig);
+    const importFeishuBtn = document.getElementById('importFeishuBtn');
+    if (importFeishuBtn) {
+      importFeishuBtn.addEventListener('click', handleImportFromFeishu);
     }
 
-    const importHiddenFeishuBtn = document.getElementById('importHiddenFeishuBtn');
-    if (importHiddenFeishuBtn) {
-      importHiddenFeishuBtn.addEventListener('click', handleImportFromHiddenFeishu);
+    const configFeishuBtn = document.getElementById('configFeishuBtn');
+    if (configFeishuBtn) {
+      configFeishuBtn.addEventListener('click', openFeishuConfigDialog);
     }
 
-    const saveHiddenFeishuConfigBtn = document.getElementById('saveHiddenFeishuConfigBtn');
-    const cancelHiddenFeishuConfigBtn = document.getElementById('cancelHiddenFeishuConfigBtn');
-    if (saveHiddenFeishuConfigBtn) {
-      saveHiddenFeishuConfigBtn.addEventListener('click', handleSaveHiddenFeishuConfig);
-    }
-    if (cancelHiddenFeishuConfigBtn) {
-      cancelHiddenFeishuConfigBtn.addEventListener('click', closeHiddenFeishuConfig);
+    const closeFeishuConfigBtn = document.getElementById('closeFeishuConfigBtn');
+    if (closeFeishuConfigBtn) {
+      closeFeishuConfigBtn.addEventListener('click', closeFeishuConfigDialog);
     }
 
-    loadFeishuConfig();
-    loadHiddenFeishuConfig();
+    const dialogAddDataSourceBtn = document.getElementById('dialogAddDataSourceBtn');
+    if (dialogAddDataSourceBtn) {
+      dialogAddDataSourceBtn.addEventListener('click', addNewDataSource);
+    }
+
+    const dialogPanelContainer = document.getElementById('dialogPanelContainer');
+    if (dialogPanelContainer) {
+      dialogPanelContainer.addEventListener('click', async (e) => {
+        const detailsEl = e.target.closest('details.panel');
+        if (!detailsEl) return;
+
+        if (e.target.closest('.ds-save-btn')) {
+          e.preventDefault();
+          await handleSaveDataSource(detailsEl);
+        } else if (e.target.closest('.ds-delete-btn')) {
+          e.preventDefault();
+          await handleDeleteDataSource(detailsEl);
+        } else if (e.target.closest('.ds-import-btn')) {
+          e.preventDefault();
+          await handleImportFromDataSource(detailsEl);
+        }
+      });
+    }
+
+    loadFeishuConfigs().then(() => {
+      renderDataSourcePanels();
+    });
     loadData();
   }
 
