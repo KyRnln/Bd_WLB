@@ -37,11 +37,11 @@
         'savedPhrases',
         'savedTags',
         'activeTagId',
-        'savedCreators',
         'creatorBlacklist',
         'translateConfig',
         'webdavConfig',
         'feishuConfig',
+        'feishuConfigs',
         'hiddenFeishuConfig'
       ], resolve);
     });
@@ -55,6 +55,7 @@
         activeTagId: data.activeTagId || '__ALL__',
         translateConfig: data.translateConfig || null,
         feishuConfig: data.feishuConfig || null,
+        feishuConfigs: data.feishuConfigs || null,
         hiddenFeishuConfig: data.hiddenFeishuConfig || null
       }, resolve);
     });
@@ -75,14 +76,15 @@
     try {
       const result = await getAllData();
       const data = {
-        version: '1.1',
+        version: '1.2',
         exportTime: new Date().toISOString(),
         phrases: result.savedPhrases || [],
         tags: result.savedTags || [],
         activeTagId: result.activeTagId || '__ALL__',
         translateConfig: result.translateConfig || null,
         feishuConfig: result.feishuConfig || null,
-        hiddenFeishuConfig: result.hiddenFeishuConfig || null
+        feishuConfigs: result.feishuConfigs || null,
+        hiddenFeishuConfig: result.hiddenFeishuConfig || null,
       };
 
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -140,13 +142,14 @@
     try {
       const result = await getAllData();
       const data = {
-        version: '1.1',
+        version: '1.2',
         exportTime: new Date().toISOString(),
         phrases: result.savedPhrases || [],
         tags: result.savedTags || [],
         activeTagId: result.activeTagId || '__ALL__',
         translateConfig: result.translateConfig || null,
         feishuConfig: result.feishuConfig || null,
+        feishuConfigs: result.feishuConfigs || null,
         hiddenFeishuConfig: result.hiddenFeishuConfig || null
       };
 
