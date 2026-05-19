@@ -210,41 +210,42 @@ class TikTokShopCidExtractor {
         bottom: 24px;
         left: 50%;
         transform: translateX(-50%);
-        background: rgba(0, 0, 0, 0.3);
-        backdrop-filter: blur(8px);
-        -webkit-backdrop-filter: blur(8px);
-        color: white;
+        background: #ffffff;
+        color: #374151;
         padding: 16px 24px;
         border-radius: 8px;
         z-index: 2147483647;
-        font-size: 14px;
-        font-family: sans-serif;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+        font-size: 13px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.12);
         display: flex;
         flex-direction: column;
         align-items: center;
         gap: 8px;
         pointer-events: none;
         min-width: 320px;
+        border: 1px solid #e8e8e8;
       `;
       document.body.appendChild(container);
     }
     const { status, currentIndex, total, successCount, failCount, currentCreatorId } = data;
+    const successIcon = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#15803d" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
+    const failIcon = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>';
     if (status === 'running') {
       const pct = total > 0 ? Math.round((currentIndex / total) * 100) : 0;
       container.innerHTML = `
-        <div style="font-weight:600;">批量获取CID进行中</div>
-        <div style="width:100%;background:rgba(255,255,255,0.2);border-radius:4px;height:8px;">
-          <div style="width:${pct}%;background:#4ade80;height:100%;border-radius:4px;transition:width 0.3s;"></div>
+        <div style="font-weight:600;color:#1a1a2e;">批量获取CID进行中</div>
+        <div style="width:100%;background:#e5e7eb;border-radius:4px;height:6px;">
+          <div style="width:${pct}%;background:#22c55e;height:100%;border-radius:4px;transition:width 0.3s;"></div>
         </div>
-        <div style="font-size:12px;opacity:0.9;">${currentIndex}/${total} · ${currentCreatorId || ''}</div>
-        <div style="font-size:12px;opacity:0.9;">✅ ${successCount} · ❌ ${failCount}</div>
+        <div style="font-size:12px;color:#6b7280;">${currentIndex}/${total} · ${currentCreatorId || ''}</div>
+        <div style="font-size:12px;color:#6b7280;display:flex;align-items:center;gap:4px;">${successIcon} ${successCount} · ${failIcon} ${failCount}</div>
       `;
       container.style.display = 'flex';
     } else if (status === 'completed') {
       container.innerHTML = `
-        <div style="font-weight:600;">批量获取完成</div>
-        <div style="font-size:12px;opacity:0.9;">共 ${total} 个 · 成功 ${successCount} · 失败 ${failCount}</div>
+        <div style="font-weight:600;color:#1a1a2e;">批量获取完成</div>
+        <div style="font-size:12px;color:#6b7280;display:flex;align-items:center;gap:4px;justify-content:center;">共 ${total} 个 · ${successIcon} ${successCount} · ${failIcon} ${failCount}</div>
       `;
       setTimeout(() => { container.style.display = 'none'; }, 20000);
     }

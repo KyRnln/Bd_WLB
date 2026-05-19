@@ -307,24 +307,28 @@
       });
     }
 
+    document.addEventListener('focusin', (e) => {
+      const target = e.target;
+      if (target.tagName === 'TEXTAREA' ||
+          target.tagName === 'INPUT' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable) {
+        focusedInput = target;
+      }
+    }, true);
+
     document.addEventListener('mousedown', (e) => {
       const target = e.target;
-      if (target.tagName === 'TEXTAREA' || (target.tagName === 'INPUT' && /^(text|search|tel|url|email|password|number)$/.test(target.type))) {
+      if (target.tagName === 'TEXTAREA' ||
+          target.tagName === 'INPUT' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable) {
         focusedInput = target;
       }
     }, true);
 
     chrome.runtime.onMessage.addListener((request) => {
-      if (request.action === 'showTranslate') {
-        if (!focusedInput) {
-          showNotification('请先点击选择一个文本输入框', 'error');
-          return;
-        }
-        loadConfig().then(() => {
-          const rect = focusedInput.getBoundingClientRect();
-          showTranslateBox(rect.left, rect.top, focusedInput);
-        });
-      } else if (request.action === 'triggerTranslateQuickInput') {
+      if (request.action === 'showTranslate' || request.action === 'triggerTranslateQuickInput') {
         if (!focusedInput) {
           showNotification('请先点击选择一个文本输入框', 'error');
           return;
