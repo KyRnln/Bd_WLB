@@ -249,22 +249,29 @@
 
       if (textarea && document.body.contains(textarea)) {
         const tag = textarea.tagName.toLowerCase();
+        textarea.focus();
         if (tag === 'textarea') {
           const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
             window.HTMLTextAreaElement.prototype, 'value'
           ).set;
           nativeInputValueSetter.call(textarea, translation);
+          textarea.dispatchEvent(new Event('input', { bubbles: true }));
+          textarea.dispatchEvent(new Event('change', { bubbles: true }));
         } else if (tag === 'input') {
           const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
             window.HTMLInputElement.prototype, 'value'
           ).set;
           nativeInputValueSetter.call(textarea, translation);
+          textarea.dispatchEvent(new Event('input', { bubbles: true }));
+          textarea.dispatchEvent(new Event('change', { bubbles: true }));
         } else if (textarea.isContentEditable) {
-          textarea.textContent = translation;
+          const selection = window.getSelection();
+          const range = document.createRange();
+          range.selectNodeContents(textarea);
+          selection.removeAllRanges();
+          selection.addRange(range);
+          document.execCommand('insertText', false, translation);
         }
-        textarea.dispatchEvent(new Event('input', { bubbles: true }));
-        textarea.dispatchEvent(new Event('change', { bubbles: true }));
-        textarea.focus();
       }
 
       setTimeout(() => {
