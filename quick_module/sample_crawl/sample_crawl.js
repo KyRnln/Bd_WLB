@@ -210,12 +210,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const multiList = data.multiProductList || [];
     const totalRows = mappings.reduce((sum, c) => sum + (c.apply_product_ids?.length || 1), 0);
 
+    const successIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#15803d" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-top:-2px;"><path d="M20 6L9 17l-5-5"/></svg>';
+
     let html = `
       <div style="margin-bottom: 8px; font-weight: 500;">采集完成</div>
       <div style="font-size: 13px; line-height: 1.8;">
-        <div>✅ 达人数量: <strong>${mappings.length}</strong> 位</div>
-        <div>✅ 多商品达人: <strong>${data.multiProductCount}</strong> 位</div>
-        <div>✅ 写入多维表格: <strong>${totalRows}</strong> 行</div>
+        <div>${successIcon} 达人数量: <strong>${mappings.length}</strong> 位</div>
+        <div>${successIcon} 多商品达人: <strong>${data.multiProductCount}</strong> 位</div>
+        <div>${successIcon} 写入多维表格: <strong>${totalRows}</strong> 行</div>
       </div>
     `;
 

@@ -248,11 +248,20 @@
       const translation = data.choices?.[0]?.message?.content || '翻译失败';
 
       if (textarea && document.body.contains(textarea)) {
-        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
-          window.HTMLTextAreaElement.prototype,
-          'value'
-        ).set;
-        nativeInputValueSetter.call(textarea, translation);
+        const tag = textarea.tagName.toLowerCase();
+        if (tag === 'textarea') {
+          const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+            window.HTMLTextAreaElement.prototype, 'value'
+          ).set;
+          nativeInputValueSetter.call(textarea, translation);
+        } else if (tag === 'input') {
+          const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+            window.HTMLInputElement.prototype, 'value'
+          ).set;
+          nativeInputValueSetter.call(textarea, translation);
+        } else if (textarea.isContentEditable) {
+          textarea.textContent = translation;
+        }
         textarea.dispatchEvent(new Event('input', { bubbles: true }));
         textarea.dispatchEvent(new Event('change', { bubbles: true }));
         textarea.focus();
