@@ -94,7 +94,7 @@
     },
     {
       "matches": [
-        "https://affiliate.tiktokshopglobalselling.com/seller/im*"
+        "*://*/*"
       ],
       "js": [
         "translate/translate_content.js"
@@ -102,7 +102,8 @@
       "css": [
         "styles/content.css"
       ],
-      "run_at": "document_end"
+      "run_at": "document_end",
+      "all_frames": true
     },
     {
       "matches": [
