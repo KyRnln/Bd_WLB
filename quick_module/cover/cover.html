@@ -8,6 +8,109 @@
   <link rel="stylesheet" href="../../styles/components.css">
   <link rel="stylesheet" href="../../styles/utilities.css">
   <link rel="stylesheet" href="../../styles/modules.css">
+  <style>
+    #coverResults {
+      margin-top: 14px;
+    }
+    #coverResults .result-card {
+      display: flex;
+      gap: 12px;
+      padding: 12px 14px;
+      margin-bottom: 8px;
+      background: #ffffff;
+      border: 1px solid #e8e8e8;
+      border-radius: var(--radius, 8px);
+      transition: border-color 0.15s;
+    }
+    #coverResults .result-card:hover {
+      border-color: #d0d0d0;
+    }
+    #coverResults .result-card.error {
+      border-color: #fdecea;
+      background: #fff8f8;
+    }
+    #coverResults .thumbnail {
+      width: 80px;
+      height: 80px;
+      object-fit: cover;
+      border-radius: 6px;
+      cursor: pointer;
+      flex-shrink: 0;
+      border: 1px solid #eef0f4;
+    }
+    #coverResults .thumbnail-placeholder {
+      width: 80px;
+      height: 80px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f3f4f6;
+      border-radius: 6px;
+      flex-shrink: 0;
+      color: #b0b7c3;
+    }
+    #coverResults .result-content {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    #coverResults .result-index {
+      font-size: 11px;
+      color: #a0a7b3;
+      font-weight: 500;
+    }
+    #coverResults .result-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #1a1a2e;
+      line-height: 1.4;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+    #coverResults .result-title.error {
+      color: #c0392b;
+    }
+    #coverResults .result-url {
+      font-size: 11px;
+      color: #6b7280;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    #coverResults .result-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 2px;
+    }
+    #coverResults .action-btn {
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: 4px;
+      border: 1px solid #d0d5dd;
+      background: #f0f4ff;
+      color: #0369a1;
+      cursor: pointer;
+      transition: all 0.15s;
+      line-height: 1.4;
+    }
+    #coverResults .action-btn:hover {
+      background: #dbeafe;
+      border-color: #93c5fd;
+    }
+    #coverResults .action-btn.error-detail-btn {
+      background: #fdecea;
+      color: #c0392b;
+      border-color: #f5c6cb;
+    }
+    #coverResults .action-btn.error-detail-btn:hover {
+      background: #f8d7da;
+    }
+  </style>
 </head>
 <body class="page-tool">
   <header class="page-header">

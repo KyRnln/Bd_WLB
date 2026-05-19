@@ -8,6 +8,69 @@
   <link rel="stylesheet" href="../../styles/components.css">
   <link rel="stylesheet" href="../../styles/utilities.css">
   <link rel="stylesheet" href="../../styles/modules.css">
+  <style>
+    #cidToNameResults .result-item {
+      display: flex;
+      gap: 12px;
+      padding: 12px 14px;
+      margin-bottom: 8px;
+      background: #ffffff;
+      border: 1px solid #e8e8e8;
+      border-radius: var(--radius, 8px);
+      transition: border-color 0.15s;
+    }
+    #cidToNameResults .result-item:hover {
+      border-color: #d0d0d0;
+    }
+    #cidToNameResults .result-avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      object-fit: cover;
+      flex-shrink: 0;
+      border: 1px solid #eef0f4;
+    }
+    #cidToNameResults .result-avatar-placeholder {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f3f4f6;
+      flex-shrink: 0;
+      font-size: 11px;
+      color: #b0b7c3;
+    }
+    #cidToNameResults .result-content {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      justify-content: center;
+    }
+    #cidToNameResults .result-line {
+      font-size: 13px;
+      color: #374151;
+      line-height: 1.4;
+    }
+    #cidToNameResults .result-label {
+      color: #6b7280;
+      font-size: 12px;
+    }
+    #cidToNameResults .result-time {
+      font-size: 11px;
+      color: #9ca3af;
+      margin-top: 2px;
+    }
+    #cidToNameResults .empty-state {
+      text-align: center;
+      padding: 32px 16px;
+      color: #9ca3af;
+      font-size: 14px;
+    }
+  </style>
 </head>
 <body class="page-tool">
   <header class="page-header">

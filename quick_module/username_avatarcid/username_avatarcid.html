@@ -8,6 +8,48 @@
   <link rel="stylesheet" href="../../styles/components.css">
   <link rel="stylesheet" href="../../styles/utilities.css">
   <link rel="stylesheet" href="../../styles/modules.css">
+  <style>
+    #cidResults .result-row {
+      display: flex;
+      gap: 12px;
+      padding: 10px 14px;
+      margin-bottom: 6px;
+      background: #ffffff;
+      border: 1px solid #e8e8e8;
+      border-radius: var(--radius, 8px);
+      transition: border-color 0.15s;
+      align-items: center;
+    }
+    #cidResults .result-row:hover {
+      border-color: #d0d0d0;
+    }
+    #cidResults .result-id {
+      font-size: 13px;
+      font-weight: 500;
+      color: #374151;
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    #cidResults .result-cid {
+      font-size: 12px;
+      padding: 3px 10px;
+      border-radius: 4px;
+      background: #f3f4f6;
+      color: #6b7280;
+      flex-shrink: 0;
+    }
+    #cidResults .result-cid.success {
+      background: #dcfce7;
+      color: #15803d;
+    }
+    #cidResults .result-cid.error {
+      background: #fdecea;
+      color: #c0392b;
+    }
+  </style>
 </head>
 <body class="page-tool">
   <header class="page-header">
