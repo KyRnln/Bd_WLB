@@ -1,313 +1,537 @@
-document.addEventListener('DOMContentLoaded', async () => {
-  const orderIdInput = document.getElementById('orderIdInput');
-  const startOrderQueryBtn = document.getElementById('startOrderQueryBtn');
-  const stopOrderQueryBtn = document.getElementById('stopOrderQueryBtn');
-  const inputArea = document.getElementById('inputArea');
-  const progressDisplay = document.getElementById('progressDisplay');
+document.addEventListener('DOMContentLoaded', () => {
+  const backBtn = document.getElementById('backBtn');
+  const orderStartBtn = document.getElementById('orderStartBtn');
+  const orderStopBtn = document.getElementById('orderStopBtn');
+  const orderClearBtn = document.getElementById('orderClearBtn');
+  const orderPanelStatus = document.getElementById('orderPanelStatus');
+  const orderStatsRow = document.getElementById('orderStatsRow');
+  const statFeishuTotal = document.getElementById('statFeishuTotal');
+  const statPending = document.getElementById('statPending');
+  const statMatched = document.getElementById('statMatched');
+  const statUnmatched = document.getElementById('statUnmatched');
   const orderProgressBar = document.getElementById('orderProgressBar');
   const orderProgressFill = document.getElementById('orderProgressFill');
-  const backBtn = document.getElementById('backBtn');
+  const orderProgressText = document.getElementById('orderProgressText');
+  const orderResults = document.getElementById('orderResults');
+  const orderResultSummary = document.getElementById('orderResultSummary');
+  const logPanel = document.getElementById('logPanel');
+  const logList = document.getElementById('logList');
 
-  let shouldStopOrderQuery = false;
+  const feishuUrl = document.getElementById('feishuUrl');
+  const parseUrlBtn = document.getElementById('parseUrlBtn');
+  const feishuAppId = document.getElementById('feishuAppId');
+  const feishuAppSecret = document.getElementById('feishuAppSecret');
+  const baseToken = document.getElementById('baseToken');
+  const tableId = document.getElementById('tableId');
+  const creatorNameField = document.getElementById('creatorNameField');
+  const creatorCidField = document.getElementById('creatorCidField');
+  const productIdField = document.getElementById('productIdField');
+  const fulfillmentStatusField = document.getElementById('fulfillmentStatusField');
+  const orderNumberField = document.getElementById('orderNumberField');
+  const feishuStatus = document.getElementById('feishuStatus');
 
-  function showStatus(message, type = 'info') {
-    const statusDiv = document.getElementById('orderPanelStatus');
-    if (!statusDiv) return;
-    statusDiv.textContent = message;
-    statusDiv.className = 'status ' + type;
-    setTimeout(() => {
-      statusDiv.className = 'status';
-    }, 3000);
+  let feishuConfig = null;
+  let isRunning = false;
+  let feishuRecords = [];
+
+  function showStatus(message, type) {
+    orderPanelStatus.textContent = message;
+    orderPanelStatus.className = 'panel-status ' + type;
+    orderPanelStatus.style.display = 'block';
+    setTimeout(() => { orderPanelStatus.style.display = 'none'; }, 5000);
   }
 
-  function switchToProgressMode() {
-    inputArea.classList.add('hidden');
-    progressDisplay.classList.add('show');
-    orderProgressBar.classList.add('show');
+  function escapeHtml(text) {
+    var map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+    return String(text || '').replace(/[&<>"']/g, function (ch) { return map[ch]; });
   }
 
-  function switchToInputMode() {
-    inputArea.classList.remove('hidden');
-    progressDisplay.classList.remove('show');
-    orderProgressBar.classList.remove('show');
+  function log(msg, type) {
+    type = type || 'info';
+    if (!logList) return;
+    logPanel.style.display = 'block';
+    var time = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+    var entry = document.createElement('div');
+    entry.className = 'log-entry ' + type;
+    entry.innerHTML = '<span class="time">' + time + '</span><span class="msg">' + escapeHtml(msg) + '</span>';
+    logList.appendChild(entry);
+    logPanel.scrollTop = logPanel.scrollHeight;
   }
 
-  function updateProgressDisplay(message) {
-    progressDisplay.textContent = message;
-  }
-
-  function clearProgressDisplay() {
-    progressDisplay.textContent = '';
-    orderProgressFill.style.width = '0%';
-  }
-
-  async function checkContentScript(tabId) {
+  function parseFeishuUrl(url) {
+    var result = { baseToken: '', tableId: '', wikiToken: '', isWiki: false };
+    if (!url) return result;
     try {
-      const response = await chrome.tabs.sendMessage(tabId, { action: 'ping' });
-      return response && response.success;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  async function injectContentScript(tabId) {
-    try {
-      await chrome.scripting.executeScript({
-        target: { tabId: tabId },
-        files: ['content.js']
-      });
-      await new Promise(resolve => setTimeout(resolve, 500));
-      return await checkContentScript(tabId);
-    } catch (e) {
-      console.error('注入content script失败:', e);
-      return false;
-    }
-  }
-
-  async function clearOrderData(tabId) {
-    try {
-      if (tabId) {
-        await chrome.tabs.sendMessage(tabId, { action: 'clearOrderData' });
+      var u = new URL(url);
+      var baseMatch = u.pathname.match(/\/base\/([A-Za-z0-9]+)/);
+      var wikiMatch = u.pathname.match(/\/wiki\/([A-Za-z0-9]+)/);
+      if (baseMatch) {
+        result.baseToken = baseMatch[1];
+      } else if (wikiMatch) {
+        result.wikiToken = wikiMatch[1];
+        result.isWiki = true;
       }
-      return true;
+      var tableParam = u.searchParams.get('table');
+      if (tableParam) result.tableId = tableParam;
+    } catch (e) {}
+    return result;
+  }
+
+  function readConfigFromFields() {
+    return {
+      appId: feishuAppId.value.trim(),
+      appSecret: feishuAppSecret.value.trim(),
+      baseToken: baseToken.value.trim(),
+      tableId: tableId.value.trim(),
+      creatorNameField: creatorNameField.value.trim() || '达人ID',
+      creatorCidField: creatorCidField.value.trim() || '达人CID',
+      productIdField: productIdField.value.trim() || '产品ID',
+      fulfillmentStatusField: fulfillmentStatusField.value.trim() || '履约状态',
+      orderNumberField: orderNumberField.value.trim() || '订单号'
+    };
+  }
+
+  var autoSaveTimer = null;
+  function autoSaveConfig() {
+    clearTimeout(autoSaveTimer);
+    autoSaveTimer = setTimeout(function () {
+      var fields = readConfigFromFields();
+      feishuConfig = fields;
+      saveConfig();
+      updateFeishuStatus();
+    }, 300);
+  }
+
+  function immediateSaveConfig() {
+    clearTimeout(autoSaveTimer);
+    var fields = readConfigFromFields();
+    feishuConfig = fields;
+    saveConfig();
+    updateFeishuStatus();
+  }
+
+  var configInputs = [feishuAppId, feishuAppSecret, baseToken, tableId, creatorNameField, creatorCidField, productIdField, fulfillmentStatusField, orderNumberField];
+  configInputs.forEach(function (el) {
+    if (el) {
+      el.addEventListener('input', autoSaveConfig);
+      el.addEventListener('blur', immediateSaveConfig);
+    }
+  });
+
+  async function loadConfig() {
+    try {
+      var result = await new Promise(function (resolve) { chrome.storage.local.get(['orderFeishuConfig'], resolve); });
+      feishuConfig = result.orderFeishuConfig || null;
+      if (feishuConfig) {
+        feishuAppId.value = feishuConfig.appId || '';
+        feishuAppSecret.value = feishuConfig.appSecret || '';
+        baseToken.value = feishuConfig.baseToken || '';
+        tableId.value = feishuConfig.tableId || '';
+        creatorNameField.value = feishuConfig.creatorNameField || '达人ID';
+        creatorCidField.value = feishuConfig.creatorCidField || '达人CID';
+        productIdField.value = feishuConfig.productIdField || '产品ID';
+        fulfillmentStatusField.value = feishuConfig.fulfillmentStatusField || '履约状态';
+        orderNumberField.value = feishuConfig.orderNumberField || '订单号';
+      }
+      updateFeishuStatus();
     } catch (e) {
-      console.error('清理数据失败:', e);
-      return false;
+      feishuConfig = null;
+      updateFeishuStatus();
     }
   }
 
-  async function downloadAndCleanup(orders, tabId, failedOrders) {
-    console.log('开始执行downloadAndCleanup，订单数量:', orders.length);
+  async function saveConfig() {
+    await new Promise(function (resolve) { chrome.storage.local.set({ orderFeishuConfig: feishuConfig }, resolve); });
+  }
 
-    if (orders.length > 0) {
-      updateProgressDisplay('正在生成并下载Excel文件...\n请稍候...');
+  function updateFeishuStatus() {
+    if (feishuConfig && feishuConfig.baseToken && feishuConfig.tableId) {
+      feishuStatus.textContent = '已配置';
+      feishuStatus.style.color = '#137333';
+    } else {
+      feishuStatus.textContent = '未配置';
+      feishuStatus.style.color = '#ba1a1a';
+    }
+  }
 
-      let downloadResult;
+  parseUrlBtn.addEventListener('click', async function () {
+    var url = feishuUrl.value.trim();
+    if (!url) { showStatus('请粘贴多维表格链接', 'error'); return; }
+    var parsed = parseFeishuUrl(url);
+    if (!parsed.baseToken && !parsed.wikiToken) { showStatus('未识别到链接，请检查链接格式', 'error'); return; }
+    if (!parsed.tableId) { showStatus('未识别到 Table ID', 'error'); return; }
+    tableId.value = parsed.tableId;
+
+    if (parsed.isWiki) {
+      var cfg = readConfigFromFields();
+      if (!cfg.appId || !cfg.appSecret) {
+        showStatus('请先填写并保存 App ID 和 App Secret，再解析 wiki 链接', 'error');
+        return;
+      }
+      showStatus('正在解析 wiki 链接，请稍候...', 'info');
       try {
-        downloadResult = await chrome.runtime.sendMessage({ action: 'exportOrderData' });
-      } catch (exportError) {
-        console.error('导出失败:', exportError);
-        downloadResult = { success: false, error: exportError.message || '导出失败' };
-      }
-
-      if (downloadResult.success) {
-        console.log('XLSX下载成功:', downloadResult);
-
-        updateProgressDisplay('XLSX文件已下载，正在清理数据...\n请稍候...');
-
-        const cleared = await clearOrderData(tabId);
-
-        if (cleared) {
-          updateProgressDisplay('操作完成！\n✅ 已导出XLSX\n✅ 已清理数据');
-          showStatus('操作完成！已导出XLSX并清理数据', 'success');
+        var response = await chrome.runtime.sendMessage({
+          action: 'resolveWikiToken',
+          config: cfg,
+          wikiToken: parsed.wikiToken
+        });
+        if (response && response.success) {
+          baseToken.value = response.baseToken;
+          showStatus('解析成功！已自动填入 Base Token 和 Table ID', 'success');
+          immediateSaveConfig();
         } else {
-          updateProgressDisplay('XLSX已下载，但数据清理失败\n请手动清理临时数据');
-          showStatus('XLSX已下载，但数据清理失败，请手动清理', 'info');
+          showStatus('解析失败：' + (response && response.error || '未知错误'), 'error');
         }
-      } else {
-        console.error('XLSX下载失败:', downloadResult.error);
-        updateProgressDisplay(`导出失败\n${downloadResult.error || '未知错误'}`);
-        showStatus('查询成功但导出失败，请检查浏览器下载权限', 'error');
+      } catch (err) {
+        showStatus('解析异常：' + err.message, 'error');
       }
     } else {
-      let resultMessage = `查询完成，但未获取到有效数据`;
-      if (failedOrders && failedOrders.length > 0) {
-        resultMessage += `\n失败详情: ${failedOrders.join('; ')}`;
-      }
-      updateProgressDisplay(`查询完成\n${resultMessage}`);
-      showStatus(resultMessage, 'error');
+      baseToken.value = parsed.baseToken;
+      showStatus('已自动填入 Base Token 和 Table ID', 'success');
+      immediateSaveConfig();
     }
+  });
 
-    await chrome.runtime.sendMessage({ action: 'clearOrderQueryState' });
-
-    console.log('3秒后恢复输入界面...');
-    setTimeout(() => {
-      console.log('执行恢复输入界面');
-      switchToInputMode();
-      clearProgressDisplay();
-      console.log('输入界面已恢复');
-    }, 3000);
+  function updateProgress(current, total, currentName) {
+    var pct = total > 0 ? Math.round((current / total) * 100) : 0;
+    orderProgressFill.style.width = pct + '%';
+    orderProgressText.textContent = currentName
+      ? current + '/' + total + ' (' + pct + '%) - 当前: ' + currentName
+      : current + '/' + total + ' (' + pct + '%)';
   }
 
-  startOrderQueryBtn.addEventListener('click', async () => {
-    const inputText = orderIdInput.value.trim();
-    if (!inputText) {
-      showStatus('请输入订单号', 'error');
+  function updateStats(feishuTotal, pending, matched, unmatched) {
+    orderStatsRow.style.display = 'flex';
+    statFeishuTotal.querySelector('strong').textContent = feishuTotal;
+    statPending.textContent = pending;
+    statMatched.textContent = matched;
+    statUnmatched.textContent = unmatched;
+  }
+
+  function setRunningUI() {
+    isRunning = true;
+    orderStartBtn.disabled = true;
+    orderStartBtn.textContent = '查询中...';
+    orderStartBtn.style.opacity = '0.7';
+    orderStopBtn.style.display = 'flex';
+    orderProgressBar.style.display = 'block';
+  }
+
+  function setStoppedUI() {
+    isRunning = false;
+    orderStartBtn.disabled = false;
+    orderStartBtn.textContent = '开始查询';
+    orderStartBtn.style.opacity = '1';
+    orderStopBtn.style.display = 'none';
+  }
+
+  async function fetchFeishuRecords() {
+    var cfg = readConfigFromFields();
+    if (!cfg.appId || !cfg.appSecret) {
+      throw new Error('请填写飞书 App ID 和 App Secret');
+    }
+    if (!cfg.baseToken || !cfg.tableId) {
+      throw new Error('请填写或解析飞书多维表格链接');
+    }
+
+    log('正在从飞书多维表格读取记录...', 'info');
+
+    var response = await chrome.runtime.sendMessage({
+      action: 'listBitableRecords',
+      config: cfg
+    });
+
+    if (!response || !response.success) {
+      throw new Error(response && response.error || '读取飞书记录失败');
+    }
+
+    var records = response.records || [];
+    log('读取到 ' + records.length + ' 条飞书记录', 'info');
+
+    return records;
+  }
+
+  function filterPendingRecords(records) {
+    var cfg = readConfigFromFields();
+    var statusField = cfg.fulfillmentStatusField || '履约状态';
+    return records.filter(function (r) {
+      var val = getFeishuFieldValue(r.fields[statusField]);
+      return val === '';
+    });
+  }
+
+  function groupByCreatorName(records) {
+    var cfg = readConfigFromFields();
+    var nameField = cfg.creatorNameField || '达人ID';
+    var groups = {};
+    for (var i = 0; i < records.length; i++) {
+      var name = getFeishuFieldValue(records[i].fields[nameField]).trim();
+      if (!name) continue;
+      if (!groups[name]) groups[name] = [];
+      groups[name].push(records[i]);
+    }
+    return groups;
+  }
+
+  async function ensureContentScript() {
+    var [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab) throw new Error('无法获取当前标签页');
+
+    var response = await chrome.runtime.sendMessage({
+      action: 'orderEnsureContentScript',
+      tabId: tab.id
+    });
+
+    if (!response || !response.success) {
+      throw new Error(response && response.error || '注入脚本失败');
+    }
+
+    return tab;
+  }
+
+  async function searchOneInTikTok(username) {
+    var tab = await ensureContentScript();
+
+    var response = await chrome.tabs.sendMessage(tab.id, {
+      action: 'orderSearchOne',
+      username: username
+    });
+
+    if (!response || !response.success) {
+      throw new Error(response && response.error || '搜索失败');
+    }
+
+    return response.items || [];
+  }
+
+  function getFeishuFieldValue(field) {
+    if (field === undefined || field === null) return '';
+    if (typeof field === 'string') return field;
+    if (typeof field === 'number') return String(field);
+    if (Array.isArray(field)) {
+      if (field.length > 0) {
+        if (typeof field[0] === 'object' && field[0] !== null) {
+          return String(field[0].text || field[0].value || '');
+        }
+        return String(field[0]);
+      }
+      return '';
+    }
+    if (typeof field === 'object') {
+      return String(field.text || field.value || '');
+    }
+    return String(field);
+  }
+
+  function matchTikTokItem(tiktokItem, feishuRecords, writtenRecordIds) {
+    var cfg = readConfigFromFields();
+    var cidField = cfg.creatorCidField || '达人CID';
+    var prodField = cfg.productIdField || '产品ID';
+    var tiktokCid = String(tiktokItem.creator_cid || '').trim();
+    var tiktokProdId = String(tiktokItem.product_id || '').trim();
+
+    if (!tiktokCid || !tiktokProdId) {
+      log('    TikTok数据CID或产品ID为空: CID="' + tiktokCid + '" 产品="' + tiktokProdId + '"', 'warn');
+      return null;
+    }
+
+    for (var j = 0; j < feishuRecords.length; j++) {
+      var record = feishuRecords[j];
+      if (writtenRecordIds && writtenRecordIds[record.recordId]) continue;
+      var feishuCid = getFeishuFieldValue(record.fields[cidField]).trim();
+      var feishuProdId = getFeishuFieldValue(record.fields[prodField]).trim();
+
+      if (tiktokCid === feishuCid && tiktokProdId === feishuProdId) {
+        return record;
+      }
+    }
+
+    log('    CID=' + tiktokCid + ' 产品=' + tiktokProdId + ' 在飞书' + feishuRecords.length + '条记录中未匹配到', 'warn');
+    return null;
+  }
+
+  async function writeOneToFeishu(recordId, orderId, orderStatus) {
+    var cfg = readConfigFromFields();
+    var orderField = cfg.orderNumberField || '订单号';
+    var statusField = cfg.fulfillmentStatusField || '履约状态';
+
+    var fields = {};
+    fields[orderField] = orderId;
+    fields[statusField] = orderStatus;
+
+    var response = await chrome.runtime.sendMessage({
+      action: 'updateBitableRecord',
+      config: cfg,
+      recordId: recordId,
+      fields: fields
+    });
+
+    if (!response || !response.success) {
+      throw new Error(response && response.error || '回写失败');
+    }
+
+    return true;
+  }
+
+  async function runOneByOne(pendingRecords) {
+    var cfg = readConfigFromFields();
+    var cidField = cfg.creatorCidField || '达人CID';
+    var prodField = cfg.productIdField || '产品ID';
+    var groups = groupByCreatorName(pendingRecords);
+    var creatorNames = Object.keys(groups);
+    var totalCreators = creatorNames.length;
+    var totalRecords = pendingRecords.length;
+
+    var matchedCount = 0;
+    var unmatchedCount = 0;
+    var processedTiktok = 0;
+    var writtenRecordIds = {};
+
+    log('共 ' + totalRecords + ' 条待处理记录，' + totalCreators + ' 个达人', 'info');
+    updateStats(feishuRecords.length, totalRecords, 0, 0);
+
+    for (var i = 0; i < creatorNames.length; i++) {
+      if (!isRunning) {
+        log('用户停止操作', 'info');
+        break;
+      }
+
+      var creatorName = creatorNames[i];
+      var records = groups[creatorName];
+
+      updateProgress(i + 1, totalCreators, creatorName);
+      log('搜索达人 (' + (i + 1) + '/' + totalCreators + '): ' + creatorName + '（待处理 ' + records.length + ' 条）', 'info');
+      if (records.length > 0) {
+        log('    飞书样本: CID=' + getFeishuFieldValue(records[0].fields[cidField]) + ' 产品=' + getFeishuFieldValue(records[0].fields[prodField]), 'info');
+      }
+
+      try {
+        var tiktokItems = await searchOneInTikTok(creatorName);
+        log('  搜索到 ' + tiktokItems.length + ' 条TikTok数据', 'info');
+        if (tiktokItems.length > 0) {
+          for (var ti = 0; ti < Math.min(tiktokItems.length, 3); ti++) {
+            var sample = tiktokItems[ti];
+            log('    示例: CID=' + String(sample.creator_cid) + ' 产品=' + String(sample.product_id) + ' 订单=' + String(sample.order_id) + ' 状态=' + String(sample.order_status), 'info');
+          }
+        }
+
+        for (var t = 0; t < tiktokItems.length; t++) {
+          if (!isRunning) break;
+
+          var tiktokItem = tiktokItems[t];
+          processedTiktok++;
+
+          var matchedRecord = matchTikTokItem(tiktokItem, records, writtenRecordIds);
+
+          if (matchedRecord && !writtenRecordIds[matchedRecord.recordId]) {
+            try {
+              await writeOneToFeishu(matchedRecord.recordId, tiktokItem.order_id, tiktokItem.order_status);
+              writtenRecordIds[matchedRecord.recordId] = true;
+              matchedCount++;
+              log('  匹配回写: CID=' + String(tiktokItem.creator_cid) + ' 产品=' + String(tiktokItem.product_id) + ' -> 订单=' + tiktokItem.order_id + ' 状态=' + tiktokItem.order_status, 'success');
+            } catch (e) {
+              unmatchedCount++;
+              log('  回写失败: ' + e.message, 'error');
+            }
+          } else if (!matchedRecord) {
+            unmatchedCount++;
+            log('  未匹配: CID=' + String(tiktokItem.creator_cid) + ' 产品=' + String(tiktokItem.product_id), 'info');
+          }
+
+          updateStats(feishuRecords.length, totalRecords - matchedCount - unmatchedCount, matchedCount, unmatchedCount);
+        }
+      } catch (e) {
+        log('  搜索失败: ' + e.message, 'error');
+        unmatchedCount += records.length;
+        updateStats(feishuRecords.length, totalRecords - matchedCount - unmatchedCount, matchedCount, unmatchedCount);
+      }
+
+      if (i < creatorNames.length - 1 && isRunning) {
+        await new Promise(function (r) { setTimeout(r, 1000); });
+      }
+    }
+
+    return { matched: matchedCount, unmatched: unmatchedCount };
+  }
+
+  orderStartBtn.addEventListener('click', async function () {
+    if (isRunning) return;
+
+    orderResults.style.display = 'none';
+    orderResultSummary.innerHTML = '';
+    logList.innerHTML = '';
+    logPanel.style.display = 'none';
+
+    var cfg = readConfigFromFields();
+    if (!cfg.appId || !cfg.appSecret) {
+      showStatus('请填写飞书 App ID 和 App Secret', 'error');
+      return;
+    }
+    if (!cfg.baseToken || !cfg.tableId) {
+      showStatus('请填写或解析飞书多维表格链接', 'error');
       return;
     }
 
-    const orderIds = [...new Set(
-      inputText.split('\n')
-        .map(id => id.trim())
-        .filter(id => id.length > 0)
-    )];
-
-    if (orderIds.length === 0) {
-      showStatus('请输入有效的订单号', 'error');
-      return;
-    }
-
-    const inputLines = inputText.split('\n').filter(line => line.trim().length > 0).length;
-    console.log(`用户输入了 ${inputLines} 行，去重后得到 ${orderIds.length} 个订单ID`);
-
-    shouldStopOrderQuery = false;
-    startOrderQueryBtn.disabled = true;
-    startOrderQueryBtn.textContent = '查询中...';
-
-    if (stopOrderQueryBtn) {
-      stopOrderQueryBtn.style.display = 'flex';
-    }
-
-    switchToProgressMode();
-    updateProgressDisplay(`准备查询 ${orderIds.length} 个订单...\n请稍候...`);
-
-    const ORDER_QUERY_URL = 'affiliate.tiktokshopglobalselling.com/product/sample-request';
+    setRunningUI();
+    updateStats(0, 0, 0, 0);
+    updateProgress(0, 0, '');
 
     try {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      feishuRecords = await fetchFeishuRecords();
+      var pendingRecords = filterPendingRecords(feishuRecords);
+      log('履约状态为空的记录: ' + pendingRecords.length + ' 条', 'info');
 
-      const currentUrl = tab.url || '';
-      const isTargetPage = currentUrl.includes(ORDER_QUERY_URL);
-
-      let contentScriptReady = await checkContentScript(tab.id);
-
-      if (!contentScriptReady) {
-        updateProgressDisplay('正在初始化扩展...\n请稍候...');
-        contentScriptReady = await injectContentScript(tab.id);
-
-        if (!contentScriptReady) {
-          throw new Error('无法在当前页面加载扩展，请刷新页面后重试');
-        }
+      if (pendingRecords.length === 0) {
+        showStatus('没有履约状态为空的记录', 'info');
+        setStoppedUI();
+        orderProgressBar.style.display = 'none';
+        updateStats(feishuRecords.length, 0, 0, 0);
+        orderResults.style.display = 'block';
+        orderResultSummary.innerHTML = '<div style="text-align:center;color:#6b7280;padding:12px;">没有需要处理的记录，所有记录的履约状态均已填写</div>';
+        return;
       }
 
-      if (!isTargetPage) {
-        updateProgressDisplay('正在切换到样品申请页面...\n请稍候...');
+      var result = await runOneByOne(pendingRecords);
 
-        try {
-          const clickResult = await chrome.tabs.sendMessage(tab.id, {
-            action: 'clickSampleRequestMenu'
-          });
-          console.log('点击样品申请菜单结果:', clickResult);
-        } catch (clickError) {
-          console.warn('点击菜单失败，可能需要手动切换页面');
-        }
+      setStoppedUI();
+      showStatus('查询完成，匹配 ' + result.matched + ' 条，未匹配 ' + result.unmatched + ' 条', 'success');
+      log('查询完成：匹配 ' + result.matched + ' 条，未匹配 ' + result.unmatched + ' 条', 'success');
 
-        await new Promise(resolve => setTimeout(resolve, 2000));
-      }
-
-      contentScriptReady = await checkContentScript(tab.id);
-      if (!contentScriptReady) {
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        contentScriptReady = await checkContentScript(tab.id);
-      }
-
-      const startResponse = await chrome.runtime.sendMessage({
-        action: 'startOrderQuery',
-        tabId: tab.id,
-        orderIds: orderIds
-      });
-
-      if (!startResponse.success) {
-        throw new Error(startResponse.error || '启动订单查询失败');
-      }
-
-      console.log('订单查询已启动，开始监听状态...');
-
-    } catch (error) {
-      updateProgressDisplay(`查询失败\n${error.message}`);
-      showStatus('查询失败：' + error.message, 'error');
-      shouldStopOrderQuery = false;
-      startOrderQueryBtn.disabled = false;
-      startOrderQueryBtn.textContent = '开始查询并下载';
-      if (stopOrderQueryBtn) {
-        stopOrderQueryBtn.style.display = 'none';
-      }
-      setTimeout(() => {
-        switchToInputMode();
-        clearProgressDisplay();
-      }, 5000);
+    } catch (e) {
+      showStatus('操作失败: ' + e.message, 'error');
+      log('错误: ' + e.message, 'error');
+      setStoppedUI();
+      orderProgressBar.style.display = 'none';
     }
   });
 
-  stopOrderQueryBtn.addEventListener('click', async () => {
-    shouldStopOrderQuery = true;
-    if (stopOrderQueryBtn) {
-      stopOrderQueryBtn.disabled = true;
-      stopOrderQueryBtn.textContent = '正在停止...';
-    }
-    updateProgressDisplay('正在停止查询...\n请稍候...');
-    showStatus('正在停止查询...', 'info');
-
-    await chrome.runtime.sendMessage({ action: 'stopOrderQuery' });
+  orderStopBtn.addEventListener('click', async function () {
+    isRunning = false;
+    setStoppedUI();
+    orderProgressBar.style.display = 'none';
+    showStatus('已停止', 'info');
+    log('用户停止操作', 'info');
   });
 
-  chrome.storage.onChanged.addListener((changes, namespace) => {
-    if (namespace === 'local' && changes.orderQueryState) {
-      const newState = changes.orderQueryState.newValue;
-      if (newState && newState.isRunning) {
-        const progressPercent = Math.round((newState.currentIndex / (newState.total || 1)) * 100);
-        orderProgressFill.style.width = `${progressPercent}%`;
-        updateProgressDisplay(`查询进度: ${progressPercent}% (${newState.currentIndex}/${newState.total || 0})\n当前处理: ${newState.currentOrderId}\n${newState.message || '请稍候...'}`);
-        showStatus(`查询进度: ${progressPercent}% - 处理: ${newState.currentOrderId}`, 'info');
-      } else if (newState && !newState.isRunning) {
-        console.log('订单查询状态变化:', newState);
-
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-          const savedTabId = tabs[0] ? tabs[0].id : null;
-
-          if (newState.allOrders && newState.allOrders.length > 0) {
-            console.log('检测到订单查询完成，开始下载Excel...');
-            downloadAndCleanup(newState.allOrders, savedTabId, newState.failedOrders);
-          } else {
-            console.log('没有订单数据，直接恢复输入界面');
-            downloadAndCleanup([], savedTabId, newState.failedOrders);
-          }
-        });
-
-        shouldStopOrderQuery = false;
-        startOrderQueryBtn.disabled = false;
-        startOrderQueryBtn.textContent = '开始查询并下载';
-        if (stopOrderQueryBtn) {
-          stopOrderQueryBtn.style.display = 'none';
-        }
-      }
-    }
+  orderClearBtn.addEventListener('click', async function () {
+    isRunning = false;
+    feishuRecords = [];
+    orderResults.style.display = 'none';
+    orderResultSummary.innerHTML = '';
+    orderProgressBar.style.display = 'none';
+    orderProgressFill.style.width = '0%';
+    orderProgressText.textContent = '';
+    orderStatsRow.style.display = 'none';
+    logList.innerHTML = '';
+    logPanel.style.display = 'none';
+    setStoppedUI();
+    showStatus('数据已清除', 'success');
   });
 
-  backBtn.addEventListener('click', () => {
+  backBtn.addEventListener('click', function () {
+    isRunning = false;
     window.location.href = '../../popup.html';
   });
 
-  // 初始化：检查是否有正在运行的任务或已完成的结果
-  async function checkRunningTask() {
-    try {
-      const response = await chrome.runtime.sendMessage({ action: 'getOrderQueryStatus' });
-      if (response && response.success && response.state) {
-        const state = response.state;
-        if (state.isRunning) {
-          shouldStopOrderQuery = false;
-          startOrderQueryBtn.disabled = true;
-          startOrderQueryBtn.textContent = '查询中...';
-          if (stopOrderQueryBtn) {
-            stopOrderQueryBtn.style.display = 'flex';
-          }
-          switchToProgressMode();
-          const progressPercent = Math.round((state.currentIndex / (state.total || 1)) * 100);
-          orderProgressFill.style.width = `${progressPercent}%`;
-          updateProgressDisplay(`查询进度: ${progressPercent}% (${state.currentIndex}/${state.total || 0})\n当前处理: ${state.currentOrderId}\n${state.message || '请稍候...'}`);
-        } else if (state.allOrders && state.allOrders.length > 0) {
-          // 任务已完成但有未处理的结果
-          showStatus(`✅ 已恢复 ${state.allOrders.length} 条查询结果，正在导出...`, 'success');
-          switchToProgressMode();
-          updateProgressDisplay('正在恢复结果并导出...\n请稍候...');
-          await downloadAndCleanup(state.allOrders, null, state.failedOrders);
-          await chrome.runtime.sendMessage({ action: 'clearOrderQueryState' });
-        }
-      }
-    } catch (e) {
-      console.error('检查任务状态失败:', e);
-    }
-  }
-
-  checkRunningTask();
+  loadConfig();
 });

@@ -1,820 +1,417 @@
-class OrderDatabase {
-  constructor() {
-    this.dbName = 'OrderQueryDB';
-    this.version = 2;
-    this.storeName = 'orders';
-  }
+(function () {
+  var orderState = {
+    isActive: false,
+    capturedData: [],
+    apiCount: 0,
+    usernames: [],
+    isCapturing: false,
+    batchProgress: { currentIndex: 0, total: 0, currentName: '', done: false }
+  };
 
-  async init() {
-    return new Promise((resolve, reject) => {
-      const request = indexedDB.open(this.dbName, this.version);
+  var pendingApiBuffer = [];
+  var searchResponseBuffer = [];
+  var isSearchWaiting = false;
 
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => {
-        this.db = request.result;
-        resolve();
-      };
+  window.addEventListener('message', function (event) {
+    if (event.source !== window) return;
+    if (event.data?.source !== 'order-hook') return;
 
-      request.onupgradeneeded = (event) => {
-        const db = event.target.result;
-        const oldVersion = event.oldVersion;
+    if (event.data.type === 'hookInstalled') {
+      orderState.isActive = true;
+      chrome.runtime.sendMessage({ action: 'orderHookReady' }).catch(function () {});
+    }
 
-        console.log(`[Order] 数据库升级: 从版本 ${oldVersion} 升级到版本 ${this.version}`);
+    if (event.data.type === 'apiResponse' && event.data.json) {
+      if (isSearchWaiting) {
+        searchResponseBuffer.push(event.data.json);
+      } else if (orderState.isCapturing) {
+        orderState.apiCount++;
+        handleApiResponse(event.data.json);
+      } else {
+        pendingApiBuffer.push({ json: event.data.json, url: event.data.url });
+      }
+    }
+  });
 
-        if (db.objectStoreNames.contains(this.storeName)) {
-          db.deleteObjectStore(this.storeName);
+  chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
+    if (request.action === 'orderStartCapture') {
+      startBatchCapture(request.usernames).then(sendResponse);
+      return true;
+    }
+
+    if (request.action === 'orderStopCapture') {
+      orderState.isCapturing = false;
+      orderState.batchProgress.done = true;
+      sendResponse({ success: true });
+      return true;
+    }
+
+    if (request.action === 'orderGetCapturedData') {
+      sendResponse({
+        success: true,
+        data: orderState.capturedData,
+        apiCount: orderState.apiCount,
+        batchProgress: orderState.batchProgress
+      });
+      return true;
+    }
+
+    if (request.action === 'orderClearCapturedData') {
+      orderState.capturedData = [];
+      orderState.apiCount = 0;
+      orderState.batchProgress = { currentIndex: 0, total: 0, currentName: '', done: false };
+      sendResponse({ success: true });
+      return true;
+    }
+
+    if (request.action === 'orderSearchOne') {
+      searchOne(request.username).then(sendResponse);
+      return true;
+    }
+
+    if (request.action === 'ping') {
+      sendResponse({ success: true, hookActive: orderState.isActive });
+      return true;
+    }
+  });
+
+  function handleApiResponse(json) {
+    if (!json) return;
+
+    var orderData = cleanOrderData(json);
+
+    if (orderData && orderData.length > 0) {
+      orderState.capturedData.push.apply(orderState.capturedData, orderData);
+      console.log('[Order] extracted', orderData.length, 'records, total:', orderState.capturedData.length);
+
+      chrome.runtime.sendMessage({
+        action: 'orderDataCaptured',
+        data: {
+          newData: orderData,
+          totalCount: orderState.capturedData.length,
+          allData: orderState.capturedData
         }
-
-        const store = db.createObjectStore(this.storeName, { keyPath: 'id' });
-        store.createIndex('orderId', 'orderId', { unique: false });
-        store.createIndex('creatorId', 'creatorId', { unique: false });
-        store.createIndex('productId', 'productId', { unique: false });
-        store.createIndex('orderProduct', ['orderId', 'productId'], { unique: true });
-
-        console.log('[Order] 数据库结构升级完成');
-      };
-    });
-  }
-
-  async saveOrder(orderData) {
-    return new Promise((resolve, reject) => {
-      const transaction = this.db.transaction([this.storeName], 'readwrite');
-      const store = transaction.objectStore(this.storeName);
-      const request = store.put(orderData);
-
-      request.onsuccess = () => {
-        console.log(`[Order] 成功保存记录: ${orderData.orderId} - ${orderData.productId}`);
-        resolve();
-      };
-      request.onerror = () => {
-        console.error(`[Order] 保存记录失败: ${orderData.orderId} - ${orderData.productId}`, request.error);
-        reject(request.error);
-      };
-    });
-  }
-
-  async getAllOrders() {
-    return new Promise((resolve, reject) => {
-      const transaction = this.db.transaction([this.storeName], 'readonly');
-      const store = transaction.objectStore(this.storeName);
-      const request = store.getAll();
-
-      request.onsuccess = () => {
-        const result = request.result;
-        console.log(`[Order] 从IndexedDB获取到 ${result.length} 条记录:`, result);
-        resolve(result);
-      };
-      request.onerror = () => {
-        console.error('[Order] 获取所有订单失败:', request.error);
-        reject(request.error);
-      };
-    });
-  }
-
-  async clearAll() {
-    return new Promise((resolve, reject) => {
-      const transaction = this.db.transaction([this.storeName], 'readwrite');
-      const store = transaction.objectStore(this.storeName);
-      const request = store.clear();
-
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-    });
-  }
-}
-
-const ORDER_SELECTORS = {
-  allTab: 'div.m4b-tabs-pane-title-content',
-  creatorSelect: 'span.arco-select-view-value',
-  orderIdOption: 'li.arco-select-option.m4b-select-option',
-  searchInput: 'input[data-tid="m4b_input_search"]',
-  searchButton: 'svg.arco-icon-search',
-  tableRows: 'tbody tr.arco-table-tr',
-  creatorId: '.creator-info__HightBoldText-lfMAmF',
-  productId: '.arco-typography.text-body-s-regular.text-neutral-text3',
-  orderId: 'span[data-e2e].truncate',
-  status: '.product-status-info__StyledTag-hrmRnJ .content .text div'
-};
-
-class OrderAutomation {
-  constructor() {
-    this.db = new OrderDatabase();
-    this.db.init();
-    this.progressElement = null;
-  }
-
-  updatePageProgress(message, type = 'info') {
-    this.createGlobalProgress(message, type);
-  }
-
-  createGlobalProgress(message = '', type = 'info') {
-    let progressContainer = document.getElementById('order-query-progress');
-    if (!progressContainer) {
-      progressContainer = document.createElement('div');
-      progressContainer.id = 'order-query-progress';
-      progressContainer.style.cssText = `
-        position: fixed;
-        bottom: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: rgba(255, 255, 255, 0.95);
-        border: 2px solid #007bff;
-        border-radius: 8px;
-        padding: 12px 16px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        z-index: 10000;
-        font-family: Arial, sans-serif;
-        font-size: 14px;
-        color: #333;
-        max-width: 400px;
-        text-align: center;
-      `;
-      document.body.appendChild(progressContainer);
-    }
-
-    if (message) {
-      progressContainer.innerHTML = this.createProgressHtml(message, type);
-      progressContainer.style.display = 'block';
+      }).catch(function () {});
     }
   }
 
-  createProgressHtml(message, type) {
-    const iconMap = {
-      'info': '🔄',
-      'success': '✅',
-      'error': '❌',
-      'warning': '⚠️'
+  function mapCurrStatus(code) {
+    if (code === undefined || code === null || code === '') return '';
+    var num = Number(code);
+    if (isNaN(num)) return String(code);
+    if (num === 10) return '待审核';
+    if (num === 30) return '已发货';
+    if (num === 40) return '处理中';
+    if (num === 51) return '拒绝';
+    if (num === 53) return '逾期';
+    if (num === 100) return '已发布';
+    return String(num);
+  }
+
+  function cleanOrderData(json) {
+    var result = [];
+    var aggInfo = json.agg_info;
+
+    if (!Array.isArray(aggInfo)) {
+      if (Array.isArray(json.data)) aggInfo = json.data;
+      else if (Array.isArray(json.list)) aggInfo = json.list;
+      else if (json.data && Array.isArray(json.data.list)) aggInfo = json.data.list;
+      else if (json.data && Array.isArray(json.data.records)) aggInfo = json.data.records;
+      else return result;
+    }
+
+    for (var i = 0; i < aggInfo.length; i++) {
+      var item = aggInfo[i];
+      var applyDetail = item.apply_deatil || item.apply_detail || item;
+      var creatorInfo = applyDetail.creator_info || (item.apply_group || {}).creator_info || item.creator_info || {};
+      var applyInfos = applyDetail.apply_infos || item.apply_infos || [];
+
+      var creatorName = creatorInfo.name || '';
+      var creatorId = creatorInfo.creator_id || '';
+
+      for (var j = 0; j < applyInfos.length; j++) {
+        var apply = applyInfos[j];
+        var productId = apply.product_id || '';
+        var orderId = apply.main_order_id || '';
+        var currStatus = apply.curr_status;
+
+        result.push({
+          creator_id: creatorName,
+          creator_cid: creatorId,
+          product_id: productId,
+          order_id: orderId,
+          order_status: mapCurrStatus(currStatus),
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+
+    return result;
+  }
+
+  function clickAllTab() {
+    var tabElements = document.querySelectorAll('div.m4b-tabs-pane-title-content');
+    for (var i = 0; i < tabElements.length; i++) {
+      if (tabElements[i].textContent.trim() === '全部') {
+        tabElements[i].click();
+        console.log('[Order] clicked 全部 tab');
+        return true;
+      }
+    }
+    console.log('[Order] 全部 tab not found');
+    return false;
+  }
+
+  function waitForPageLoad(timeout) {
+    return new Promise(function (resolve) {
+      var start = Date.now();
+      function check() {
+        var input = document.querySelector('input[data-tid="m4b_input_search"]') || findSearchInput();
+        if (input) {
+          resolve(true);
+          return;
+        }
+        if (Date.now() - start > timeout) {
+          resolve(false);
+          return;
+        }
+        setTimeout(check, 500);
+      }
+      check();
+    });
+  }
+
+  function findSearchInput() {
+    var selectors = [
+      'input[data-tid="m4b_input_search"]',
+      'input[placeholder*="搜索"]',
+      'input[placeholder*="订单"]',
+      'input[placeholder*="search"]',
+      'input[placeholder*="order"]',
+      'input[type="text"]'
+    ];
+
+    for (var i = 0; i < selectors.length; i++) {
+      var elements = document.querySelectorAll(selectors[i]);
+      for (var j = 0; j < elements.length; j++) {
+        if (elements[j].offsetParent !== null && elements[j].clientWidth > 100) {
+          return elements[j];
+        }
+      }
+    }
+
+    var allInputs = document.querySelectorAll('input[type="text"], input:not([type])');
+    var candidates = [];
+    for (var k = 0; k < allInputs.length; k++) {
+      var inp = allInputs[k];
+      var rect = inp.getBoundingClientRect();
+      if (inp.offsetParent !== null && rect.width > 150 && rect.height > 20 && !inp.disabled && !inp.readOnly) {
+        candidates.push(inp);
+      }
+    }
+    candidates.sort(function (a, b) {
+      return (b.offsetWidth * b.offsetHeight) - (a.offsetWidth * a.offsetHeight);
+    });
+
+    return candidates.length > 0 ? candidates[0] : null;
+  }
+
+  function setInputValue(input, value) {
+    var nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+    nativeInputValueSetter.call(input, value);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  function triggerEnter(input) {
+    var enterDown = new KeyboardEvent('keydown', {
+      key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true
+    });
+    var enterUp = new KeyboardEvent('keyup', {
+      key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true
+    });
+    input.dispatchEvent(enterDown);
+    input.dispatchEvent(enterUp);
+  }
+
+  async function searchAndWait(name) {
+    clickAllTab();
+    await new Promise(function (r) { setTimeout(r, 500); });
+
+    var input = findSearchInput();
+    if (!input) {
+      console.log('[Order] search input not found, skip:', name);
+      return;
+    }
+
+    input.focus();
+    await new Promise(function (r) { setTimeout(r, 200); });
+
+    setInputValue(input, '');
+    await new Promise(function (r) { setTimeout(r, 200); });
+
+    setInputValue(input, name);
+    await new Promise(function (r) { setTimeout(r, 300); });
+
+    searchResponseBuffer = [];
+    isSearchWaiting = true;
+
+    triggerEnter(input);
+    console.log('[Order] searching:', name);
+
+    await new Promise(function (r) { setTimeout(r, 3000); });
+
+    isSearchWaiting = false;
+
+    if (searchResponseBuffer.length > 0) {
+      var lastJson = searchResponseBuffer[searchResponseBuffer.length - 1];
+      console.log('[Order] processing last of', searchResponseBuffer.length, 'responses for:', name);
+      searchResponseBuffer = [];
+      handleApiResponse(lastJson);
+    } else {
+      console.log('[Order] no API response captured for:', name);
+    }
+  }
+
+  async function searchOne(username) {
+    if (!location.href.includes('affiliate.tiktokshopglobalselling.com')) {
+      return { success: false, error: '请在TikTok联盟订单页面使用此功能' };
+    }
+
+    clickAllTab();
+    await new Promise(function (r) { setTimeout(r, 500); });
+
+    var input = findSearchInput();
+    if (!input) {
+      console.log('[Order] search input not found');
+      var loaded = await waitForPageLoad(15000);
+      if (!loaded) {
+        return { success: false, error: '页面未加载完成，找不到搜索框' };
+      }
+      input = findSearchInput();
+      if (!input) {
+        return { success: false, error: '找不到搜索输入框' };
+      }
+    }
+
+    input.focus();
+    await new Promise(function (r) { setTimeout(r, 200); });
+
+    setInputValue(input, '');
+    await new Promise(function (r) { setTimeout(r, 200); });
+
+    setInputValue(input, username);
+    await new Promise(function (r) { setTimeout(r, 300); });
+
+    searchResponseBuffer = [];
+    isSearchWaiting = true;
+
+    triggerEnter(input);
+    console.log('[Order] searching one:', username);
+
+    await new Promise(function (r) { setTimeout(r, 6000); });
+
+    isSearchWaiting = false;
+
+    var allItems = [];
+    if (searchResponseBuffer.length > 0) {
+      for (var ri = 0; ri < searchResponseBuffer.length; ri++) {
+        var batch = cleanOrderData(searchResponseBuffer[ri]);
+        for (var bi = 0; bi < batch.length; bi++) {
+          allItems.push(batch[bi]);
+        }
+      }
+      console.log('[Order] searchOne got', allItems.length, 'items from', searchResponseBuffer.length, 'responses for:', username);
+    } else {
+      console.log('[Order] searchOne: no response for:', username);
+    }
+
+    searchResponseBuffer = [];
+
+    return { success: true, items: allItems };
+  }
+
+  async function startBatchCapture(usernames) {
+    if (!location.href.includes('affiliate.tiktokshopglobalselling.com')) {
+      return { success: false, error: '请在TikTok联盟订单页面使用此功能' };
+    }
+
+    if (!Array.isArray(usernames) || usernames.length === 0) {
+      return { success: false, error: '请输入至少一个达人昵称' };
+    }
+
+    orderState.usernames = usernames;
+    orderState.capturedData = [];
+    orderState.apiCount = 0;
+    orderState.isCapturing = true;
+    orderState.batchProgress = {
+      currentIndex: 0,
+      total: usernames.length,
+      currentName: '',
+      done: false
     };
 
-    const icon = iconMap[type] || iconMap.info;
-
-    return `
-      <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
-        <span style="font-size: 16px;">${icon}</span>
-        <span style="flex: 1; text-align: center;">${message}</span>
-      </div>
-    `;
-  }
-
-  hidePageProgress() {
-    try {
-      if (this.progressElement) {
-        this.progressElement.style.display = 'none';
+    for (var b = 0; b < pendingApiBuffer.length; b++) {
+      if (orderState.isCapturing) {
+        handleApiResponse(pendingApiBuffer[b].json);
       }
-
-      const globalProgress = document.getElementById('order-query-progress');
-      if (globalProgress) {
-        globalProgress.style.display = 'none';
-      }
-    } catch (error) {
-      console.error('[Order] 隐藏进度显示失败:', error);
     }
-  }
+    pendingApiBuffer = [];
 
-  findElement(selector) {
-    return document.querySelector(selector);
-  }
-
-  async waitForElement(selector, timeout = 5000) {
-    const startTime = Date.now();
-    while (Date.now() - startTime < timeout) {
-      const element = this.findElement(selector);
-      if (element) {
-        return element;
-      }
-      await this.sleep(100);
-    }
-    throw new Error(`Element not found: ${selector}`);
-  }
-
-  async waitForClickable(selector, timeout = 5000) {
-    const element = await this.waitForElement(selector, timeout);
-    if (!element) {
-      throw new Error(`Element is null: ${selector}`);
-    }
-
-    let attempts = 0;
-    while (attempts < 50) {
-      if (!element.disabled && element.offsetParent !== null) {
-        return element;
-      }
-      await this.sleep(100);
-      attempts++;
-    }
-    throw new Error(`Element not clickable: ${selector}`);
-  }
-
-  sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
-  async clickElement(selector) {
-    console.log(`[Order] Attempting to click element: ${selector}`);
-
-    const element = await this.waitForClickable(selector, 5000);
-
-    if (!element) {
-      throw new Error(`Element is null, cannot click: ${selector}`);
-    }
-
-    if (typeof element.click !== 'function') {
-      throw new Error(`Element.click is not a function. Element type: ${element.constructor.name}, selector: ${selector}`);
-    }
-
-    console.log('[Order] Clicking element:', element);
-    element.click();
-    await this.sleep(500);
-  }
-
-  async triggerEnterKey(selector) {
-    console.log(`[Order] Triggering Enter key on selector: ${selector}`);
-
-    let element = await this.waitForElement(selector, 3000).catch(() => null);
-
-    if (!element) {
-      console.log('[Order] 原选择器未找到输入框，尝试其他选择器...');
-
-      const searchSelectors = [
-        'input[data-tid="m4b_input_search"]',
-        'input[placeholder*="订单"]',
-        'input[placeholder*="搜索"]',
-        'input[type="text"]',
-        'input:not([type="hidden"])',
-        'input'
-      ];
-
-      for (const searchSelector of searchSelectors) {
-        try {
-          console.log(`[Order] 尝试选择器: ${searchSelector}`);
-          const elements = document.querySelectorAll(searchSelector);
-
-          for (const el of elements) {
-            if (el.offsetParent !== null && el.clientWidth > 100) {
-              element = el;
-              console.log(`[Order] 使用选择器 "${searchSelector}" 找到输入框:`, element);
-              break;
-            }
-          }
-
-          if (element) break;
-        } catch (e) {
-          console.log(`[Order] 选择器 "${searchSelector}" 无效:`, e.message);
-        }
-      }
-
-      if (!element) {
-        console.log('[Order] 尝试通用输入框查找...');
-        const allInputs = document.querySelectorAll('input[type="text"], input:not([type])');
-
-        const candidates = Array.from(allInputs)
-          .filter(input => {
-            const rect = input.getBoundingClientRect();
-            return input.offsetParent !== null &&
-              rect.width > 150 && rect.height > 20 &&
-              !input.disabled && !input.readOnly;
-          })
-          .sort((a, b) => {
-            const aInForm = a.closest('form') !== null;
-            const bInForm = b.closest('form') !== null;
-            if (aInForm && !bInForm) return -1;
-            if (!aInForm && bInForm) return 1;
-
-            const aArea = a.offsetWidth * a.offsetHeight;
-            const bArea = b.offsetWidth * b.offsetHeight;
-            return bArea - aArea;
-          });
-
-        if (candidates.length > 0) {
-          element = candidates[0];
-          console.log('[Order] 使用通用查找找到输入框:', element);
-        }
+    if (!document.querySelector('input[data-tid="m4b_input_search"]') &&
+        !findSearchInput()) {
+      console.log('[Order] page not fully loaded, waiting...');
+      var loaded = await waitForPageLoad(15000);
+      if (!loaded) {
+        orderState.isCapturing = false;
+        return { success: false, error: '页面未完全加载，请刷新页面重试' };
       }
     }
 
-    if (!element) {
-      console.log(`[Order] 未找到输入框用于Enter键: ${selector}，跳过搜索触发`);
-      return;
-    }
-
-    console.log('[Order] Found input element for Enter:', element);
-
-    const enterEvent = new KeyboardEvent('keydown', {
-      key: 'Enter',
-      code: 'Enter',
-      keyCode: 13,
-      which: 13,
-      bubbles: true,
-      cancelable: true
+    runBatch().catch(function (e) {
+      console.error('[Order] batch error:', e);
     });
 
-    element.dispatchEvent(enterEvent);
-    await this.sleep(500);
-
-    console.log('[Order] Enter key triggered');
+    return { success: true, message: '批量捕获已启动' };
   }
 
-  async inputText(selector, text) {
-    console.log(`[Order] Inputting text "${text}" into selector: ${selector}`);
+  async function runBatch() {
+    var usernames = orderState.usernames;
 
-    let element = await this.waitForElement(selector, 3000).catch(() => null);
+    for (var i = 0; i < usernames.length; i++) {
+      if (!orderState.isCapturing) break;
 
-    if (!element) {
-      console.log('[Order] 原选择器未找到搜索输入框，尝试其他选择器...');
+      var name = usernames[i];
+      orderState.batchProgress.currentIndex = i + 1;
+      orderState.batchProgress.currentName = name;
 
-      const searchSelectors = [
-        'input[data-tid="m4b_input_search"]',
-        'input[placeholder*="订单"]',
-        'input[placeholder*="搜索"]',
-        'input[placeholder*="order"]',
-        'input[placeholder*="search"]',
-        'input[type="text"]',
-        'input:not([type="hidden"])',
-        'input'
-      ];
+      console.log('[Order] processing', (i + 1) + '/' + usernames.length, ':', name);
 
-      for (const searchSelector of searchSelectors) {
-        try {
-          console.log(`[Order] 尝试选择器: ${searchSelector}`);
-          const elements = document.querySelectorAll(searchSelector);
+      await searchAndWait(name);
 
-          for (const el of elements) {
-            if (el.offsetParent !== null && el.clientWidth > 100) {
-              element = el;
-              console.log(`[Order] 使用选择器 "${searchSelector}" 找到搜索输入框:`, element);
-              break;
-            }
-          }
-
-          if (element) break;
-        } catch (e) {
-          console.log(`[Order] 选择器 "${searchSelector}" 无效:`, e.message);
-        }
-      }
-
-      if (!element) {
-        console.log('[Order] 尝试通用输入框查找...');
-        const allInputs = document.querySelectorAll('input[type="text"], input:not([type])');
-
-        const candidates = Array.from(allInputs)
-          .filter(input => {
-            const rect = input.getBoundingClientRect();
-            return input.offsetParent !== null &&
-              rect.width > 150 && rect.height > 20 &&
-              !input.disabled && !input.readOnly;
-          })
-          .sort((a, b) => {
-            const aInForm = a.closest('form') !== null;
-            const bInForm = b.closest('form') !== null;
-            if (aInForm && !bInForm) return -1;
-            if (!aInForm && bInForm) return 1;
-
-            const aArea = a.offsetWidth * a.offsetHeight;
-            const bArea = b.offsetWidth * b.offsetHeight;
-            return bArea - aArea;
-          });
-
-        if (candidates.length > 0) {
-          element = candidates[0];
-          console.log('[Order] 使用通用查找找到输入框:', element);
-        }
-      }
+      await new Promise(function (r) { setTimeout(r, 2000); });
     }
 
-    if (!element) {
-      console.log(`[Order] 未找到输入框: ${selector}，跳过输入步骤`);
-      return;
-    }
-
-    console.log('[Order] Found input element:', element);
-
-    element.value = '';
-    element.focus();
-
-    element.value = text;
-
-    element.dispatchEvent(new Event('input', { bubbles: true }));
-    element.dispatchEvent(new Event('change', { bubbles: true }));
-
-    await this.sleep(300);
+    orderState.isCapturing = false;
+    orderState.batchProgress.done = true;
+    orderState.batchProgress.currentName = '';
+    console.log('[Order] batch complete, total:', orderState.capturedData.length);
   }
 
-  findElementByText(selector, texts) {
-    const textArray = Array.isArray(texts) ? texts : [texts];
-    const elements = document.querySelectorAll(selector);
-    for (const element of elements) {
-      const elementText = element.textContent || '';
-      if (textArray.some(t => elementText.includes(t))) {
-        return element;
-      }
-    }
-    return null;
-  }
-
-  async getTableData(filterOrderId = null) {
-    console.log('[Order] === 开始获取表格数据 ===');
-    console.log('[Order] 过滤订单ID:', filterOrderId);
-    console.log('[Order] 当前页面URL:', window.location.href);
-
-    await this.sleep(2000);
-
-    const rows = document.querySelectorAll(ORDER_SELECTORS.tableRows);
-    console.log(`[Order] 发现 ${rows.length} 行数据`);
-
-    const orders = [];
-    const orderGroups = new Map();
-
-    for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
-      const row = rows[rowIndex];
-
-      try {
-        let orderElement = row.querySelector('td.arco-table-td:nth-child(3) [class*="creator-product-info__ProductInfoWrap"] [class*="text-neutral-text3"] span[data-e2e].truncate');
-
-        if (!orderElement) {
-          orderElement = row.querySelector('td:nth-child(3) span[data-e2e].truncate');
-        }
-
-        if (!orderElement) {
-          const allOrderSpans = row.querySelectorAll('span[data-e2e].truncate');
-          for (const span of allOrderSpans) {
-            const text = span.textContent || '';
-            if (text.includes('订单 ID：') || text.includes('Order ID:') || /^\d{18,}$/.test(text.trim())) {
-              orderElement = span;
-              break;
-            }
-          }
-        }
-
-        if (orderElement) {
-          let orderId = '';
-          const text = orderElement.textContent || '';
-          if (text.includes('订单 ID：')) {
-            orderId = text.replace('订单 ID：', '').trim();
-          } else if (text.includes('Order ID:')) {
-            orderId = text.replace('Order ID:', '').trim();
-          } else {
-            orderId = text.trim();
-          }
-
-          if (orderId) {
-            if (!orderGroups.has(orderId)) {
-              orderGroups.set(orderId, []);
-            }
-            orderGroups.get(orderId).push(row);
-          }
-        }
-      } catch (error) {
-        console.error(`[Order] 分析第 ${rowIndex + 1} 行时出错:`, error);
-      }
-    }
-
-    console.log(`[Order] 分组完成: 发现 ${orderGroups.size} 个不同订单ID`);
-
-    let filteredGroups = orderGroups;
-    if (filterOrderId) {
-      filteredGroups = new Map();
-      if (orderGroups.has(filterOrderId)) {
-        filteredGroups.set(filterOrderId, orderGroups.get(filterOrderId));
-      } else {
-        return [];
-      }
-    }
-
-    if (filteredGroups.size === 0) {
-      return [];
-    }
-
-    for (const [orderId, orderRows] of filteredGroups) {
-      for (let i = 0; i < orderRows.length; i++) {
-        const row = orderRows[i];
-        const isMultiProduct = orderRows.length > 1;
-
-        try {
-          const creatorElement = row.querySelector('[class*="creator-info__HightBoldText"]');
-
-          let productElement = null;
-          const arcoTypographyElements = row.querySelectorAll('[class*="arco-typography"]');
-          for (const element of arcoTypographyElements) {
-            if (element.textContent.includes('ID:')) {
-              productElement = element;
-              break;
-            }
-          }
-          const statusElement = row.querySelector('[class*="product-status-info__StyledTag"] [class*="text"] div');
-
-          let creatorId = '';
-          let productId = '';
-          let status = '';
-
-          if (creatorElement) {
-            creatorId = creatorElement.textContent.trim();
-          }
-
-          if (productElement) {
-            productId = productElement.textContent.replace('ID: ', '').trim();
-          }
-
-          if (statusElement) {
-            status = statusElement.textContent.trim();
-          }
-
-          const orderData = {
-            id: `${orderId}_${productId}`,
-            creatorId,
-            productId,
-            orderId,
-            status,
-            productIndex: isMultiProduct ? i + 1 : null,
-            totalProducts: orderRows.length,
-            timestamp: new Date().toISOString()
-          };
-
-          orders.push(orderData);
-
-        } catch (error) {
-          console.error(`[Order] 处理订单 ${orderId} 行 ${i + 1} 时出错:`, error);
-        }
-      }
-    }
-
-    console.log(`[Order] 总共处理了 ${orders.length} 条记录`);
-
-    return orders;
-  }
-
-  async clickSampleRequestMenu() {
-    console.log('[Order] === 点击样品申请菜单 ===');
+  function injectHookScript() {
     try {
-      const menuSelectors = [
-        '.m4b-menu-title',
-        'div.m4b-menu-title',
-        '[class*="m4b-menu-title"]',
-        'div[class*="menu-title"]',
-        '.side-menu-item',
-        '[class*="side-menu"]'
-      ];
-
-      const menuTexts = ['样品申请', 'Sample Request', 'Sample', '样品'];
-      let menuElement = null;
-
-      for (const selector of menuSelectors) {
-        const elements = document.querySelectorAll(selector);
-        for (const el of elements) {
-          const text = el.textContent || '';
-          if (menuTexts.some(t => text.includes(t))) {
-            menuElement = el;
-            break;
-          }
-        }
-        if (menuElement) break;
-      }
-
-      if (!menuElement) {
-        const allDivs = document.querySelectorAll('div');
-        for (const div of allDivs) {
-          const text = div.textContent || '';
-          if (menuTexts.some(t => text.trim() === t || text.includes(t))) {
-            menuElement = div;
-            break;
-          }
-        }
-      }
-
-      if (menuElement) {
-        menuElement.click();
-        await this.sleep(2000);
-        return { success: true, message: '已点击样品申请菜单', url: window.location.href };
-      } else {
-        const targetUrl = 'https://affiliate.tiktokshopglobalselling.com/product/sample-request';
-        window.location.href = targetUrl;
-        await this.sleep(3000);
-        return { success: true, message: '已导航到样品申请页面', url: window.location.href };
-      }
-    } catch (error) {
-      console.error('[Order] 点击样品申请菜单失败:', error);
-      return { success: false, error: error.message };
+      var script = document.createElement('script');
+      script.src = chrome.runtime.getURL('quick_module/order/order_hook.js');
+      script.onload = function () { script.remove(); };
+      (document.head || document.documentElement).appendChild(script);
+    } catch (e) {
+      console.error('[Order] inject hook failed:', e);
     }
   }
 
-  async clickCreatorMenu() {
-    console.log('[Order] === 点击达人管理菜单 ===');
-    try {
-      const menuSelectors = [
-        '.m4b-menu-title',
-        'div.m4b-menu-title',
-        '[class*="m4b-menu-title"]',
-        'div[class*="menu-title"]',
-        '.side-menu-item',
-        '[class*="side-menu"]'
-      ];
-
-      const menuTexts = ['达人管理', 'Creator Management', 'Creator'];
-      let menuElement = null;
-
-      for (const selector of menuSelectors) {
-        const elements = document.querySelectorAll(selector);
-        for (const el of elements) {
-          const text = el.textContent || '';
-          if (menuTexts.some(t => text.includes(t))) {
-            menuElement = el;
-            break;
-          }
-        }
-        if (menuElement) break;
-      }
-
-      if (!menuElement) {
-        const allDivs = document.querySelectorAll('div');
-        for (const div of allDivs) {
-          const text = div.textContent || '';
-          if (menuTexts.some(t => text.trim() === t || text.includes(t))) {
-            menuElement = div;
-            break;
-          }
-        }
-      }
-
-      if (menuElement) {
-        menuElement.click();
-        await this.sleep(2000);
-        return { success: true, message: '已点击达人管理菜单', url: window.location.href };
-      } else {
-        const targetUrl = 'https://affiliate.tiktokshopglobalselling.com/connection/creator-management';
-        window.location.href = targetUrl;
-        await this.sleep(3000);
-        return { success: true, message: '已导航到达人管理页面', url: window.location.href };
-      }
-    } catch (error) {
-      console.error('[Order] 点击达人管理菜单失败:', error);
-      return { success: false, error: error.message };
-    }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', injectHookScript);
+  } else {
+    injectHookScript();
   }
-
-  async executeAutomation(orderId) {
-    console.log(`[Order] === 开始执行自动化流程，订单ID: ${orderId} ===`);
-    try {
-      this.updatePageProgress(`开始查询订单: ${orderId}`, 'info');
-
-      try {
-        let allTabElement = this.findElementByText(ORDER_SELECTORS.allTab, ['全部', 'All']);
-
-        if (!allTabElement) {
-          const allSelectors = ['div[role="tab"]', '.arco-tabs-tab-title', 'span', 'div'];
-          const allTexts = ['全部', 'All'];
-
-          for (const selector of allSelectors) {
-            const elements = document.querySelectorAll(selector);
-            for (const element of elements) {
-              const text = element.textContent || '';
-              if (allTexts.some(t => text.trim() === t)) {
-                allTabElement = element;
-                break;
-              }
-            }
-            if (allTabElement) break;
-          }
-        }
-
-        if (allTabElement) {
-          if (typeof allTabElement.click === 'function') {
-            allTabElement.click();
-            await this.sleep(500);
-          }
-        }
-      } catch (tabError) {
-        console.log('[Order] 查找"全部"标签时出错，但继续执行查询:', tabError.message);
-      }
-
-      this.updatePageProgress('正在选择达人昵称字段...', 'info');
-      const creatorSelectElement = this.findElementByText(ORDER_SELECTORS.creatorSelect, ['达人昵称', 'Creator Name', 'Creator']);
-      if (creatorSelectElement) {
-        if (typeof creatorSelectElement.click === 'function') {
-          creatorSelectElement.click();
-          await this.sleep(500);
-        }
-      }
-
-      this.updatePageProgress('正在选择订单ID搜索方式...', 'info');
-      const orderIdOptionElement = this.findElementByText(ORDER_SELECTORS.orderIdOption, ['订单 ID', 'Order ID']);
-      if (orderIdOptionElement) {
-        if (typeof orderIdOptionElement.click === 'function') {
-          orderIdOptionElement.click();
-          await this.sleep(500);
-        }
-      }
-
-      this.updatePageProgress('正在输入订单号...', 'info');
-      try {
-        await this.inputText(ORDER_SELECTORS.searchInput, orderId);
-      } catch (inputError) {
-        this.updatePageProgress('直接查询数据...', 'info');
-      }
-
-      this.updatePageProgress('正在执行搜索...', 'info');
-      let searchTriggered = false;
-
-      try {
-        await this.triggerEnterKey(ORDER_SELECTORS.searchInput);
-        searchTriggered = true;
-      } catch (enterError) {
-        try {
-          const searchButton = this.findElement(ORDER_SELECTORS.searchButton);
-          if (searchButton) {
-            searchButton.click();
-            await this.sleep(500);
-            searchTriggered = true;
-          }
-        } catch (buttonError) {
-          console.log('[Order] 搜索按钮点击失败，直接获取数据');
-        }
-      }
-
-      if (!searchTriggered) {
-        this.updatePageProgress('正在获取数据...', 'info');
-      }
-
-      this.updatePageProgress('正在获取查询结果...', 'info');
-      const orders = await this.getTableData(orderId);
-
-      this.updatePageProgress(`正在保存 ${orders.length} 条数据...`, 'info');
-      for (const order of orders) {
-        try {
-          await this.db.saveOrder(order);
-        } catch (saveError) {
-          console.error(`[Order] 保存订单失败: ${order.orderId}`, saveError);
-          throw saveError;
-        }
-      }
-
-      this.updatePageProgress(`查询完成！获取到 ${orders.length} 条数据`, 'success');
-
-      setTimeout(() => {
-        this.hidePageProgress();
-      }, 5000);
-
-      return { success: true, data: orders };
-    } catch (error) {
-      console.error('[Order] Automation failed:', error);
-      this.updatePageProgress(`查询失败: ${error.message}`, 'error');
-
-      setTimeout(() => {
-        this.hidePageProgress();
-      }, 5000);
-
-      return { success: false, error: error.message };
-    }
-  }
-
-  async clearData() {
-    try {
-      await this.db.clearAll();
-      console.log('[Order] 所有订单数据已清空');
-      return { success: true };
-    } catch (error) {
-      console.error('[Order] 清空数据失败:', error);
-      return { success: false, error: error.message };
-    }
-  }
-
-  async getDataForExport() {
-    try {
-      const orders = await this.db.getAllOrders();
-      console.log(`[Order] 获取到 ${orders.length} 条数据用于导出:`, orders);
-
-      if (orders.length === 0) {
-        return { success: false, error: '没有数据可导出' };
-      }
-
-      return { success: true, data: orders };
-    } catch (error) {
-      console.error('[Order] 获取导出数据失败:', error);
-      return { success: false, error: error.message };
-    }
-  }
-}
-
-const orderAutomation = new OrderAutomation();
-
-console.log('[Order] 订单查询功能已加载');
-
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  console.log('[Order] 收到消息:', request.action, request);
-  if (request.action === 'ping') {
-    sendResponse({ success: true });
-    return false;
-  } else if (request.action === 'clickSampleRequestMenu') {
-    orderAutomation.clickSampleRequestMenu().then(sendResponse);
-    return true;
-  } else if (request.action === 'clickCreatorMenu') {
-    orderAutomation.clickCreatorMenu().then(sendResponse);
-    return true;
-  } else if (request.action === 'startOrderAutomation') {
-    orderAutomation.executeAutomation(request.orderId).then(sendResponse);
-    return true;
-  } else if (request.action === 'exportOrderData') {
-    orderAutomation.getDataForExport().then(sendResponse);
-    return true;
-  } else if (request.action === 'clearOrderData') {
-    orderAutomation.clearData().then(sendResponse);
-    return true;
-  }
-});
+})();

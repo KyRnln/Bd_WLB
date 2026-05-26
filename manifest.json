@@ -154,7 +154,8 @@
       "resources": [
         "page_bridge.js",
         "translate/translate.html",
-        "quick_module/sample_crawl/sample_crawl_hook.js"
+        "quick_module/sample_crawl/sample_crawl_hook.js",
+        "quick_module/order/order_hook.js"
       ],
       "matches": [
         "https://*.tiktok.com/*",

@@ -288,7 +288,7 @@ async function handleMessage(request, sender) {
       if (cidToNameResult) {
         return cidToNameResult;
       }
-      const orderResult = await handleOrderMessage(request, downloadExcel);
+      const orderResult = await handleOrderMessage(request, sender, downloadExcel);
       if (orderResult) {
         return orderResult;
       }
