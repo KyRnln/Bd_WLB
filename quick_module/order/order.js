@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const orderResultSummary = document.getElementById('orderResultSummary');
   const logPanel = document.getElementById('logPanel');
   const logList = document.getElementById('logList');
+  const orderDescription = document.querySelector('.description');
 
   const feishuUrl = document.getElementById('feishuUrl');
   const parseUrlBtn = document.getElementById('parseUrlBtn');
@@ -200,12 +201,29 @@ document.addEventListener('DOMContentLoaded', () => {
       : current + '/' + total + ' (' + pct + '%)';
   }
 
-  function updateStats(feishuTotal, pending, matched, unmatched) {
+  var _statsThrottleLatest = null;
+  var _statsThrottlePending = false;
+
+  function _doUpdateStatsNow(feishuTotal, pending, matched, unmatched) {
     orderStatsRow.style.display = 'flex';
-    statFeishuTotal.querySelector('strong').textContent = feishuTotal;
+    statFeishuTotal.textContent = '飞书记录: ' + feishuTotal;
     statPending.textContent = pending;
     statMatched.textContent = matched;
     statUnmatched.textContent = unmatched;
+  }
+
+  function updateStats(feishuTotal, pending, matched, unmatched) {
+    _statsThrottleLatest = { feishuTotal: feishuTotal, pending: pending, matched: matched, unmatched: unmatched };
+    if (_statsThrottlePending) return;
+    _statsThrottlePending = true;
+    _doUpdateStatsNow(feishuTotal, pending, matched, unmatched);
+    setTimeout(function () {
+      _statsThrottlePending = false;
+      if (_statsThrottleLatest) {
+        var s = _statsThrottleLatest;
+        _doUpdateStatsNow(s.feishuTotal, s.pending, s.matched, s.unmatched);
+      }
+    }, 500);
   }
 
   function setRunningUI() {
@@ -215,6 +233,7 @@ document.addEventListener('DOMContentLoaded', () => {
     orderStartBtn.style.opacity = '0.7';
     orderStopBtn.style.display = 'flex';
     orderProgressBar.style.display = 'block';
+    if (orderDescription) orderDescription.style.display = 'none';
   }
 
   function setStoppedUI() {
@@ -223,6 +242,7 @@ document.addEventListener('DOMContentLoaded', () => {
     orderStartBtn.textContent = '开始查询';
     orderStartBtn.style.opacity = '1';
     orderStopBtn.style.display = 'none';
+    orderProgressBar.style.display = 'none';
   }
 
   async function fetchFeishuRecords() {
@@ -251,12 +271,12 @@ document.addEventListener('DOMContentLoaded', () => {
     return records;
   }
 
-  function filterPendingRecords(records) {
+  function filterProcessableRecords(records) {
     var cfg = readConfigFromFields();
     var statusField = cfg.fulfillmentStatusField || '履约状态';
     return records.filter(function (r) {
       var val = getFeishuFieldValue(r.fields[statusField]);
-      return val === '';
+      return val !== '逾期' && val !== '已发布';
     });
   }
 
@@ -323,15 +343,13 @@ document.addEventListener('DOMContentLoaded', () => {
     return String(field);
   }
 
-  function matchTikTokItem(tiktokItem, feishuRecords, writtenRecordIds) {
-    var cfg = readConfigFromFields();
+  function matchTikTokItem(tiktokItem, feishuRecords, writtenRecordIds, cfg) {
     var cidField = cfg.creatorCidField || '达人CID';
     var prodField = cfg.productIdField || '产品ID';
     var tiktokCid = String(tiktokItem.creator_cid || '').trim();
     var tiktokProdId = String(tiktokItem.product_id || '').trim();
 
     if (!tiktokCid || !tiktokProdId) {
-      log('    TikTok数据CID或产品ID为空: CID="' + tiktokCid + '" 产品="' + tiktokProdId + '"', 'warn');
       return null;
     }
 
@@ -346,7 +364,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    log('    CID=' + tiktokCid + ' 产品=' + tiktokProdId + ' 在飞书' + feishuRecords.length + '条记录中未匹配到', 'warn');
     return null;
   }
 
@@ -373,19 +390,20 @@ document.addEventListener('DOMContentLoaded', () => {
     return true;
   }
 
-  async function runOneByOne(pendingRecords) {
+  async function runOneByOne(processableRecords) {
     var cfg = readConfigFromFields();
     var cidField = cfg.creatorCidField || '达人CID';
     var prodField = cfg.productIdField || '产品ID';
-    var groups = groupByCreatorName(pendingRecords);
+    var groups = groupByCreatorName(processableRecords);
     var creatorNames = Object.keys(groups);
     var totalCreators = creatorNames.length;
-    var totalRecords = pendingRecords.length;
+    var totalRecords = processableRecords.length;
 
     var matchedCount = 0;
     var unmatchedCount = 0;
-    var processedTiktok = 0;
+    var searchFailedCount = 0;
     var writtenRecordIds = {};
+    var MAX_RETRIES = 2;
 
     log('共 ' + totalRecords + ' 条待处理记录，' + totalCreators + ' 个达人', 'info');
     updateStats(feishuRecords.length, totalRecords, 0, 0);
@@ -405,45 +423,63 @@ document.addEventListener('DOMContentLoaded', () => {
         log('    飞书样本: CID=' + getFeishuFieldValue(records[0].fields[cidField]) + ' 产品=' + getFeishuFieldValue(records[0].fields[prodField]), 'info');
       }
 
-      try {
-        var tiktokItems = await searchOneInTikTok(creatorName);
-        log('  搜索到 ' + tiktokItems.length + ' 条TikTok数据', 'info');
-        if (tiktokItems.length > 0) {
-          for (var ti = 0; ti < Math.min(tiktokItems.length, 3); ti++) {
-            var sample = tiktokItems[ti];
-            log('    示例: CID=' + String(sample.creator_cid) + ' 产品=' + String(sample.product_id) + ' 订单=' + String(sample.order_id) + ' 状态=' + String(sample.order_status), 'info');
+      var tiktokItems = null;
+      var lastError = null;
+
+      for (var retry = 0; retry <= MAX_RETRIES; retry++) {
+        try {
+          if (retry > 0) {
+            log('  重试搜索 (' + retry + '/' + MAX_RETRIES + ')...', 'info');
+            await new Promise(function (r) { setTimeout(r, 2000); });
+          }
+          tiktokItems = await searchOneInTikTok(creatorName);
+          break;
+        } catch (e) {
+          lastError = e;
+          if (retry < MAX_RETRIES) {
+            log('  搜索失败（第' + (retry + 1) + '次）: ' + e.message + '，准备重试...', 'warn');
           }
         }
+      }
 
-        for (var t = 0; t < tiktokItems.length; t++) {
-          if (!isRunning) break;
+      if (!tiktokItems) {
+        log('  搜索彻底失败: ' + (lastError ? lastError.message : '未知错误'), 'error');
+        searchFailedCount += records.length;
+        updateStats(feishuRecords.length, totalRecords - matchedCount - unmatchedCount - searchFailedCount, matchedCount, unmatchedCount);
+        continue;
+      }
 
-          var tiktokItem = tiktokItems[t];
-          processedTiktok++;
+      log('  搜索到 ' + tiktokItems.length + ' 条TikTok数据', 'info');
+      if (tiktokItems.length > 0) {
+        for (var ti = 0; ti < Math.min(tiktokItems.length, 3); ti++) {
+          var sample = tiktokItems[ti];
+          log('    示例: CID=' + String(sample.creator_cid) + ' 产品=' + String(sample.product_id) + ' 订单=' + String(sample.order_id) + ' 状态=' + String(sample.order_status), 'info');
+        }
+      }
 
-          var matchedRecord = matchTikTokItem(tiktokItem, records, writtenRecordIds);
+      for (var t = 0; t < tiktokItems.length; t++) {
+        if (!isRunning) break;
 
-          if (matchedRecord && !writtenRecordIds[matchedRecord.recordId]) {
-            try {
-              await writeOneToFeishu(matchedRecord.recordId, tiktokItem.order_id, tiktokItem.order_status);
-              writtenRecordIds[matchedRecord.recordId] = true;
-              matchedCount++;
-              log('  匹配回写: CID=' + String(tiktokItem.creator_cid) + ' 产品=' + String(tiktokItem.product_id) + ' -> 订单=' + tiktokItem.order_id + ' 状态=' + tiktokItem.order_status, 'success');
-            } catch (e) {
-              unmatchedCount++;
-              log('  回写失败: ' + e.message, 'error');
-            }
-          } else if (!matchedRecord) {
+        var tiktokItem = tiktokItems[t];
+
+        var matchedRecord = matchTikTokItem(tiktokItem, records, writtenRecordIds, cfg);
+
+        if (matchedRecord && !writtenRecordIds[matchedRecord.recordId]) {
+          try {
+            await writeOneToFeishu(matchedRecord.recordId, tiktokItem.order_id, tiktokItem.order_status);
+            writtenRecordIds[matchedRecord.recordId] = true;
+            matchedCount++;
+            log('  匹配回写: CID=' + String(tiktokItem.creator_cid) + ' 产品=' + String(tiktokItem.product_id) + ' -> 订单=' + tiktokItem.order_id + ' 状态=' + tiktokItem.order_status, 'success');
+          } catch (e) {
             unmatchedCount++;
-            log('  未匹配: CID=' + String(tiktokItem.creator_cid) + ' 产品=' + String(tiktokItem.product_id), 'info');
+            log('  回写失败: ' + e.message, 'error');
           }
-
-          updateStats(feishuRecords.length, totalRecords - matchedCount - unmatchedCount, matchedCount, unmatchedCount);
+        } else if (!matchedRecord) {
+          unmatchedCount++;
+          log('  未匹配: CID=' + String(tiktokItem.creator_cid) + ' 产品=' + String(tiktokItem.product_id), 'info');
         }
-      } catch (e) {
-        log('  搜索失败: ' + e.message, 'error');
-        unmatchedCount += records.length;
-        updateStats(feishuRecords.length, totalRecords - matchedCount - unmatchedCount, matchedCount, unmatchedCount);
+
+        updateStats(feishuRecords.length, totalRecords - matchedCount - unmatchedCount - searchFailedCount, matchedCount, unmatchedCount);
       }
 
       if (i < creatorNames.length - 1 && isRunning) {
@@ -451,7 +487,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    return { matched: matchedCount, unmatched: unmatchedCount };
+    return { matched: matchedCount, unmatched: unmatchedCount, searchFailed: searchFailedCount };
   }
 
   orderStartBtn.addEventListener('click', async function () {
@@ -478,37 +514,44 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
       feishuRecords = await fetchFeishuRecords();
-      var pendingRecords = filterPendingRecords(feishuRecords);
-      log('履约状态为空的记录: ' + pendingRecords.length + ' 条', 'info');
+      var totalFeishu = feishuRecords.length;
+      var processableRecords = filterProcessableRecords(feishuRecords);
+      var excludedCount = totalFeishu - processableRecords.length;
 
-      if (pendingRecords.length === 0) {
-        showStatus('没有履约状态为空的记录', 'info');
+      if (excludedCount > 0) {
+        log('排除逾期/已发布: ' + excludedCount + ' 条', 'info');
+      }
+      log('待处理记录: ' + processableRecords.length + ' 条', 'info');
+
+      if (processableRecords.length === 0) {
+        showStatus('没有需要处理的记录（全部已排除）', 'info');
         setStoppedUI();
-        orderProgressBar.style.display = 'none';
         updateStats(feishuRecords.length, 0, 0, 0);
         orderResults.style.display = 'block';
-        orderResultSummary.innerHTML = '<div style="text-align:center;color:#6b7280;padding:12px;">没有需要处理的记录，所有记录的履约状态均已填写</div>';
+        orderResultSummary.innerHTML = '<div style="text-align:center;color:#6b7280;padding:12px;">所有记录均为逾期或已发布，无需处理</div>';
         return;
       }
 
-      var result = await runOneByOne(pendingRecords);
+      var result = await runOneByOne(processableRecords);
 
       setStoppedUI();
-      showStatus('查询完成，匹配 ' + result.matched + ' 条，未匹配 ' + result.unmatched + ' 条', 'success');
-      log('查询完成：匹配 ' + result.matched + ' 条，未匹配 ' + result.unmatched + ' 条', 'success');
+      var msg = '查询完成，匹配 ' + result.matched + ' 条，未匹配 ' + result.unmatched + ' 条';
+      if (result.searchFailed > 0) {
+        msg += '，搜索失败 ' + result.searchFailed + ' 条';
+      }
+      showStatus(msg, 'success');
+      log(msg, 'success');
 
     } catch (e) {
       showStatus('操作失败: ' + e.message, 'error');
       log('错误: ' + e.message, 'error');
       setStoppedUI();
-      orderProgressBar.style.display = 'none';
     }
   });
 
   orderStopBtn.addEventListener('click', async function () {
     isRunning = false;
     setStoppedUI();
-    orderProgressBar.style.display = 'none';
     showStatus('已停止', 'info');
     log('用户停止操作', 'info');
   });

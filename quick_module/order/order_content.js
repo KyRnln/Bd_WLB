@@ -95,58 +95,54 @@
     }
   }
 
+  var STATUS_MAP = { 10: '待审核', 30: '已发货', 40: '处理中', 51: '拒绝', 53: '逾期', 100: '已发布' };
+
   function mapCurrStatus(code) {
     if (code === undefined || code === null || code === '') return '';
     var num = Number(code);
     if (isNaN(num)) return String(code);
-    if (num === 10) return '待审核';
-    if (num === 30) return '已发货';
-    if (num === 40) return '处理中';
-    if (num === 51) return '拒绝';
-    if (num === 53) return '逾期';
-    if (num === 100) return '已发布';
-    return String(num);
+    var mapped = STATUS_MAP[num];
+    if (mapped) return mapped;
+    return '未知状态(' + num + ')';
   }
 
   function cleanOrderData(json) {
     var result = [];
-    var aggInfo = json.agg_info;
-
-    if (!Array.isArray(aggInfo)) {
-      if (Array.isArray(json.data)) aggInfo = json.data;
-      else if (Array.isArray(json.list)) aggInfo = json.list;
-      else if (json.data && Array.isArray(json.data.list)) aggInfo = json.data.list;
-      else if (json.data && Array.isArray(json.data.records)) aggInfo = json.data.records;
-      else return result;
-    }
+    var aggInfo = resolveAggInfo(json);
+    if (!aggInfo) return result;
 
     for (var i = 0; i < aggInfo.length; i++) {
       var item = aggInfo[i];
       var applyDetail = item.apply_deatil || item.apply_detail || item;
       var creatorInfo = applyDetail.creator_info || (item.apply_group || {}).creator_info || item.creator_info || {};
       var applyInfos = applyDetail.apply_infos || item.apply_infos || [];
-
       var creatorName = creatorInfo.name || '';
       var creatorId = creatorInfo.creator_id || '';
+      var timestamp = new Date().toISOString();
 
       for (var j = 0; j < applyInfos.length; j++) {
         var apply = applyInfos[j];
-        var productId = apply.product_id || '';
-        var orderId = apply.main_order_id || '';
-        var currStatus = apply.curr_status;
-
         result.push({
           creator_id: creatorName,
           creator_cid: creatorId,
-          product_id: productId,
-          order_id: orderId,
-          order_status: mapCurrStatus(currStatus),
-          timestamp: new Date().toISOString()
+          product_id: apply.product_id || '',
+          order_id: apply.main_order_id || '',
+          order_status: mapCurrStatus(apply.curr_status),
+          timestamp: timestamp
         });
       }
     }
 
     return result;
+  }
+
+  function resolveAggInfo(json) {
+    if (Array.isArray(json.agg_info)) return json.agg_info;
+    if (Array.isArray(json.data)) return json.data;
+    if (Array.isArray(json.list)) return json.list;
+    if (json.data && Array.isArray(json.data.list)) return json.data.list;
+    if (json.data && Array.isArray(json.data.records)) return json.data.records;
+    return null;
   }
 
   function clickAllTab() {
@@ -234,65 +230,12 @@
     input.dispatchEvent(enterUp);
   }
 
-  async function searchAndWait(name) {
+  async function triggerSearchAndCollect(username, waitMs) {
     clickAllTab();
     await new Promise(function (r) { setTimeout(r, 500); });
 
     var input = findSearchInput();
-    if (!input) {
-      console.log('[Order] search input not found, skip:', name);
-      return;
-    }
-
-    input.focus();
-    await new Promise(function (r) { setTimeout(r, 200); });
-
-    setInputValue(input, '');
-    await new Promise(function (r) { setTimeout(r, 200); });
-
-    setInputValue(input, name);
-    await new Promise(function (r) { setTimeout(r, 300); });
-
-    searchResponseBuffer = [];
-    isSearchWaiting = true;
-
-    triggerEnter(input);
-    console.log('[Order] searching:', name);
-
-    await new Promise(function (r) { setTimeout(r, 3000); });
-
-    isSearchWaiting = false;
-
-    if (searchResponseBuffer.length > 0) {
-      var lastJson = searchResponseBuffer[searchResponseBuffer.length - 1];
-      console.log('[Order] processing last of', searchResponseBuffer.length, 'responses for:', name);
-      searchResponseBuffer = [];
-      handleApiResponse(lastJson);
-    } else {
-      console.log('[Order] no API response captured for:', name);
-    }
-  }
-
-  async function searchOne(username) {
-    if (!location.href.includes('affiliate.tiktokshopglobalselling.com')) {
-      return { success: false, error: '请在TikTok联盟订单页面使用此功能' };
-    }
-
-    clickAllTab();
-    await new Promise(function (r) { setTimeout(r, 500); });
-
-    var input = findSearchInput();
-    if (!input) {
-      console.log('[Order] search input not found');
-      var loaded = await waitForPageLoad(15000);
-      if (!loaded) {
-        return { success: false, error: '页面未加载完成，找不到搜索框' };
-      }
-      input = findSearchInput();
-      if (!input) {
-        return { success: false, error: '找不到搜索输入框' };
-      }
-    }
+    if (!input) return null;
 
     input.focus();
     await new Promise(function (r) { setTimeout(r, 200); });
@@ -307,9 +250,9 @@
     isSearchWaiting = true;
 
     triggerEnter(input);
-    console.log('[Order] searching one:', username);
+    console.log('[Order] searching:', username);
 
-    await new Promise(function (r) { setTimeout(r, 6000); });
+    await new Promise(function (r) { setTimeout(r, waitMs); });
 
     isSearchWaiting = false;
 
@@ -321,14 +264,51 @@
           allItems.push(batch[bi]);
         }
       }
-      console.log('[Order] searchOne got', allItems.length, 'items from', searchResponseBuffer.length, 'responses for:', username);
+      console.log('[Order] got', allItems.length, 'items from', searchResponseBuffer.length, 'responses for:', username);
     } else {
-      console.log('[Order] searchOne: no response for:', username);
+      console.log('[Order] no API response for:', username);
     }
 
     searchResponseBuffer = [];
+    return allItems;
+  }
 
-    return { success: true, items: allItems };
+  async function searchAndWait(name) {
+    var items = await triggerSearchAndCollect(name, 3000);
+    if (items && items.length > 0) {
+      orderState.apiCount += items.length;
+      orderState.capturedData.push.apply(orderState.capturedData, items);
+      chrome.runtime.sendMessage({
+        action: 'orderDataCaptured',
+        data: {
+          newData: items,
+          totalCount: orderState.capturedData.length,
+          allData: orderState.capturedData
+        }
+      }).catch(function () {});
+    }
+  }
+
+  async function searchOne(username) {
+    if (!location.href.includes('affiliate.tiktokshopglobalselling.com')) {
+      return { success: false, error: '请在TikTok联盟订单页面使用此功能' };
+    }
+
+    var input = findSearchInput();
+    if (!input) {
+      console.log('[Order] search input not found');
+      var loaded = await waitForPageLoad(15000);
+      if (!loaded) {
+        return { success: false, error: '页面未加载完成，找不到搜索框' };
+      }
+      input = findSearchInput();
+      if (!input) {
+        return { success: false, error: '找不到搜索输入框' };
+      }
+    }
+
+    var items = await triggerSearchAndCollect(username, 6000);
+    return { success: true, items: items || [] };
   }
 
   async function startBatchCapture(usernames) {

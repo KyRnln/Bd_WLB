@@ -16,6 +16,7 @@
     .log-entry.error .msg { color: #dc2626; }
     .log-entry.success .msg { color: #059669; }
     .log-entry.info .msg { color: #2563eb; }
+    .panel-status { background: #e8f5e9; }
   </style>
 </head>
 
@@ -38,7 +39,10 @@
   <main class="px-5" style="padding-bottom: 10vh;">
     <section class="card content-card">
       <div id="orderPanelStatus" class="panel-status info" style="display:none;"></div>
-      <p class="description">从飞书多维表格读取履约状态为空的记录，根据达人ID在TikTok搜索并匹配订单数据，回写订单号和履约状态</p>
+
+      <div id="orderResults" class="results" style="display: none;">
+        <div id="orderResultSummary" style="padding: 12px; background: #f0f4ff; border-radius: 8px; margin-top: 16px;"></div>
+      </div>
 
       <!-- Feishu Config -->
       <details class="panel" style="margin-bottom: 12px;">
@@ -116,15 +120,9 @@
           style="display: block; text-align: center; margin-top: 6px; font-size: 12px; color: #6b7280;"></span>
       </div>
 
-      <div class="input-area">
-        <div class="description" style="font-size: 13px; color: #6b7280; margin-bottom: 12px; text-align: center;">
-          操作步骤：<br>
-          1. 先在上方配置飞书多维表格信息<br>
-          2. 在 TikTok 联盟后台打开 <strong>样品申请</strong> 页面<br>
-          3. 点击下方「开始查询」按钮<br>
-          4. 扩展将读取飞书表格中履约状态为空的记录，按达人ID搜索并匹配订单数据<br>
-          5. 匹配完成后自动回写订单号和履约状态到飞书表格
-        </div>
+      <!-- Log -->
+      <div id="logPanel" class="card" style="padding:12px;margin-top:16px;max-height:250px;overflow-y:auto;display:none;">
+        <div id="logList"></div>
       </div>
 
       <div class="button-group">
@@ -150,14 +148,6 @@
         </button>
       </div>
 
-      <!-- Log -->
-      <div id="logPanel" class="card" style="padding:12px;margin-top:16px;max-height:250px;overflow-y:auto;display:none;">
-        <div id="logList"></div>
-      </div>
-
-      <div id="orderResults" class="results" style="display: none;">
-        <div id="orderResultSummary" style="padding: 12px; background: #f0f4ff; border-radius: 8px; margin-top: 16px;"></div>
-      </div>
     </section>
   </main>
 

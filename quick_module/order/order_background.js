@@ -29,16 +29,21 @@ async function injectContentScript(tabId) {
   }
 }
 
+async function ensureContentScriptInjected(tabId) {
+  var csReady = await checkContentScript(tabId);
+  if (!csReady) {
+    csReady = await injectContentScript(tabId);
+  }
+  return csReady;
+}
+
 async function startOrderCapture(tabId, usernames) {
   orderState.usernames = usernames || [];
   orderState.tabId = tabId;
   orderState.capturedData = [];
   orderState.apiCount = 0;
 
-  var csReady = await checkContentScript(tabId);
-  if (!csReady) {
-    csReady = await injectContentScript(tabId);
-  }
+  var csReady = await ensureContentScriptInjected(tabId);
   if (!csReady) {
     orderState.isRunning = false;
     return { success: false, error: '无法注入采集脚本，请刷新页面重试' };
@@ -137,10 +142,7 @@ async function handleOrderMessage(request, sender, downloadExcel) {
         return { success: false, error: '无法获取当前标签页' };
       }
 
-      var csReady = await checkContentScript(tabId);
-      if (!csReady) {
-        csReady = await injectContentScript(tabId);
-      }
+      var csReady = await ensureContentScriptInjected(tabId);
       if (!csReady) {
         return { success: false, error: '无法注入采集脚本，请刷新页面重试' };
       }
