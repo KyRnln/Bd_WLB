@@ -95,7 +95,7 @@
     }
   }
 
-  var STATUS_MAP = { 10: '待审核', 30: '已发货', 40: '处理中', 51: '拒绝', 53: '逾期', 100: '已发布' };
+  var STATUS_MAP = { 10: '待审核', 20: '待发货', 30: '已发货', 40: '处理中', 51: '拒绝', 53: '逾期', 100: '已发布' };
 
   function mapCurrStatus(code) {
     if (code === undefined || code === null || code === '') return '';
