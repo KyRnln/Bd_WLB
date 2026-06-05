@@ -113,6 +113,16 @@
         "quick_module/sample_crawl/sample_crawl_content.js"
       ],
       "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "*://*/*"
+      ],
+      "js": [
+        "quick_module/quick_image/quick_image_content.js"
+      ],
+      "run_at": "document_end",
+      "all_frames": true
     }
   ],
 
@@ -146,6 +156,13 @@
         "mac": "Alt+Q"
       },
       "description": "触发快捷翻译输入"
+    },
+    "triggerQuickImage": {
+      "suggested_key": {
+        "default": "Alt+W",
+        "mac": "Alt+W"
+      },
+      "description": "触发快捷图片选择"
     }
   },
 

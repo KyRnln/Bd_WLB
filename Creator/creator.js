@@ -1218,13 +1218,6 @@
       closeFeishuConfigBtn.addEventListener('click', closeFeishuConfigDialog);
     }
 
-    const backupBtn = document.getElementById('backupBtn');
-    if (backupBtn) {
-      backupBtn.addEventListener('click', () => {
-        chrome.tabs.create({ url: chrome.runtime.getURL('backup/backup.html') });
-      });
-    }
-
     const dialogAddDataSourceBtn = document.getElementById('dialogAddDataSourceBtn');
     if (dialogAddDataSourceBtn) {
       dialogAddDataSourceBtn.addEventListener('click', addNewDataSource);

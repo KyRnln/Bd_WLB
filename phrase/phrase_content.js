@@ -167,6 +167,8 @@
         searchBar.style.top = (window.innerHeight - margin - totalHeight) + 'px';
         selector.style.top = (window.innerHeight - margin - totalHeight + searchBarHeight) + 'px';
       }
+      // 同步选择器宽度与搜索栏一致
+      selector.style.width = barBox.width + 'px';
     });
 
     document.getElementById('wlb-phrase-search').value = '';

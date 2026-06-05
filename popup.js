@@ -198,6 +198,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  const btnQuickImageManage = document.getElementById('btnQuickImageManage');
+  if (btnQuickImageManage) {
+    btnQuickImageManage.addEventListener('click', () => {
+      window.location.href = 'quick_module/quick_image/quick_image.html';
+    });
+  }
+
   async function loadTranslateModelInfo() {
     const modelInfoEl = document.getElementById('translateModelInfo');
     if (!modelInfoEl) return;

@@ -58,7 +58,12 @@ Bd_WLB/
 ├── page_bridge.js             # 页面调试桥接脚本
 ├── popup.html                 # 弹出窗口主界面
 ├── popup.js                   # 弹出窗口逻辑
+├── 数据预览.json              # 数据预览配置文件
 ├── icon/                      # 扩展图标
+│   ├── icon16.png
+│   ├── icon32.png
+│   ├── icon48.png
+│   └── icon128.png
 ├── styles/                    # 样式文件
 │   ├── base.css               # 基础样式与 CSS 变量
 │   ├── components.css         # 组件样式
@@ -86,12 +91,39 @@ Bd_WLB/
 │   ├── backup.html            # 数据备份页面
 │   └── backup.js              # 备份逻辑（含 WebDAV）
 └── quick_module/
-    ├── cover/                  # 视频封面获取
-    ├── username_avatarcid/     # 头像/CID 获取
-    ├── cid_to_name/            # CID 查询达人
-    ├── order/                  # 订单履约查询
-    ├── bitable_cover/          # 多维表格封面获取
-    └── sample_crawl/           # 样品申请采集
+    ├── cover/                 # 视频封面获取
+    │   ├── cover.html
+    │   ├── cover.js
+    │   ├── cover_background.js
+    │   └── README.md
+    ├── username_avatarcid/    # 头像/CID 获取
+    │   ├── username_avatarcid.html
+    │   ├── username_avatarcid.js
+    │   ├── username_avatarcid_background.js
+    │   ├── username_avatarcid_content.js
+    │   └── README.md
+    ├── cid_to_name/           # CID 查询达人
+    │   ├── cid_to_name.html
+    │   ├── cid_to_name.js
+    │   ├── cid_to_name_background.js
+    │   ├── cid_to_name_content.js
+    │   └── README.md
+    ├── order/                 # 订单履约查询
+    │   ├── order.html
+    │   ├── order.js
+    │   ├── order_background.js
+    │   ├── order_content.js
+    │   └── order_hook.js
+    ├── bitable_cover/         # 多维表格封面获取
+    │   ├── bitable_cover.html
+    │   ├── bitable_cover.js
+    │   └── bitable_cover_background.js
+    └── sample_crawl/          # 样品申请采集
+        ├── sample_crawl.html
+        ├── sample_crawl.js
+        ├── sample_crawl_background.js
+        ├── sample_crawl_content.js
+        └── sample_crawl_hook.js
 ```
 
 每个 `quick_module` 子模块通常包含：
@@ -99,6 +131,7 @@ Bd_WLB/
 - `*.js` — 前端逻辑
 - `*_background.js` — 后台任务调度（部分模块）
 - `*_content.js` — 注入 TikTok 页面的内容脚本（部分模块）
+- `*_hook.js` — 网络请求 Hook 脚本，用于拦截页面 API 响应（部分模块）
 
 ## 技术栈
 

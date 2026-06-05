@@ -871,5 +871,11 @@ chrome.commands.onCommand.addListener((command) => {
         chrome.tabs.sendMessage(tabs[0].id, { action: 'showTranslate' }).catch(() => {});
       }
     });
+  } else if (command === 'triggerQuickImage') {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (tabs && tabs.length > 0) {
+        chrome.tabs.sendMessage(tabs[0].id, { action: 'triggerQuickImage' }).catch(() => {});
+      }
+    });
   }
 });

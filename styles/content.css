@@ -327,8 +327,7 @@
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
   font-family: var(--font-family);
   display: none;
-  min-width: 220px;
-  max-width: 360px;
+  box-sizing: border-box;
   max-height: 240px;
   overflow-y: auto;
 }
@@ -382,4 +381,27 @@
 @keyframes wlb-phrase-fade-in {
   from { opacity: 0; transform: translateY(-4px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* ===== 快捷图片选择器 ===== */
+.wlb-image-panel {
+  animation: wlb-phrase-fade-in 0.12s ease-out;
+}
+
+.wlb-image-panel #wlb-image-list {
+  scrollbar-width: thin;
+  scrollbar-color: #d0d0d0 transparent;
+}
+
+.wlb-image-panel #wlb-image-list::-webkit-scrollbar {
+  width: 5px;
+}
+
+.wlb-image-panel #wlb-image-list::-webkit-scrollbar-thumb {
+  background: #d0d0d0;
+  border-radius: 3px;
+}
+
+.wlb-image-notification {
+  animation: wlb-phrase-fade-in 0.2s ease-out;
 }
