@@ -42,7 +42,10 @@
         'webdavConfig',
         'feishuConfig',
         'feishuConfigs',
-        'hiddenFeishuConfig'
+        'hiddenFeishuConfig',
+        'orderFeishuConfig',
+        'sampleCrawlFeishuConfig',
+        'bitableCoverConfig'
       ], resolve);
     });
   }
@@ -56,7 +59,10 @@
         translateConfig: data.translateConfig || null,
         feishuConfig: data.feishuConfig || null,
         feishuConfigs: data.feishuConfigs || null,
-        hiddenFeishuConfig: data.hiddenFeishuConfig || null
+        hiddenFeishuConfig: data.hiddenFeishuConfig || null,
+        orderFeishuConfig: data.orderFeishuConfig || null,
+        sampleCrawlFeishuConfig: data.sampleCrawlFeishuConfig || null,
+        bitableCoverConfig: data.bitableCoverConfig || null
       }, resolve);
     });
   }
@@ -76,7 +82,7 @@
     try {
       const result = await getAllData();
       const data = {
-        version: '1.2',
+        version: '1.3',
         exportTime: new Date().toISOString(),
         phrases: result.savedPhrases || [],
         tags: result.savedTags || [],
@@ -85,6 +91,9 @@
         feishuConfig: result.feishuConfig || null,
         feishuConfigs: result.feishuConfigs || null,
         hiddenFeishuConfig: result.hiddenFeishuConfig || null,
+        orderFeishuConfig: result.orderFeishuConfig || null,
+        sampleCrawlFeishuConfig: result.sampleCrawlFeishuConfig || null,
+        bitableCoverConfig: result.bitableCoverConfig || null
       };
 
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -142,7 +151,7 @@
     try {
       const result = await getAllData();
       const data = {
-        version: '1.2',
+        version: '1.3',
         exportTime: new Date().toISOString(),
         phrases: result.savedPhrases || [],
         tags: result.savedTags || [],
@@ -150,7 +159,10 @@
         translateConfig: result.translateConfig || null,
         feishuConfig: result.feishuConfig || null,
         feishuConfigs: result.feishuConfigs || null,
-        hiddenFeishuConfig: result.hiddenFeishuConfig || null
+        hiddenFeishuConfig: result.hiddenFeishuConfig || null,
+        orderFeishuConfig: result.orderFeishuConfig || null,
+        sampleCrawlFeishuConfig: result.sampleCrawlFeishuConfig || null,
+        bitableCoverConfig: result.bitableCoverConfig || null
       };
 
       const fileUrl = url + 'wlb_backup.json';
