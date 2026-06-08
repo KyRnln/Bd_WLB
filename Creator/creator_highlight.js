@@ -191,29 +191,70 @@
     try {
       const result = await chrome.storage.local.get(['hiddenFeishuConfig']);
       const hiddenConfig = result.hiddenFeishuConfig;
-      if (!hiddenConfig) return;
+      if (!hiddenConfig || !hiddenConfig.baseToken || !hiddenConfig.tableId) return;
 
-      const hiddenCreators = creators.filter(c => c.tag === '隐藏达人');
+      const nameField = hiddenConfig.creatorNameField || '达人名称';
+      const cidField = hiddenConfig.creatorCidField || '达人CID';
+      const statusField = hiddenConfig.creatorStatusField || '达人状态';
+      const regionField = hiddenConfig.creatorRegionField || '地区';
 
-      const headerRow = ['达人ID', 'CID', '地区', '标签', '备注'];
-      const dataRows = hiddenCreators.map(c => [
-        c.creator_id || '',
-        c.cid || '',
-        c.region || '',
-        c.tag || '隐藏达人',
-        c.remark || ''
-      ]);
-      const allValues = [headerRow, ...dataRows];
-      for (let i = 0; i < 5; i++) {
-        allValues.push(['', '', '', '', '']);
+      // 1. 获取飞书表中所有现有记录
+      const listResult = await chrome.runtime.sendMessage({
+        action: 'listBitableRecords',
+        config: hiddenConfig
+      });
+
+      if (listResult?.success && listResult.records?.length > 0) {
+        // 2. 清空：批量删除所有现有记录
+        const recordIds = listResult.records.map(r => r.recordId).filter(Boolean);
+        if (recordIds.length > 0) {
+          const deleteResult = await chrome.runtime.sendMessage({
+            action: 'batchDeleteBitableRecords',
+            config: hiddenConfig,
+            recordIds: recordIds
+          });
+          if (!deleteResult?.success) {
+            console.error('[Creator Highlight] 飞书批量删除失败:', deleteResult?.error);
+          } else {
+            console.log('[Creator Highlight] 飞书已清空', deleteResult.deleted, '条记录');
+          }
+        }
       }
 
-      await chrome.runtime.sendMessage({
-        action: 'bulkWriteFeishuSheet',
-        config: hiddenConfig,
-        startRow: 1,
-        values2D: allValues
-      });
+      // 3. 全量同步：将本地所有隐藏达人批量写入
+      const hiddenCreators = creators.filter(c => c.tag === '隐藏达人');
+      if (hiddenCreators.length > 0) {
+        const records = hiddenCreators.map(c => ({
+          fields: {
+            [nameField]: c.creator_id || '',
+            [cidField]: c.cid || '',
+            [regionField]: c.region || '',
+            [statusField]: c.tag || '隐藏达人',
+            '备注': c.remark || ''
+          }
+        }));
+
+        const createResult = await chrome.runtime.sendMessage({
+          action: 'batchCreateBitableRecords',
+          config: hiddenConfig,
+          records: records
+        });
+
+        if (createResult?.success) {
+          // 回写 recordId 到本地
+          const returnedIds = createResult.recordIds || [];
+          for (let i = 0; i < hiddenCreators.length; i++) {
+            if (returnedIds[i]) {
+              hiddenCreators[i]._feishuRecordId = returnedIds[i];
+              hiddenCreators[i]._dataSourceId = 'hidden';
+            }
+          }
+          await saveCreators();
+          console.log('[Creator Highlight] 飞书已同步', createResult.created, '条隐藏达人');
+        } else {
+          console.error('[Creator Highlight] 飞书批量创建失败:', createResult?.error);
+        }
+      }
     } catch (e) {
       console.error('[Creator Highlight] 同步隐藏数据源失败:', e);
     }

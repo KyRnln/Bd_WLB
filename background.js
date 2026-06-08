@@ -265,6 +265,15 @@ async function handleMessage(request, sender) {
     case 'deleteBitableRecord': {
       return await handleDeleteBitableRecord(request.config, request.recordId);
     }
+    case 'createBitableRecord': {
+      return await handleCreateBitableRecord(request.config, request.fields);
+    }
+    case 'batchDeleteBitableRecords': {
+      return await handleBatchDeleteBitableRecords(request.config, request.recordIds);
+    }
+    case 'batchCreateBitableRecords': {
+      return await handleBatchCreateBitableRecords(request.config, request.records);
+    }
     case 'findBitableRecordByField': {
       return await handleFindBitableRecordByField(request.config, request.fieldName, request.fieldValue);
     }
@@ -657,6 +666,110 @@ async function handleDeleteBitableRecord(config, recordId) {
     return { success: true };
   } catch (err) {
     console.error('[Bitable] 删除记录失败:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+async function handleCreateBitableRecord(config, fields) {
+  try {
+    const accessToken = await getFeishuAccessToken(config);
+    const url = `https://open.feishu.cn/open-apis/bitable/v1/apps/${config.baseToken}/tables/${config.tableId}/records`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ fields })
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`创建多维表格记录失败 (${response.status}): ${errText}`);
+    }
+
+    const data = await response.json();
+    if (data.code !== 0) {
+      throw new Error(`多维表格返回错误: ${data.msg || JSON.stringify(data)}`);
+    }
+
+    return { success: true, recordId: data.data?.record?.record_id || null };
+  } catch (err) {
+    console.error('[Bitable] 创建记录失败:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+async function handleBatchDeleteBitableRecords(config, recordIds) {
+  try {
+    if (!recordIds || recordIds.length === 0) return { success: true, deleted: 0 };
+    const accessToken = await getFeishuAccessToken(config);
+    const url = `https://open.feishu.cn/open-apis/bitable/v1/apps/${config.baseToken}/tables/${config.tableId}/records/batch_delete`;
+
+    const chunkSize = 500;
+    let deleted = 0;
+    for (let i = 0; i < recordIds.length; i += chunkSize) {
+      const chunk = recordIds.slice(i, i + chunkSize);
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ records: chunk })
+      });
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`批量删除多维表格记录失败 (${response.status}): ${errText}`);
+      }
+      const data = await response.json();
+      if (data.code !== 0) {
+        throw new Error(`飞书表格返回错误: ${data.msg || JSON.stringify(data)}`);
+      }
+      deleted += chunk.length;
+    }
+    return { success: true, deleted };
+  } catch (err) {
+    console.error('[Bitable] 批量删除记录失败:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+async function handleBatchCreateBitableRecords(config, records) {
+  try {
+    if (!records || records.length === 0) return { success: true, created: 0, recordIds: [] };
+    const accessToken = await getFeishuAccessToken(config);
+    const url = `https://open.feishu.cn/open-apis/bitable/v1/apps/${config.baseToken}/tables/${config.tableId}/records/batch_create`;
+
+    const chunkSize = 500;
+    const allRecordIds = [];
+    for (let i = 0; i < records.length; i += chunkSize) {
+      const chunk = records.slice(i, i + chunkSize);
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ records: chunk })
+      });
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`批量创建多维表格记录失败 (${response.status}): ${errText}`);
+      }
+      const data = await response.json();
+      if (data.code !== 0) {
+        throw new Error(`飞书表格返回错误: ${data.msg || JSON.stringify(data)}`);
+      }
+      const created = data.data?.records || [];
+      for (const r of created) {
+        if (r.record_id) allRecordIds.push(r.record_id);
+      }
+    }
+    return { success: true, created: records.length, recordIds: allRecordIds };
+  } catch (err) {
+    console.error('[Bitable] 批量创建记录失败:', err);
     return { success: false, error: err.message };
   }
 }
