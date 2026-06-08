@@ -213,14 +213,11 @@
         <input type="text" class="ds-field ds-cidField" placeholder="达人CID" value="达人CID" />
         <label>达人状态字段名（作为标签）</label>
         <input type="text" class="ds-field ds-statusField" placeholder="达人状态" value="达人状态" />
-        <label>地区代码</label>
-        <select class="ds-field ds-regionCode">
-          <option value="">请选择地区</option>
-          <option value="MY">MY</option>
-          <option value="SG">SG</option>
-          <option value="TH">TH</option>
-          <option value="PH">PH</option>
-        </select>
+        <label>达人地区字段名</label>
+        <input type="text" class="ds-field ds-regionField" placeholder="地区" value="地区" />
+        <p style="font-size: 12px; color: var(--text-muted, #888); margin: -8px 0 8px 0;">
+          导入时从飞书记录中读取该字段的值作为达人的地区代码
+        </p>
         <div class="flex gap-3 mt-3 w-full" style="min-width: 0; gap: 8px;">
           <button class="btn-sm btn-primary ds-import-btn" style="flex:1;">导入数据</button>
           <button class="btn-sm ds-save-btn">保存配置</button>
@@ -255,6 +252,11 @@
         <input type="text" id="hiddenConfigCidField" class="ds-field" placeholder="达人CID" value="达人CID" />
         <label>达人状态字段名（作为标签）</label>
         <input type="text" id="hiddenConfigStatusField" class="ds-field" placeholder="达人状态" value="达人状态" />
+        <label>达人地区字段名</label>
+        <input type="text" id="hiddenConfigRegionField" class="ds-field" placeholder="地区" value="地区" />
+        <p style="font-size: 12px; color: var(--text-muted, #888); margin: -8px 0 0 0;">
+          导入时从飞书记录中读取该字段的值作为达人的地区代码
+        </p>
       </div>
       <div class="footer" style="margin-top: 18px; display: flex; gap: 8px; justify-content: flex-end;">
         <button id="saveHiddenConfigBtn" class="btn-sm btn-primary">保存配置</button>

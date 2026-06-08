@@ -339,7 +339,7 @@
     }
   }
 
-  function openCreatorEdit(mainIndex, searchResultIndex = -1) {
+  async function openCreatorEdit(mainIndex, searchResultIndex = -1) {
     const creatorEditDialog = document.getElementById('creatorEditDialog');
     const creatorEditId = document.getElementById('creatorEditId');
     const creatorEditCid = document.getElementById('creatorEditCid');
@@ -351,21 +351,22 @@
     editingCreatorIndex = mainIndex;
     const creator = creators[mainIndex];
 
-    updateRegionSelectOptions();
-
     if (creatorEditId) creatorEditId.value = creator.creator_id || '';
     if (creatorEditCid) creatorEditCid.value = creator.cid || '';
-    if (creatorEditRegion) creatorEditRegion.value = creator.region || '';
+    if (creatorEditRegion) {
+      creatorEditRegion.value = creator.region || '';
+      updateRegionSelectOptions();
+    }
     if (creatorEditTag) creatorEditTag.value = creator.tag || '';
     if (creatorEditRemark) creatorEditRemark.value = creator.remark || '';
     if (creatorEditDialog) creatorEditDialog.classList.add('show');
   }
 
-  function updateRegionSelectOptions() {
+  function updateRegionSelectOptions(codes) {
     const select = document.getElementById('creatorEditRegion');
     if (!select) return;
     const currentValue = select.value;
-    const options = ['MY', 'PH', 'SG', 'TH', 'ID', 'VN'];
+    const options = Array.isArray(codes) && codes.length > 0 ? codes : ['MY', 'PH', 'SG', 'TH', 'ID', 'VN'];
     select.innerHTML = '<option value="">请选择地区</option>';
     for (const opt of options) {
       const optionEl = document.createElement('option');
@@ -506,12 +507,22 @@
       );
       if (result.feishuConfigs) {
         feishuConfigs = result.feishuConfigs;
+        // Migrate old configs to add new fields
+        let migrated = false;
+        for (const cfg of feishuConfigs) {
+          if (!cfg.creatorRegionField) {
+            cfg.creatorRegionField = '地区';
+            migrated = true;
+          }
+        }
+        if (migrated) await saveFeishuConfigsToStorage();
       } else {
         feishuConfigs = [];
         if (result.feishuConfig) {
           feishuConfigs.push({
             id: Date.now().toString() + '_1',
             remark: '绩效达人',
+            creatorRegionField: '地区',
             ...result.feishuConfig
           });
         }
@@ -519,6 +530,7 @@
           feishuConfigs.push({
             id: Date.now().toString() + '_2',
             remark: '隐藏达人',
+            creatorRegionField: '地区',
             ...result.hiddenFeishuConfig
           });
         }
@@ -627,14 +639,11 @@
             <input type="text" class="ds-field ds-cidField" value="${escapeHtml(config.creatorCidField || '达人CID')}" placeholder="达人CID" />
             <label>达人状态字段名（作为标签）</label>
             <input type="text" class="ds-field ds-statusField" value="${escapeHtml(config.creatorStatusField || '达人状态')}" placeholder="达人状态" />
-            <label>地区代码</label>
-            <select class="ds-field ds-regionCode">
-              <option value="">请选择地区</option>
-              <option value="MY"${config.regionCode === 'MY' ? ' selected' : ''}>MY</option>
-              <option value="SG"${config.regionCode === 'SG' ? ' selected' : ''}>SG</option>
-              <option value="TH"${config.regionCode === 'TH' ? ' selected' : ''}>TH</option>
-              <option value="PH"${config.regionCode === 'PH' ? ' selected' : ''}>PH</option>
-            </select>
+            <label>达人地区字段名</label>
+            <input type="text" class="ds-field ds-regionField" value="${escapeHtml(config.creatorRegionField || '地区')}" placeholder="达人地区" />
+            <p style="font-size: 12px; color: var(--text-muted, #888); margin: -8px 0 8px 0;">
+              导入时从飞书记录中读取该字段的值作为达人的地区代码
+            </p>
             <div class="flex gap-3 mt-3 w-full" style="min-width: 0; gap: 8px;">
               <button class="btn-sm btn-primary ds-import-btn" style="flex:1;">导入数据</button>
               <button class="btn-sm ds-save-btn">保存配置</button>
@@ -661,7 +670,7 @@
       creatorNameField: '达人名称',
       creatorCidField: '达人CID',
       creatorStatusField: '达人状态',
-      regionCode: ''
+      creatorRegionField: '地区'
     };
     feishuConfigs.push(newConfig);
     saveFeishuConfigsToStorage();
@@ -690,7 +699,7 @@
       creatorNameField: getVal('ds-nameField') || '达人名称',
       creatorCidField: getVal('ds-cidField') || '达人CID',
       creatorStatusField: getVal('ds-statusField') || '达人状态',
-      regionCode: getVal('ds-regionCode')
+      creatorRegionField: getVal('ds-regionField') || '地区'
     };
   }
 
@@ -800,7 +809,7 @@
       const nameField = config.creatorNameField || '达人名称';
       const cidField = config.creatorCidField || '达人CID';
       const statusField = config.creatorStatusField || '达人状态';
-      const regionCode = config.regionCode || '';
+      const regionField = config.creatorRegionField || '地区';
       const newCreators = [];
 
       if (records.length > 0) {
@@ -809,6 +818,7 @@
         console.log('[Creator] 配置的达人名称字段:', nameField);
         console.log('[Creator] 配置的达人CID字段:', cidField);
         console.log('[Creator] 配置的达人状态字段:', statusField);
+        console.log('[Creator] 配置的达人地区字段:', regionField);
         if (!sampleFields.includes(nameField)) {
           console.warn('[Creator] 警告: 配置的达人名称字段 "' + nameField + '" 不在可用字段列表中');
         }
@@ -827,7 +837,7 @@
 
         const cid = extractFieldValue(fields[cidField]);
         const tag = extractFieldValue(fields[statusField]);
-        const region = regionCode;
+        const region = extractFieldValue(fields[regionField]);
         const remark = extractFieldValue(fields['备注']);
 
         newCreators.push({
@@ -914,6 +924,7 @@
       const nameField = hiddenFeishuConfig.creatorNameField || '达人名称';
       const cidField = hiddenFeishuConfig.creatorCidField || '达人CID';
       const statusField = hiddenFeishuConfig.creatorStatusField || '达人状态';
+      const regionField = hiddenFeishuConfig.creatorRegionField || '地区';
       const remark = hiddenFeishuConfig.remark || '隐藏达人';
       const newCreators = [];
 
@@ -927,7 +938,7 @@
         newCreators.push({
           creator_id: nameStr,
           cid: extractFieldValue(fields[cidField]),
-          region: '',
+          region: extractFieldValue(fields[regionField]),
           tag: extractFieldValue(fields[statusField]) || '隐藏达人',
           remark: extractFieldValue(fields['备注']) || remark,
           _feishuRecordId: item.recordId || null,
@@ -976,6 +987,7 @@
       document.getElementById('hiddenConfigNameField').value = hiddenFeishuConfig.creatorNameField || '达人名称';
       document.getElementById('hiddenConfigCidField').value = hiddenFeishuConfig.creatorCidField || '达人CID';
       document.getElementById('hiddenConfigStatusField').value = hiddenFeishuConfig.creatorStatusField || '达人状态';
+      document.getElementById('hiddenConfigRegionField').value = hiddenFeishuConfig.creatorRegionField || '地区';
     }
   }
 
@@ -993,6 +1005,7 @@
     const creatorNameField = document.getElementById('hiddenConfigNameField').value.trim() || '达人名称';
     const creatorCidField = document.getElementById('hiddenConfigCidField').value.trim() || '达人CID';
     const creatorStatusField = document.getElementById('hiddenConfigStatusField').value.trim() || '达人状态';
+    const creatorRegionField = document.getElementById('hiddenConfigRegionField').value.trim() || '地区';
 
     if (!feishuUrl) {
       showStatus('请输入飞书多维表格 URL', 'error', 'creatorCardStatus');
@@ -1033,7 +1046,8 @@
       remark,
       creatorNameField,
       creatorCidField,
-      creatorStatusField
+      creatorStatusField,
+      creatorRegionField
     };
 
     await saveHiddenFeishuConfigToStorage();
@@ -1053,7 +1067,7 @@
     if (progressBar) progressBar.style.display = 'flex';
 
     let totalImported = 0;
-    let totalErrors = 0;
+    const errorDetails = [];
 
     for (let i = 0; i < feishuConfigs.length; i++) {
       const config = feishuConfigs[i];
@@ -1061,7 +1075,7 @@
 
       if (!config.baseToken) {
         console.warn(`[Creator] 数据源「${remark}」未配置 Base Token，跳过`);
-        totalErrors++;
+        errorDetails.push(`「${remark}」: 未配置 Base Token`);
         continue;
       }
 
@@ -1075,8 +1089,9 @@
         });
 
         if (!response || !response.success) {
-          console.error(`[Creator] 数据源「${remark}」获取失败:`, response?.error);
-          totalErrors++;
+          const errMsg = response?.error || '获取飞书数据失败';
+          console.error(`[Creator] 数据源「${remark}」获取失败:`, errMsg);
+          errorDetails.push(`「${remark}」: ${errMsg}`);
           continue;
         }
 
@@ -1084,7 +1099,7 @@
         const nameField = config.creatorNameField || '达人名称';
         const cidField = config.creatorCidField || '达人CID';
         const statusField = config.creatorStatusField || '达人状态';
-        const regionCode = config.regionCode || '';
+        const regionField = config.creatorRegionField || '地区';
         const newCreators = [];
 
         for (const item of records) {
@@ -1097,7 +1112,7 @@
           newCreators.push({
             creator_id: nameStr,
             cid: extractFieldValue(fields[cidField]),
-            region: regionCode,
+            region: extractFieldValue(fields[regionField]),
             tag: extractFieldValue(fields[statusField]),
             remark: extractFieldValue(fields['备注']),
             _feishuRecordId: item.recordId || null,
@@ -1113,7 +1128,7 @@
         if (progressText) progressText.textContent = `「${remark}」导入 ${newCreators.length} 条`;
       } catch (err) {
         console.error(`[Creator] 数据源「${remark}」导入异常:`, err);
-        totalErrors++;
+        errorDetails.push(`「${remark}」: ${err.message}`);
       }
     }
 
@@ -1125,8 +1140,11 @@
     if (progressFill) progressFill.style.width = '100%';
     if (progressText) progressText.textContent = '导入完成';
 
-    const msg = `飞书导入完成：共 ${totalImported} 条达人` + (totalErrors > 0 ? `，${totalErrors} 个数据源失败` : '');
-    showStatus(msg, totalErrors > 0 ? 'info' : 'success', 'creatorCardStatus');
+    let msg = `飞书导入完成：共 ${totalImported} 条达人`;
+    if (errorDetails.length > 0) {
+      msg += `，${errorDetails.length} 个数据源失败：${errorDetails.join('；')}`;
+    }
+    showStatus(msg, errorDetails.length > 0 ? 'info' : 'success', 'creatorCardStatus');
 
     setTimeout(() => {
       if (progressBar) progressBar.style.display = 'none';
