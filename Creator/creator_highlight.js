@@ -33,6 +33,8 @@
   const DETAIL_PAGE_SELECTOR = '[data-e2e="8a94f9b6-1a48-fe57"]';
   // 样品申请页的 creator ID 选择器
   const SAMPLE_REQUEST_SELECTOR = '[data-e2e="afc4471a-9b2c-8882"]';
+  // 样品申请页的 creator 名称选择器
+  const SAMPLE_REQUEST_NAME_SELECTOR = '[data-e2e="3a7a3250-d2be-fd27"]';
   const ALL_CREATOR_ID_SELECTORS = `${DETAIL_PAGE_SELECTOR}, ${SAMPLE_REQUEST_SELECTOR}`;
 
   function isSampleRequestPage() {
@@ -375,6 +377,7 @@
     creatorIdElements.forEach(processCreatorIdHideButton);
 
     flexContainersLoop(container);
+    sampleRequestNameLoop(container);
     imNameDivsLoop(container);
     imUnameDivsLoop(container);
   }
@@ -401,7 +404,35 @@
       nameDiv.dataset.tagReplaced = 'true';
       const tagStyle = TAG_COLORS[creator.tag] || { bg: '#f0f0f0', color: '#333' };
 
-      nameDiv.innerHTML = `<span style="display: inline-block; padding: 2px 8px; background: ${tagStyle.bg}; color: ${tagStyle.color}; border-radius: 4px; font-size: 12px; font-weight: 500;">${creator.tag.replace('达人', '')}</span>`;
+      nameDiv.innerHTML = `<span style="display: inline-block; padding: 1px 5px; background: ${tagStyle.bg}; color: ${tagStyle.color}; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 12px; font-weight: 500;">${creator.tag.replace('达人', '')}</span>`;
+    });
+  }
+
+  const processedSampleReqNames = new Set();
+  function sampleRequestNameLoop(container) {
+    if (!allCreatorMap.size) return;
+
+    container.querySelectorAll(SAMPLE_REQUEST_NAME_SELECTOR).forEach(nameDiv => {
+      if (nameDiv.dataset.tagReplaced === 'true') return;
+      if (processedSampleReqNames.has(nameDiv)) return;
+      processedSampleReqNames.add(nameDiv);
+
+      // 向上找到包含 ID 元素的共同父容器
+      const parentRow = nameDiv.closest('[class*="table-row"], [class*="card"], [class*="list-item"], [class*="row"]') || nameDiv.parentElement?.parentElement;
+      if (!parentRow) return;
+
+      const idDiv = parentRow.querySelector(SAMPLE_REQUEST_SELECTOR);
+      if (!idDiv) return;
+
+      const creatorId = normalizeCreatorId(idDiv.textContent || '');
+      if (!creatorId) return;
+
+      const creator = getCreatorById(creatorId);
+      if (!creator || !creator.tag) return;
+
+      nameDiv.dataset.tagReplaced = 'true';
+      const tagStyle = TAG_COLORS[creator.tag] || { bg: '#f0f0f0', color: '#333' };
+      nameDiv.innerHTML = `<span style="display: inline-block; padding: 1px 5px; background: ${tagStyle.bg}; color: ${tagStyle.color}; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 12px; font-weight: 500;">${creator.tag.replace('达人', '')}</span>`;
     });
   }
 
@@ -461,7 +492,7 @@
       const tagStyle = TAG_COLORS[creator.tag] || { bg: '#f0f0f0', color: '#333' };
 
       const tagSpan = document.createElement('span');
-      tagSpan.style.cssText = `display: inline-block; margin-right: 8px; padding: 2px 8px; background: ${tagStyle.bg}; color: ${tagStyle.color}; border-radius: 4px; font-size: 12px; font-weight: 500; vertical-align: middle; flex-shrink: 0; white-space: nowrap;`;
+      tagSpan.style.cssText = `display: inline-block; margin-right: 8px; padding: 1px 5px; background: ${tagStyle.bg}; color: ${tagStyle.color}; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 12px; font-weight: 500; vertical-align: middle; flex-shrink: 0; white-space: nowrap;`;
       tagSpan.textContent = creator.tag.replace('达人', '');
 
       const parentDiv = unameDiv.parentElement;
