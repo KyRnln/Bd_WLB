@@ -8,6 +8,7 @@
 // 更新记录：
 //   - 2026-03-31: 统一三种达人的样式实现方式，均使用 CSS类 + 内联样式
 //   - 修复绩效/流失达人在鼠标悬停时样式消失的问题
+//   - 2026-06-10: 适配样品申请页 (sample-request) 新 DOM 结构
 
 (function () {
   'use strict';
@@ -27,6 +28,20 @@
     lost: 'quick-creator-lost',
     hidden: 'creator-id-blacklisted'
   };
+
+  // 达人详情页的 creator ID 选择器
+  const DETAIL_PAGE_SELECTOR = '[data-e2e="8a94f9b6-1a48-fe57"]';
+  // 样品申请页的 creator ID 选择器
+  const SAMPLE_REQUEST_SELECTOR = '[data-e2e="afc4471a-9b2c-8882"]';
+  const ALL_CREATOR_ID_SELECTORS = `${DETAIL_PAGE_SELECTOR}, ${SAMPLE_REQUEST_SELECTOR}`;
+
+  function isSampleRequestPage() {
+    return location.pathname.includes('/product/sample-request');
+  }
+
+  function findAllCreatorIdElements(root) {
+    return (root || document).querySelectorAll(ALL_CREATOR_ID_SELECTORS);
+  }
 
   let creators = [];
   let creatorSets = { performance: new Set(), lost: new Set(), hidden: new Set() };
@@ -132,7 +147,7 @@
       const normId = btn.dataset.normId;
       const isCurrentlyHidden = creatorSets.hidden.has(normId);
 
-      const allIdElements = document.querySelectorAll('[data-e2e="8a94f9b6-1a48-fe57"]');
+      const allIdElements = findAllCreatorIdElements();
       const matchingElements = [];
       allIdElements.forEach(el => {
         const elNorm = normalizeCreatorId(el.textContent || '');
@@ -330,7 +345,7 @@
     const container = document.querySelector('.arco-table-body') ||
       document.querySelector('#root') || document.body;
 
-    const targetContainers = container.querySelectorAll('.flex.flex-col.flex-1, [class*="creator-info__HightBoldText"]');
+    const targetContainers = container.querySelectorAll(`.flex.flex-col.flex-1, [class*="creator-info__HightBoldText"], ${SAMPLE_REQUEST_SELECTOR}`);
     const batchUpdates = [];
 
     targetContainers.forEach(el => {
@@ -356,7 +371,7 @@
       applyHighlight(node, norm);
     });
 
-    const creatorIdElements = container.querySelectorAll('[class*="creator-info__HightBoldText"]');
+    const creatorIdElements = container.querySelectorAll(`[class*="creator-info__HightBoldText"], ${SAMPLE_REQUEST_SELECTOR}`);
     creatorIdElements.forEach(processCreatorIdHideButton);
 
     flexContainersLoop(container);
@@ -477,9 +492,9 @@
   }
 
   function updateTooltipContent() {
-    if (!creatorSets.performance.size) return;
+    if (!allCreatorMap.size) return;
 
-    document.querySelectorAll('.arco-tooltip-content-inner').forEach(tooltipContent => {
+    document.querySelectorAll('.arco-tooltip-content-inner, .core-tooltip-content-inner').forEach(tooltipContent => {
       const text = (tooltipContent.textContent || '').trim();
       const norm = normalizeCreatorId(text);
 
@@ -502,10 +517,12 @@
 
   function updateCreatorRemarksOnPage() {
     try {
-      const creatorIdElements = document.querySelectorAll('[data-e2e="8a94f9b6-1a48-fe57"]');
+      const creatorIdElements = findAllCreatorIdElements();
       if (!creatorIdElements.length) return;
 
       creatorIdElements.forEach(element => {
+        // 样品申请页不注入备注显示
+        if (element.matches(SAMPLE_REQUEST_SELECTOR)) return;
         const creatorId = (element.textContent || '').trim();
         const norm = normalizeCreatorId(creatorId);
         const creator = norm ? getCreatorById(norm) : null;
@@ -551,7 +568,7 @@
         if (mutation.type === 'childList') {
           for (const node of mutation.addedNodes) {
             if (node.nodeType === Node.ELEMENT_NODE &&
-                node.querySelector?.('[data-e2e="8a94f9b6-1a48-fe57"], [class*="creator-info__HightBoldText"]')) {
+                node.querySelector?.(ALL_CREATOR_ID_SELECTORS + ', [class*="creator-info__HightBoldText"]')) {
               shouldUpdateRemarks = true;
               break;
             }
