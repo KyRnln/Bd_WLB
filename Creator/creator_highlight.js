@@ -35,6 +35,12 @@
   const SAMPLE_REQUEST_SELECTOR = '[data-e2e="afc4471a-9b2c-8882"]';
   // 样品申请页的 creator 名称选择器
   const SAMPLE_REQUEST_NAME_SELECTOR = '[data-e2e="3a7a3250-d2be-fd27"]';
+  // 样品申请页隐藏达人时需要一并隐藏的元素
+  const SAMPLE_REQUEST_HIDE_SELECTORS = [
+    '.pulse-avatar',                       // 头像容器
+    '[data-e2e="180337fb-7971-fd8a"]',   // 类目
+    '[data-e2e="fcf65cde-4ab2-81de"]',   // 受众信息
+  ];
   const ALL_CREATOR_ID_SELECTORS = `${DETAIL_PAGE_SELECTOR}, ${SAMPLE_REQUEST_SELECTOR}`;
 
   function isSampleRequestPage() {
@@ -147,7 +153,6 @@
       e.stopPropagation();
 
       const normId = btn.dataset.normId;
-      const isCurrentlyHidden = creatorSets.hidden.has(normId);
 
       const allIdElements = findAllCreatorIdElements();
       const matchingElements = [];
@@ -158,122 +163,76 @@
         }
       });
 
-      if (isCurrentlyHidden) {
-        btn.classList.remove('blacklisted');
-        btn.textContent = '隐藏';
-        btn.title = '点击隐藏此达人';
-        matchingElements.forEach(el => {
-          el.classList.remove('creator-id-blacklisted');
-          el.style.textDecoration = '';
-          el.style.opacity = '';
-          el.style.color = '';
-        });
-        updateCreatorData(normId, '');
-      } else {
-        btn.classList.add('blacklisted');
-        btn.textContent = '解除';
-        btn.title = '点击取消隐藏';
-        matchingElements.forEach(el => {
-          el.classList.add('creator-id-blacklisted');
-          el.style.textDecoration = 'line-through';
-          el.style.opacity = '0.5';
-          el.style.color = '#999';
-        });
-        updateCreatorData(normId, '隐藏达人');
-      }
+      // 应用隐藏样式
+      btn.classList.add('blacklisted');
+      btn.textContent = '已隐藏';
+      btn.title = '已隐藏';
+      btn.disabled = true;
+      matchingElements.forEach(el => {
+        el.classList.add('creator-id-blacklisted');
+        el.style.textDecoration = 'line-through';
+        el.style.opacity = '0.5';
+        el.style.color = '#999';
+        // 样品申请页：隐藏头像、类目、受众元素
+        const parentRow = el.closest('[class*="table-row"], [class*="card"], [class*="list-item"], [class*="row"]') || el.parentElement?.parentElement;
+        if (parentRow) {
+          for (const sel of SAMPLE_REQUEST_HIDE_SELECTORS) {
+            const hideEl = parentRow.querySelector(sel);
+            if (hideEl) hideEl.style.display = 'none';
+          }
+        }
+      });
+
+      // 保存本地 + 上传飞书
+      hideCreator(normId);
     });
 
     return btn;
   }
 
-  async function updateCreatorData(normId, newTag) {
+  async function hideCreator(normId) {
     const existingCreator = getCreatorById(normId);
-
     if (existingCreator) {
-      existingCreator.tag = newTag;
-      await saveCreators();
-      buildCreatorSets();
-    } else if (newTag !== '') {
+      existingCreator.tag = '隐藏达人';
+    } else {
       creators.push({
         creator_id: normId,
         cid: '',
         region: '',
-        tag: newTag,
+        tag: '隐藏达人',
         remark: ''
       });
-      await saveCreators();
-      buildCreatorSets();
     }
+    await saveCreators();
+    buildCreatorSets();
 
+    // 上传飞书：只上传达人ID + 达人状态
     try {
       const result = await chrome.storage.local.get(['hiddenFeishuConfig']);
       const hiddenConfig = result.hiddenFeishuConfig;
       if (!hiddenConfig || !hiddenConfig.baseToken || !hiddenConfig.tableId) return;
 
       const nameField = hiddenConfig.creatorNameField || '达人名称';
-      const cidField = hiddenConfig.creatorCidField || '达人CID';
       const statusField = hiddenConfig.creatorStatusField || '达人状态';
-      const regionField = hiddenConfig.creatorRegionField || '地区';
 
-      // 1. 获取飞书表中所有现有记录
-      const listResult = await chrome.runtime.sendMessage({
-        action: 'listBitableRecords',
-        config: hiddenConfig
+      const createResult = await chrome.runtime.sendMessage({
+        action: 'batchCreateBitableRecords',
+        config: hiddenConfig,
+        records: [{
+          fields: {
+            [nameField]: normId,
+            [statusField]: '隐藏达人'
+          }
+        }]
       });
 
-      if (listResult?.success && listResult.records?.length > 0) {
-        // 2. 清空：批量删除所有现有记录
-        const recordIds = listResult.records.map(r => r.recordId).filter(Boolean);
-        if (recordIds.length > 0) {
-          const deleteResult = await chrome.runtime.sendMessage({
-            action: 'batchDeleteBitableRecords',
-            config: hiddenConfig,
-            recordIds: recordIds
-          });
-          if (!deleteResult?.success) {
-            console.error('[Creator Highlight] 飞书批量删除失败:', deleteResult?.error);
-          } else {
-            console.log('[Creator Highlight] 飞书已清空', deleteResult.deleted, '条记录');
-          }
-        }
-      }
-
-      // 3. 全量同步：将本地所有隐藏达人批量写入
-      const hiddenCreators = creators.filter(c => c.tag === '隐藏达人');
-      if (hiddenCreators.length > 0) {
-        const records = hiddenCreators.map(c => ({
-          fields: {
-            [nameField]: c.creator_id || '',
-            [cidField]: c.cid || '',
-            [regionField]: c.region || '',
-            [statusField]: c.tag || '隐藏达人',
-            '备注': c.remark || ''
-          }
-        }));
-
-        const createResult = await chrome.runtime.sendMessage({
-          action: 'batchCreateBitableRecords',
-          config: hiddenConfig,
-          records: records
-        });
-
-        if (createResult?.success) {
-          // 回写 recordId 到本地
-          const returnedIds = createResult.recordIds || [];
-          for (let i = 0; i < hiddenCreators.length; i++) {
-            if (returnedIds[i]) {
-              hiddenCreators[i]._feishuRecordId = returnedIds[i];
-              hiddenCreators[i]._dataSourceId = 'hidden';
-            }
-          }
-          await saveCreators();
-          console.log('[Creator Highlight] 飞书已同步', createResult.created, '条隐藏达人');
-        } else {
-          console.error('[Creator Highlight] 飞书批量创建失败:', createResult?.error);
-        }
+      if (createResult?.success) {
+        console.log('[Creator Highlight] 已上传飞书:', normId);
+      } else {
+        console.error('[Creator Highlight] 飞书上传失败:', createResult?.error);
       }
     } catch (e) {
-      console.error('[Creator Highlight] 同步隐藏数据源失败:', e);
+      console.error('[Creator Highlight] 飞书上传异常:', e);
     }
   }
 
@@ -287,6 +246,23 @@
     const parentContainer = idElement.parentNode;
     if (!parentContainer) return;
 
+    // 已隐藏的达人：隐藏按钮，只应用样式
+    if (creatorSets.hidden.has(normId)) {
+      idElement.classList.add(HIGHLIGHT_CLASSES.hidden);
+      idElement.style.textDecoration = 'line-through';
+      idElement.style.opacity = '0.5';
+      idElement.style.color = '#999';
+      // 样品申请页：隐藏头像、类目、受众元素
+      const parentRow = idElement.closest('[class*="table-row"], [class*="card"], [class*="list-item"], [class*="row"]') || idElement.parentElement?.parentElement;
+      if (parentRow) {
+        for (const sel of SAMPLE_REQUEST_HIDE_SELECTORS) {
+          const hideEl = parentRow.querySelector(sel);
+          if (hideEl) hideEl.style.display = 'none';
+        }
+      }
+      return;
+    }
+
     if (!parentContainer.querySelector('.creator-blacklist-btn')) {
       parentContainer.appendChild(createBlacklistButton(idElement, rawCreatorId));
     }
@@ -294,15 +270,7 @@
     const btn = parentContainer.querySelector('.creator-blacklist-btn');
     if (!btn) return;
 
-    if (creatorSets.hidden.has(normId)) {
-      idElement.classList.add(HIGHLIGHT_CLASSES.hidden);
-      idElement.style.textDecoration = 'line-through';
-      idElement.style.opacity = '0.5';
-      idElement.style.color = '#999';
-      btn.classList.add('blacklisted');
-      btn.textContent = '解除';
-      btn.title = '点击取消隐藏';
-    } else if (creatorSets.performance.has(normId)) {
+    if (creatorSets.performance.has(normId)) {
       idElement.classList.add(HIGHLIGHT_CLASSES.performance);
       idElement.style.color = '#ff0050';
       idElement.style.fontWeight = '700';
@@ -376,10 +344,35 @@
     const creatorIdElements = container.querySelectorAll(`[class*="creator-info__HightBoldText"], ${SAMPLE_REQUEST_SELECTOR}`);
     creatorIdElements.forEach(processCreatorIdHideButton);
 
+    sampleRequestHideLoop(container);
     flexContainersLoop(container);
     sampleRequestNameLoop(container);
     imNameDivsLoop(container);
     imUnameDivsLoop(container);
+  }
+
+  const processedSampleReqHidden = new Set();
+  function sampleRequestHideLoop(container) {
+    if (!allCreatorMap.size) return;
+
+    container.querySelectorAll(SAMPLE_REQUEST_SELECTOR).forEach(idDiv => {
+      if (processedSampleReqHidden.has(idDiv)) return;
+      processedSampleReqHidden.add(idDiv);
+
+      const creatorId = normalizeCreatorId(idDiv.textContent || '');
+      if (!creatorId) return;
+
+      const creator = getCreatorById(creatorId);
+      if (!creator || creator.tag !== '隐藏达人') return;
+
+      const parentRow = idDiv.closest('[class*="table-row"], [class*="card"], [class*="list-item"], [class*="row"]') || idDiv.parentElement?.parentElement;
+      if (!parentRow) return;
+
+      for (const sel of SAMPLE_REQUEST_HIDE_SELECTORS) {
+        const el = parentRow.querySelector(sel);
+        if (el) el.style.display = 'none';
+      }
+    });
   }
 
   function flexContainersLoop(container) {
