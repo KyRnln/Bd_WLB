@@ -222,13 +222,11 @@
   border-radius: 8px;
   background: var(--surface-container-lowest, #ffffff);
   transition: all 0.2s ease;
-  overflow: hidden;
 }
 
 .search-box:hover {
   border-color: #b0b0b0;
   box-shadow: 0 2px 8px 1px rgba(0, 0, 0, 0.06);
-  transform: scale(1.02);
 }
 
 .search-box:focus-within {
@@ -244,6 +242,7 @@
   font-size: 16px;
   line-height: 1;
   pointer-events: none;
+  color: #6b7280;
 }
 
 .search-box-input {
@@ -510,19 +509,15 @@
 
 /* Status message - Toast style */
 #creatorCardStatus {
-  background: var(--on-surface-variant);
-  color: var(--surface-container-lowest);
-  padding: 12px 16px;
+  padding: 10px 16px;
   border-radius: 8px;
-  box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
   display: flex;
   align-items: center;
-  gap: 12px;
-  animation: fade-in-right 0.3s ease-out forwards;
-  width: 400px;
-  margin-bottom: 16px;
-  font-size: 14px;
-  line-height: 20px;
+  gap: 6px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  line-height: 18px;
 }
 
 @keyframes fade-in-right {

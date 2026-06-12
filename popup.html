@@ -18,7 +18,7 @@
       <div class="space-y-1 mb-3">
         <div class="space-y-1 mb-3">
           <h2 class="text-base font-semibold">达人管理</h2>
-          <p class="text-xs text-fluent-textMuted leading-tight">通过 XLSX 导入达人ID，页面会自动匹配并高亮达人</p>
+          <p class="text-xs text-fluent-textMuted leading-tight">通过飞书导入达人ID，页面会自动匹配并高亮达人</p>
         </div>
       </div>
       <!-- Action Button + Stats Row -->
@@ -121,7 +121,9 @@
         <h3 class="text-sm font-semibold">短语管理</h3>
         <span id="phraseShortcutHint" class="text-xs text-fluent-textMuted">快捷短语输入"/"触发</span>
       </div>
-      <div id="tagBar" class="tagbar mt-1"></div>
+      <div style="display: flex; align-items: center; gap: 8px; margin: 4px 0;">
+        <div id="tagBar" class="creator-filters" style="margin: 0; flex: 1; border-bottom: none;"></div>
+      </div>
       <div id="phraseList" style="display:none;"></div>
     </section>
     <!-- END: Phrase Management Section -->

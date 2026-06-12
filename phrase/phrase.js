@@ -29,9 +29,14 @@
       console.error(`找不到状态提示元素: ${elementId}`);
       return;
     }
-    statusDiv.textContent = message;
+    const icons = {
+      success: '<svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="flex-shrink:0"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>',
+      error: '<svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="flex-shrink:0"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>',
+      info: '<svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="flex-shrink:0"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>'
+    };
+    statusDiv.innerHTML = (icons[type] || icons.info) + '<span>' + message + '</span>';
     statusDiv.className = 'status ' + type;
-    statusDiv.style.display = 'block';
+    statusDiv.style.display = 'flex';
     setTimeout(() => {
       statusDiv.style.display = 'none';
     }, 20000);
@@ -194,12 +199,11 @@
     
     const chips = [];
     for (const t of tags) {
-      chips.push(`<button class="tag-chip ${activeTagId === t.id ? 'active' : ''}" data-id="${escapeHtml(t.id)}">${escapeHtml(t.name)}</button>`);
+      chips.push(`<button class="filter-tab ${activeTagId === t.id ? 'active' : ''}" data-id="${escapeHtml(t.id)}">${escapeHtml(t.name)}</button>`);
     }
-    chips.push(`<button class="tag-chip manage" data-action="manage">管理</button>`);
     tagBar.innerHTML = chips.join('');
 
-    tagBar.querySelectorAll('.tag-chip[data-id]').forEach(el => {
+    tagBar.querySelectorAll('.filter-tab[data-id]').forEach(el => {
       el.addEventListener('click', async () => {
         const id = el.dataset.id;
         const tag = tags.find(t => t.id === id);
@@ -207,11 +211,21 @@
         activeTagId = id;
         await saveActiveTagId();
         renderAll();
-        showStatus(`✅ 已切换到：${tagName}`, 'success', 'phraseCardStatus');
+        showStatus(`已切换到：${tagName}`, 'success', 'phraseCardStatus');
       });
     });
-    const manageBtn = tagBar.querySelector('.tag-chip.manage');
-    manageBtn && manageBtn.addEventListener('click', () => openTagManage());
+
+    const wrapper = tagBar.parentElement;
+    let manageBtn = wrapper.querySelector('[data-action="manage"]');
+    if (!manageBtn) {
+      manageBtn = document.createElement('button');
+      manageBtn.className = 'btn-sm';
+      manageBtn.dataset.action = 'manage';
+      manageBtn.style.cssText = '';
+      manageBtn.textContent = '管理';
+      wrapper.appendChild(manageBtn);
+    }
+    manageBtn.onclick = () => openTagManage();
   }
 
   function renderPhraseTagSelect(selectedId) {
@@ -362,7 +376,7 @@
     await savePhrases();
     closeEdit();
     renderAll();
-    showStatus(editingId ? '✅ 短语已更新' : '✅ 短语已添加', 'success', 'phraseCardStatus');
+    showStatus(editingId ? '短语已更新' : '短语已添加', 'success', 'phraseCardStatus');
     editingId = null;
   }
 
@@ -373,7 +387,7 @@
     phrases = phrases.filter(x => x.id !== id);
     await savePhrases();
     renderAll();
-    showStatus('✅ 短语已删除', 'success', 'phraseCardStatus');
+    showStatus('短语已删除', 'success', 'phraseCardStatus');
   }
 
   function initPhraseModule() {

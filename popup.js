@@ -42,7 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const status = result.orderQueryState;
       if (status && status.isRunning) {
         const { currentIndex, total, processedCount, failedCount } = status;
-        setButtonRunning(btnOrder, `${currentIndex}/${total} ✅${processedCount || 0} ❌${failedCount || 0}`);
+        setButtonRunning(btnOrder, `${currentIndex}/${total} ${processedCount || 0} ${failedCount || 0}`);
       } else {
         resetButton(btnOrder, btnOrderOriginalText);
       }

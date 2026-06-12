@@ -24,22 +24,25 @@
     <div id="phraseManageStatus" class="status info" style="display:none;"></div>
 
     <div class="card-actions" style="margin-bottom: 8px; display: flex; gap: 8px; width: 100%;">
-      <button id="addPhraseBtn" class="flex-1 px-3 py-1.5 bg-fluent-button hover:bg-fluent-buttonHover border border-fluent-border rounded-md text-sm transition-colors duration-200">
+      <button id="addPhraseBtn" class="flex-1 flex items-center justify-center gap-2 px-3 py-1.5 bg-fluent-button hover:bg-fluent-buttonHover border border-fluent-border rounded-md text-sm transition-all duration-200">
         <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
         添加短语
       </button>
-      <button id="importPhraseBtn" class="flex-1 px-3 py-1.5 bg-fluent-button hover:bg-fluent-buttonHover border border-fluent-border rounded-md text-sm transition-colors duration-200">
+      <button id="importPhraseBtn" class="flex-1 flex items-center justify-center gap-2 px-3 py-1.5 bg-fluent-button hover:bg-fluent-buttonHover border border-fluent-border rounded-md text-sm transition-all duration-200">
         <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" /></svg>
         导入
       </button>
-      <button id="exportPhraseBtn" class="flex-1 px-3 py-1.5 bg-fluent-button hover:bg-fluent-buttonHover border border-fluent-border rounded-md text-sm transition-colors duration-200">
+      <button id="exportPhraseBtn" class="flex-1 flex items-center justify-center gap-2 px-3 py-1.5 bg-fluent-button hover:bg-fluent-buttonHover border border-fluent-border rounded-md text-sm transition-all duration-200">
         <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
         导出
       </button>
       <input id="phraseFileInput" type="file" accept=".json" style="display:none;" />
     </div>
 
-    <div class="tagbar" id="phraseTagBar" style="margin: 4px 0;"></div>
+    <div style="display: flex; align-items: center; gap: 8px; margin: 4px 0;">
+      <div class="creator-filters" id="phraseTagBar" style="margin: 0; flex: 1; border-bottom: none;"></div>
+      <button class="btn-sm" data-action="manage">管理标签</button>
+    </div>
 
     <div id="phraseList" class="phrase-list"></div>
   </main>
