@@ -46,11 +46,11 @@
       btn.className = 'lang-btn';
       btn.dataset.lang = lang;
       btn.textContent = lang;
-      btn.style.cssText = 'display: inline-flex; align-items: center; justify-content: center; padding: 6px 16px; font-size: 14px; font-weight: 500; border-radius: 6px; cursor: pointer; transition: all 0.15s ease; border: 1px solid #e5e7eb; background: #ffffff; color: #374151;';
+      btn.style.cssText = 'display: inline-flex; align-items: center; justify-content: center; padding: 6px 16px; font-size: 14px; font-weight: 500; border-radius: 8px; cursor: pointer; transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); border: 1px solid #e5e7eb; background: #ffffff; color: #374151;';
       
       if (selectedLanguage === lang) {
-        btn.style.background = '#1660c1';
-        btn.style.color = '#ffffff';
+        btn.style.background = '#e8f0fe';
+        btn.style.color = '#1660c1';
         btn.style.borderColor = '#1660c1';
       }
 
@@ -60,8 +60,8 @@
           t.style.color = '#374151';
           t.style.borderColor = '#e5e7eb';
         });
-        btn.style.background = '#1660c1';
-        btn.style.color = '#ffffff';
+        btn.style.background = '#e8f0fe';
+        btn.style.color = '#1660c1';
         btn.style.borderColor = '#1660c1';
         selectedLanguage = lang;
       });
@@ -69,13 +69,34 @@
       btn.addEventListener('mouseenter', () => {
         if (selectedLanguage !== lang) {
           btn.style.background = '#f9fafb';
+          btn.style.color = '#374151';
           btn.style.borderColor = '#d1d5db';
+          btn.style.boxShadow = '0 2px 12px 2px rgba(0, 0, 0, 0.08), 0 0 4px 1px rgba(0, 0, 0, 0.04)';
+        } else {
+          btn.style.background = '#d0e0fd';
+          btn.style.boxShadow = '0 2px 14px 3px rgba(22, 96, 193, 0.15), 0 0 6px 1px rgba(22, 96, 193, 0.08)';
         }
+        btn.style.transform = 'scale(1.05)';
+      });
+      btn.addEventListener('mouseleave', () => {
+        if (selectedLanguage !== lang) {
+          btn.style.background = '#ffffff';
+          btn.style.color = '#374151';
+          btn.style.borderColor = '#e5e7eb';
+          btn.style.boxShadow = 'none';
+        } else {
+          btn.style.background = '#e8f0fe';
+          btn.style.boxShadow = 'none';
+        }
+        btn.style.transform = 'scale(1)';
       });
       btn.addEventListener('mouseleave', () => {
         if (selectedLanguage !== lang) {
           btn.style.background = '#ffffff';
           btn.style.borderColor = '#e5e7eb';
+        } else {
+          btn.style.background = '#e8f0fe';
+          btn.style.boxShadow = 'none';
         }
       });
 
@@ -85,8 +106,8 @@
     if (currentConfig.targetLanguages.length > 0 && !selectedLanguage) {
       const firstBtn = container.querySelector('.lang-btn');
       if (firstBtn) {
-        firstBtn.style.background = '#1660c1';
-        firstBtn.style.color = '#ffffff';
+        firstBtn.style.background = '#e8f0fe';
+        firstBtn.style.color = '#1660c1';
         firstBtn.style.borderColor = '#1660c1';
         selectedLanguage = currentConfig.targetLanguages[0];
       }
@@ -176,11 +197,11 @@
 
     const card = document.createElement('div');
     card.className = 'result-card';
-    card.style.cssText = 'background: #ffffff; border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden; margin-bottom: 12px;';
+    card.style.cssText = 'background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; margin-bottom: 12px;';
     card.innerHTML = `
       <div class="result-header" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: #f9fafb; border-bottom: 1px solid #e5e7eb;">
         <span class="result-lang" style="font-size: 13px; font-weight: 600; color: #374151;">${lang}${originalText ? ' <span style="font-weight: 400; color: #9ca3af; font-size: 12px;">| 原文: ' + escapeHtml(originalText.slice(0, 60)) + (originalText.length > 60 ? '...' : '') + '</span>' : ''}</span>
-        <button type="button" class="result-copy" style="display: inline-flex; align-items: center; justify-content: center; padding: 4px 12px; font-size: 12px; font-weight: 500; color: #374151; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 6px; cursor: pointer; transition: all 0.15s ease;">复制</button>
+        <button type="button" class="result-copy" style="display: inline-flex; align-items: center; justify-content: center; padding: 4px 12px; font-size: 12px; font-weight: 500; color: #374151; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; cursor: pointer; transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);">复制</button>
       </div>
       <div class="result-text" style="padding: 14px; font-size: 14px; line-height: 1.6; color: #1a1a1a; white-space: pre-wrap; word-break: break-word;">${escapeHtml(text)}</div>
     `;
@@ -188,11 +209,17 @@
     const copyBtn = card.querySelector('.result-copy');
     copyBtn.addEventListener('mouseenter', () => {
       copyBtn.style.background = '#f9fafb';
+      copyBtn.style.color = '#374151';
       copyBtn.style.borderColor = '#d1d5db';
+      copyBtn.style.boxShadow = '0 2px 12px 2px rgba(0, 0, 0, 0.08), 0 0 4px 1px rgba(0, 0, 0, 0.04)';
+      copyBtn.style.transform = 'scale(1.05)';
     });
     copyBtn.addEventListener('mouseleave', () => {
       copyBtn.style.background = '#ffffff';
+      copyBtn.style.color = '#374151';
       copyBtn.style.borderColor = '#e5e7eb';
+      copyBtn.style.boxShadow = 'none';
+      copyBtn.style.transform = 'scale(1)';
     });
     copyBtn.addEventListener('click', async () => {
       try {

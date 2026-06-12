@@ -1,3 +1,47 @@
+document.addEventListener('click', (e) => {
+  const summary = e.target.closest('details.panel > summary, details.panel .custom-summary');
+  if (!summary) return;
+  const details = summary.closest('details.panel');
+  if (!details) return;
+  if (e.target.closest('.chevron-icon, .custom-summary') && !e.target.closest('.chevron-icon')) {
+    e.preventDefault(); return;
+  }
+  const content = details.querySelector('.panel-content');
+  if (!content) return;
+  const wrap = content.querySelector('.panel-content-wrap');
+  e.preventDefault();
+  e.stopPropagation();
+  if (details.open) {
+    if (wrap) wrap.style.overflow = 'hidden';
+    content.style.transition = 'grid-template-rows 0.3s ease-in';
+    requestAnimationFrame(() => {
+      content.style.gridTemplateRows = '0fr';
+    });
+    const onEnd = () => {
+      content.removeEventListener('transitionend', onEnd);
+      details.open = false;
+      details.classList.remove('is-open');
+      content.style.transition = '';
+      content.style.gridTemplateRows = '';
+    };
+    content.addEventListener('transitionend', onEnd);
+  } else {
+    details.open = true;
+    details.classList.add('is-open');
+    content.style.gridTemplateRows = '0fr';
+    requestAnimationFrame(() => {
+      content.style.transition = 'grid-template-rows 0.3s ease-out';
+      content.style.gridTemplateRows = '1fr';
+    });
+    const onEnd = () => {
+      content.removeEventListener('transitionend', onEnd);
+      if (wrap) wrap.style.overflow = 'visible';
+      content.style.transition = '';
+    };
+    content.addEventListener('transitionend', onEnd);
+  }
+});
+
 (function () {
   'use strict';
 
@@ -88,15 +132,21 @@
       btn.className = 'lang-btn';
       btn.dataset.lang = lang;
       btn.innerHTML = `${lang}<span class="remove" style="margin-left: 6px; font-size: 12px; opacity: 0.7;">×</span>`;
-      btn.style.cssText = 'display: inline-flex; align-items: center; justify-content: center; padding: 6px 16px; font-size: 14px; font-weight: 500; border-radius: 6px; cursor: pointer; transition: all 0.15s ease; border: 1px solid #e5e7eb; background: #ffffff; color: #374151;';
+      btn.style.cssText = 'display: inline-flex; align-items: center; justify-content: center; padding: 6px 16px; font-size: 14px; font-weight: 500; border-radius: 8px; cursor: pointer; transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); border: 1px solid #e5e7eb; background: #ffffff; color: #374151;';
 
       btn.addEventListener('mouseenter', () => {
         btn.style.background = '#f9fafb';
+        btn.style.color = '#374151';
         btn.style.borderColor = '#d1d5db';
+        btn.style.boxShadow = '0 2px 12px 2px rgba(0, 0, 0, 0.08), 0 0 4px 1px rgba(0, 0, 0, 0.04)';
+        btn.style.transform = 'scale(1.05)';
       });
       btn.addEventListener('mouseleave', () => {
         btn.style.background = '#ffffff';
+        btn.style.color = '#374151';
         btn.style.borderColor = '#e5e7eb';
+        btn.style.boxShadow = 'none';
+        btn.style.transform = 'scale(1)';
       });
 
       btn.querySelector('.remove').addEventListener('click', (e) => {
@@ -230,6 +280,12 @@
       }
     });
   }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      document.querySelectorAll('.dialog-mask.show').forEach(m => m.classList.remove('show'));
+    }
+  });
 
   document.addEventListener('DOMContentLoaded', init);
 })();

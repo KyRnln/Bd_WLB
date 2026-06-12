@@ -12,23 +12,18 @@ document.addEventListener('DOMContentLoaded', () => {
   const storageAPI = getStorage();
   if (!storageAPI) return;
 
-  const btnCover = document.getElementById('btnCover');
-  const btnCid = document.getElementById('btnCid');
-  const btnCidToName = document.getElementById('btnCidToName');
   const btnOrder = document.getElementById('btnOrder');
 
   const btnSampleCrawl = document.getElementById('btnSampleCrawl');
-  const btnCoverOriginalText = btnCover ? btnCover.textContent : '获取视频封面';
-  const btnCidOriginalText = btnCid ? btnCid.textContent : '获取头像/CID';
-  const btnCidToNameOriginalText = btnCidToName ? btnCidToName.textContent : 'CID获取达人';
   const btnOrderOriginalText = btnOrder ? btnOrder.textContent : '订单履约情况';
   const btnSampleCrawlOriginalText = btnSampleCrawl ? btnSampleCrawl.textContent : '样品申请采集';
 
   function setButtonRunning(btn, text) {
     if (!btn) return;
     btn.textContent = text;
-    btn.style.background = '#3b82f6';
-    btn.style.color = '#fff';
+    btn.style.background = '#e8f0fe';
+    btn.style.color = '#1660c1';
+    btn.style.borderColor = '#1660c1';
   }
 
   function resetButton(btn, originalText) {
@@ -36,60 +31,6 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.textContent = originalText;
     btn.style.background = '';
     btn.style.color = '';
-  }
-
-  async function updateCoverButtonStatus() {
-    if (!btnCover) return;
-    try {
-      const result = await new Promise(resolve =>
-        storageAPI.get(['coverFetchStatus'], resolve)
-      );
-      const status = result.coverFetchStatus;
-      if (status && status.status === 'running') {
-        const { currentIndex, total, successCount, failCount } = status;
-        setButtonRunning(btnCover, `${currentIndex}/${total} ✅${successCount} ❌${failCount}`);
-      } else {
-        resetButton(btnCover, btnCoverOriginalText);
-      }
-    } catch (e) {
-      resetButton(btnCover, btnCoverOriginalText);
-    }
-  }
-
-  async function updateCidButtonStatus() {
-    if (!btnCid) return;
-    try {
-      const result = await new Promise(resolve =>
-        storageAPI.get(['batchSearchStatus'], resolve)
-      );
-      const status = result.batchSearchStatus;
-      if (status && status.status === 'running') {
-        const { currentIndex, total, successCount, failCount } = status;
-        setButtonRunning(btnCid, `${currentIndex}/${total} ✅${successCount} ❌${failCount}`);
-      } else {
-        resetButton(btnCid, btnCidOriginalText);
-      }
-    } catch (e) {
-      resetButton(btnCid, btnCidOriginalText);
-    }
-  }
-
-  async function updateCidToNameButtonStatus() {
-    if (!btnCidToName) return;
-    try {
-      const result = await new Promise(resolve =>
-        storageAPI.get(['batchQueryState_cidToName'], resolve)
-      );
-      const status = result.batchQueryState_cidToName;
-      if (status && status.isRunning) {
-        const { currentIndex, total, successCount, failCount } = status;
-        setButtonRunning(btnCidToName, `${currentIndex}/${total} ✅${successCount} ❌${failCount}`);
-      } else {
-        resetButton(btnCidToName, btnCidToNameOriginalText);
-      }
-    } catch (e) {
-      resetButton(btnCidToName, btnCidToNameOriginalText);
-    }
   }
 
   async function updateOrderButtonStatus() {
@@ -127,37 +68,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  updateCoverButtonStatus();
-  updateCidButtonStatus();
-  updateCidToNameButtonStatus();
   updateOrderButtonStatus();
   updateSampleCrawlButtonStatus();
 
   storageAPI.onChanged.addListener((changes, area) => {
     if (area === 'local') {
-      if (changes.coverFetchStatus) updateCoverButtonStatus();
-      if (changes.batchSearchStatus) updateCidButtonStatus();
-      if (changes.batchQueryState_cidToName) updateCidToNameButtonStatus();
       if (changes.orderQueryState) updateOrderButtonStatus();
       if (changes.sampleCrawlState) updateSampleCrawlButtonStatus();
     }
   });
 
-  if (btnCover) {
-    btnCover.addEventListener('click', () => {
-      window.location.href = 'quick_module/cover/cover.html';
-    });
-  }
-  if (btnCid) {
-    btnCid.addEventListener('click', () => {
-      window.location.href = 'quick_module/username_avatarcid/username_avatarcid.html';
-    });
-  }
-  if (btnCidToName) {
-    btnCidToName.addEventListener('click', () => {
-      window.location.href = 'quick_module/cid_to_name/cid_to_name.html';
-    });
-  }
   if (btnOrder) {
     btnOrder.addEventListener('click', () => {
       window.location.href = 'quick_module/order/order.html';
@@ -198,12 +118,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  const btnQuickImageManage = document.getElementById('btnQuickImageManage');
-  if (btnQuickImageManage) {
-    btnQuickImageManage.addEventListener('click', () => {
-      window.location.href = 'quick_module/quick_image/quick_image.html';
-    });
-  }
 
   async function loadTranslateModelInfo() {
     const modelInfoEl = document.getElementById('translateModelInfo');
@@ -282,4 +196,32 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
   updatePhraseShortcutHint();
+
+  async function updateTranslateShortcutHint() {
+    const hintEl = document.getElementById('translateShortcutHint');
+    if (!hintEl) return;
+    try {
+      const commands = await chrome.commands.getAll();
+      const triggerCmd = commands.find(c => c.name === 'triggerTranslateQuickInput');
+      if (triggerCmd && triggerCmd.shortcut) {
+        hintEl.textContent = `${triggerCmd.shortcut} 触发`;
+      } else {
+        hintEl.textContent = '(未设置快捷键)';
+      }
+    } catch (e) {
+      hintEl.textContent = 'Alt+Q 触发';
+    }
+  }
+  updateTranslateShortcutHint();
+
+  document.querySelectorAll('.dialog-mask').forEach(mask => {
+    mask.addEventListener('click', (e) => {
+      if (e.target === mask) mask.classList.remove('show');
+    });
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      document.querySelectorAll('.dialog-mask.show').forEach(m => m.classList.remove('show'));
+    }
+  });
 });

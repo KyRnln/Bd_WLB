@@ -1,63 +1,12 @@
 (function () {
   'use strict';
 
-  const API_BASE_URL = 'https://kyrnln.cloud/api';
-
   let config = null;
   let translateBox = null;
   let isVisible = false;
   let currentTextarea = null;
-  let cachedToken = null;
   let focusedInput = null;
   let lastSelectedTarget = null;
-
-  function getTokenFromStorage() {
-    return new Promise((resolve) => {
-      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-        chrome.storage.local.get(['auth_token'], (result) => {
-          resolve(result.auth_token || null);
-        });
-      } else {
-        resolve(null);
-      }
-    });
-  }
-
-  async function apiRequest(endpoint, options = {}) {
-    if (!cachedToken) {
-      cachedToken = await getTokenFromStorage();
-    }
-    const url = `${API_BASE_URL}${endpoint}`;
-    const headers = {
-      'Content-Type': 'application/json',
-      ...options.headers
-    };
-
-    if (cachedToken) {
-      headers['Authorization'] = `Bearer ${cachedToken}`;
-    }
-
-    try {
-      const response = await fetch(url, {
-        ...options,
-        headers
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          console.warn('[Translate Content] 用户未登录');
-        }
-        throw new Error(data.message || '请求失败');
-      }
-
-      return data;
-    } catch (error) {
-      console.error('[Translate Content] API 请求错误:', error);
-      throw error;
-    }
-  }
 
   function normalizeConfig(raw) {
     if (!raw) return null;
@@ -81,14 +30,7 @@
     } catch (e) {
       console.warn('[Translate Content] 本地存储读取失败', e);
     }
-
-    try {
-      const result = await apiRequest('/translate/config');
-      config = normalizeConfig(result.data);
-    } catch (e) {
-      console.warn('[Translate Content] API 加载配置失败，使用空配置', e);
-      config = normalizeConfig(null);
-    }
+    config = normalizeConfig(null);
   }
 
   function createTranslateBox() {
@@ -293,7 +235,7 @@
       padding: 12px 20px;
       background: ${type === 'error' ? '#ffebee' : '#e8f5e9'};
       color: ${type === 'error' ? '#c62828' : '#2e7d32'};
-      border-radius: 6px;
+      border-radius: 8px;
       font-size: 14px;
       z-index: 9999999;
       box-shadow: 0 2px 8px rgba(0,0,0,0.15);
@@ -359,10 +301,6 @@
     document.addEventListener('click', handleClick, true);
 
     chrome.storage.onChanged.addListener((changes, area) => {
-      if (area === 'local' && changes.auth_token) {
-        cachedToken = changes.auth_token.newValue || null;
-        loadConfig();
-      }
       if (area === 'local' && changes.translateConfig) {
         config = normalizeConfig(changes.translateConfig.newValue);
       }

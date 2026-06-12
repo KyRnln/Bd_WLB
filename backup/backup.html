@@ -20,7 +20,7 @@
     </h1>
   </header>
 
-  <main class="px-5" style="padding-bottom: 10vh;">
+  <main class="px-5" style="padding: 4px 12px;">
     <section class="card content-card">
       <div id="backupStatus" class="panel-status info" style="display:none;"></div>
 
@@ -30,7 +30,8 @@
           <span style="flex: 1;">WebDAV 云同步</span>
           <svg class="chevron-icon h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
         </summary>
-        <div class="panel-content" style="padding: 12px 0; overflow: hidden;">
+        <div class="panel-content" style="padding: 12px 0;">
+          <div class="panel-content-wrap">
           <p>通过坚果云等WebDAV服务云端备份与恢复</p>
           <label for="webdavUrl">服务器地址</label>
           <input id="webdavUrl" type="text" placeholder="https://dav.jianguoyun.com/dav/wlb_backup/" value="https://dav.jianguoyun.com/dav/wlb_backup/" />
@@ -49,6 +50,7 @@
             </button>
           </div>
           <div id="webdavStatus" class="status" style="display:none; margin-top: 10%;"></div>
+          </div>
         </div>
       </details>
 
@@ -58,7 +60,8 @@
           <span style="flex: 1;">本地备份与恢复</span>
           <svg class="chevron-icon h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
         </summary>
-        <div class="panel-content" style="padding: 12px 0; overflow: hidden;">
+        <div class="panel-content" style="padding: 12px 0;">
+          <div class="panel-content-wrap">
           <div class="mb-4">
             <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 8px; color: #1a1a1a;">导出数据</h4>
             <p>将所有数据导出为JSON文件，方便备份和迁移</p>
@@ -70,27 +73,32 @@
           <div style="padding-top: 16px; border-top: 1px solid #e5e7eb;">
             <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 8px; color: #1a1a1a;">导入数据</h4>
             <p>从JSON文件导入数据，会覆盖现有数据</p>
-            <input id="importDataFile" type="file" accept=".json" style="margin-bottom: 8px;" />
+            <input id="importDataFile" type="file" accept=".json" style="display:none;" />
+            <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+              <button id="selectFileBtn" class="btn-sm flex-1">选择文件</button>
+              <span id="fileNameDisplay" style="flex: 2; font-size: 12px; color: #6b7280; line-height: 34px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">未选择文件</span>
+            </div>
             <button id="importDataBtn" class="btn-sm w-full">
               <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" /></svg>
               导入数据
             </button>
           </div>
+          </div>
         </div>
       </details>
 
       <div class="action-cards mt-4">
-        <div class="action-card" style="padding: 16px; background: #fef2f2; border: 1px solid rgba(186, 26, 26, 0.2); border-radius: 16px;">
-          <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: #ba1a1a;">
+        <div class="action-card" style="padding: 12px; background: #fef2f2; border: 1px solid rgba(186, 26, 26, 0.2); border-radius: 8px;">
+          <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 8px; color: #ba1a1a;">
             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="display:inline;vertical-align:middle;margin-right:4px;"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>
             危险操作
           </h4>
-          <div class="flex gap-3 w-full" style="min-width: 0; gap: 8px;">
-            <button id="initAppBtn" class="btn-sm flex-1" style="font-size: 12px; padding: 0 10px; height: 34px;">
+          <div class="flex gap-2 w-full">
+            <button id="initAppBtn" class="btn-sm flex-1 px-3 py-1.5 text-sm rounded-md">
               <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" /></svg>
               初始化应用
             </button>
-            <button id="clearAllDataBtn" class="btn-sm flex-1" style="background: #93000a; color: #fff; border-color: #93000a; font-size: 12px; padding: 0 10px; height: 34px;">
+            <button id="clearAllDataBtn" class="btn-sm btn-danger flex-1 px-3 py-1.5 text-sm rounded-md">
               <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
               清除全部数据
             </button>

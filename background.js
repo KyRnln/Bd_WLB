@@ -1,8 +1,5 @@
 // 背景脚本：合并「批量获取CID」功能
-import { handleCidToNameMessage } from './quick_module/cid_to_name/cid_to_name_background.js';
 import { handleOrderMessage } from './quick_module/order/order_background.js';
-import { handleUsernameAvatarCidMessage } from './quick_module/username_avatarcid/username_avatarcid_background.js';
-import { handleCoverMessage } from './quick_module/cover/cover_background.js';
 import { handleBitableCoverMessage } from './quick_module/bitable_cover/bitable_cover_background.js';
 import { handleSampleCrawlMessage } from './quick_module/sample_crawl/sample_crawl_background.js';
 
@@ -120,10 +117,6 @@ async function handleAppendBitableRecords(config, recordsData) {
 
 async function handleMessage(request, sender) {
   console.log('[Bg] 收到消息:', JSON.stringify({ action: request.action, keys: Object.keys(request) }));
-  const usernameAvatarCidResult = await handleUsernameAvatarCidMessage(request, sender, downloadExcel);
-  if (usernameAvatarCidResult) {
-    return usernameAvatarCidResult;
-  }
   switch (request.action) {
     case 'installNetworkHook': {
       if (!sender?.tab?.id) return { success: false, error: '无法获取当前tabId' };
@@ -285,17 +278,9 @@ async function handleMessage(request, sender) {
     }
     default: {
       console.log('[Bg] default: 未匹配到处理函数, action=', request.action);
-      const coverResult = await handleCoverMessage(request);
-      if (coverResult) {
-        return coverResult;
-      }
       const bitableCoverResult = await handleBitableCoverMessage(request, handleListBitableRecords, handleFetchAndUploadBitableCover);
       if (bitableCoverResult) {
         return bitableCoverResult;
-      }
-      const cidToNameResult = await handleCidToNameMessage(request);
-      if (cidToNameResult) {
-        return cidToNameResult;
       }
       const orderResult = await handleOrderMessage(request, sender, downloadExcel);
       if (orderResult) {
@@ -984,11 +969,5 @@ chrome.commands.onCommand.addListener((command) => {
         chrome.tabs.sendMessage(tabs[0].id, { action: 'showTranslate' }).catch(() => {});
       }
     });
-  } else if (command === 'triggerQuickImage') {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs && tabs.length > 0) {
-        chrome.tabs.sendMessage(tabs[0].id, { action: 'triggerQuickImage' }).catch(() => {});
-      }
-    });
-  }
+
 });

@@ -72,7 +72,7 @@
       .creator-blacklist-btn {
         display: inline-flex; align-items: center; justify-content: center;
         min-width: 28px; height: 22px; margin-left: 6px; padding: 0 8px;
-        background: #fff; border: 1px solid #d1d5db; border-radius: 6px;
+        background: #fff; border: 1px solid #d1d5db; border-radius: 8px;
         cursor: pointer; font-size: 11px; font-weight: 500; transition: all 0.15s ease;
         color: #374151; white-space: nowrap;
       }
@@ -397,7 +397,7 @@
       nameDiv.dataset.tagReplaced = 'true';
       const tagStyle = TAG_COLORS[creator.tag] || { bg: '#f0f0f0', color: '#333' };
 
-      nameDiv.innerHTML = `<span style="display: inline-block; padding: 1px 5px; background: ${tagStyle.bg}; color: ${tagStyle.color}; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 12px; font-weight: 500;">${creator.tag.replace('达人', '')}</span>`;
+      nameDiv.innerHTML = `<span style="display: inline-block; padding: 1px 5px; background: ${tagStyle.bg}; color: ${tagStyle.color}; border: 1px solid #e0e0e0; border-radius: 8px; font-size: 12px; font-weight: 500;">${creator.tag.replace('达人', '')}</span>`;
     });
   }
 
@@ -425,7 +425,7 @@
 
       nameDiv.dataset.tagReplaced = 'true';
       const tagStyle = TAG_COLORS[creator.tag] || { bg: '#f0f0f0', color: '#333' };
-      nameDiv.innerHTML = `<span style="display: inline-block; padding: 1px 5px; background: ${tagStyle.bg}; color: ${tagStyle.color}; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 12px; font-weight: 500;">${creator.tag.replace('达人', '')}</span>`;
+      nameDiv.innerHTML = `<span style="display: inline-block; padding: 1px 5px; background: ${tagStyle.bg}; color: ${tagStyle.color}; border: 1px solid #e0e0e0; border-radius: 8px; font-size: 12px; font-weight: 500;">${creator.tag.replace('达人', '')}</span>`;
     });
   }
 
@@ -485,7 +485,7 @@
       const tagStyle = TAG_COLORS[creator.tag] || { bg: '#f0f0f0', color: '#333' };
 
       const tagSpan = document.createElement('span');
-      tagSpan.style.cssText = `display: inline-block; margin-right: 8px; padding: 1px 5px; background: ${tagStyle.bg}; color: ${tagStyle.color}; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 12px; font-weight: 500; vertical-align: middle; flex-shrink: 0; white-space: nowrap;`;
+      tagSpan.style.cssText = `display: inline-block; margin-right: 8px; padding: 1px 5px; background: ${tagStyle.bg}; color: ${tagStyle.color}; border: 1px solid #e0e0e0; border-radius: 8px; font-size: 12px; font-weight: 500; vertical-align: middle; flex-shrink: 0; white-space: nowrap;`;
       tagSpan.textContent = creator.tag.replace('达人', '');
 
       const parentDiv = unameDiv.parentElement;
@@ -559,7 +559,7 @@
             remarkElement.className = 'creator-page-remark-display';
             remarkElement.style.cssText = `
               margin-top: 8px; padding: 8px 12px; background: #f0f7ff;
-              border: 1px solid #d1e9ff; border-radius: 6px; font-size: 12px;
+              border: 1px solid #d1e9ff; border-radius: 8px; font-size: 12px;
               color: #1d5fff; font-weight: 500; word-wrap: break-word;
               white-space: pre-wrap; text-align: center; max-width: 300px;
             `;

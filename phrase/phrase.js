@@ -164,7 +164,7 @@
           <div class="phrase-content">${escapeHtml(p.content || '')}</div>
           <div class="phrase-actions">
             <button type="button" class="edit btn-sm secondary" data-id="${p.id}">编辑</button>
-            <button type="button" class="delete btn-sm danger" data-id="${p.id}">删除</button>
+            <button type="button" class="delete btn-sm btn-danger" data-id="${p.id}">删除</button>
           </div>
         </div>
       `;
@@ -251,7 +251,7 @@
         </div>
         <div class="phrase-actions" style="margin-top: 0; padding-top: 0; border-top: none;">
           <button type="button" class="tag-rename btn-sm secondary" data-id="${escapeHtml(t.id)}">重命名</button>
-          <button type="button" class="tag-delete btn-sm danger" data-id="${escapeHtml(t.id)}">删除</button>
+          <button type="button" class="tag-delete btn-sm btn-danger" data-id="${escapeHtml(t.id)}">删除</button>
         </div>
       </div>
     `).join('');

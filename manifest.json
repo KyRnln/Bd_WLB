@@ -65,15 +65,7 @@
       ],
       "run_at": "document_end"
     },
-    {
-      "matches": [
-        "https://affiliate.tiktokshopglobalselling.com/*"
-      ],
-      "js": [
-        "quick_module/username_avatarcid/username_avatarcid_content.js"
-      ],
-      "run_at": "document_start"
-    },
+
     {
       "matches": [
         "https://affiliate.tiktokshopglobalselling.com/*"
@@ -83,15 +75,7 @@
       ],
       "run_at": "document_start"
     },
-    {
-      "matches": [
-        "https://affiliate.tiktokshopglobalselling.com/connection/creator/detail*"
-      ],
-      "js": [
-        "quick_module/cid_to_name/cid_to_name_content.js"
-      ],
-      "run_at": "document_end"
-    },
+
     {
       "matches": [
         "*://*/*"
@@ -113,16 +97,6 @@
         "quick_module/sample_crawl/sample_crawl_content.js"
       ],
       "run_at": "document_end"
-    },
-    {
-      "matches": [
-        "*://*/*"
-      ],
-      "js": [
-        "quick_module/quick_image/quick_image_content.js"
-      ],
-      "run_at": "document_end",
-      "all_frames": true
     }
   ],
 
@@ -156,13 +130,6 @@
         "mac": "Alt+Q"
       },
       "description": "触发快捷翻译输入"
-    },
-    "triggerQuickImage": {
-      "suggested_key": {
-        "default": "Alt+W",
-        "mac": "Alt+W"
-      },
-      "description": "触发快捷图片选择"
     }
   },
 

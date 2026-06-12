@@ -302,7 +302,7 @@
       padding: 12px 20px;
       background: ${type === 'error' ? '#ffebee' : '#e8f5e9'};
       color: ${type === 'error' ? '#c62828' : '#2e7d32'};
-      border-radius: 6px;
+      border-radius: 8px;
       font-size: 14px;
       z-index: 9999999;
       box-shadow: 0 2px 8px rgba(0,0,0,0.15);

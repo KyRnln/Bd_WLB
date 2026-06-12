@@ -9,24 +9,24 @@
   <link rel="stylesheet" href="styles/utilities.css">
   <link rel="stylesheet" href="styles/modules.css">
 </head>
-<body class="bg-fluent-bg text-fluent-text min-h-screen p-4 sm:p-6 antialiased">
-  <main class="max-w-md mx-auto space-y-4">
+<body class="bg-fluent-bg text-fluent-text min-h-screen p-2 sm:p-3 antialiased">
+  <main class="max-w-md mx-auto space-y-2">
     <!-- BEGIN: Creator Management Section -->
-    <section id="creatorCard" class="bg-fluent-panel border border-fluent-border rounded-xl p-4 backdrop-blur-md shadow-lg">
+    <section id="creatorCard" class="bg-fluent-panel border border-fluent-border rounded-xl p-3 backdrop-blur-md shadow-lg">
       <div id="creatorCardStatus" class="status info" style="display:none;"></div>
       <!-- Header Area -->
-      <div class="space-y-1 mb-4">
-        <div class="space-y-1 mb-4">
+      <div class="space-y-1 mb-3">
+        <div class="space-y-1 mb-3">
           <h2 class="text-base font-semibold">达人管理</h2>
           <p class="text-xs text-fluent-textMuted leading-tight">通过 XLSX 导入达人ID，页面会自动匹配并高亮达人</p>
         </div>
       </div>
       <!-- Action Button + Stats Row -->
-      <div class="flex items-center gap-2 mb-4">
+      <div class="flex items-center gap-2 mb-3">
         <div class="creator-stats-row" id="creatorStatsRow" style="margin-bottom: 0; flex: 1; min-width: 0; gap: 4px;">
           <div class="fluent-card stat-card" style="padding: 4px; min-height: auto; flex-direction: column; gap: 0;">
             <div style="display: flex; align-items: center; gap: 2px;">
-              <div class="stat-icon" style="width: 10px; height: 10px; border-radius: 2px;">
+              <div class="stat-icon" style="width: 10px; height: 10px; border-radius: 8px;">
                 <svg class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg>
               </div>
               <p class="stat-card-label" style="font-size: 10px; line-height: 14px; margin-bottom: 0;">总计</p>
@@ -35,7 +35,7 @@
           </div>
           <div class="fluent-card stat-card" style="padding: 4px; min-height: auto; flex-direction: column; gap: 0;">
             <div style="display: flex; align-items: center; gap: 2px;">
-              <div class="stat-icon" style="width: 10px; height: 10px; border-radius: 2px;">
+              <div class="stat-icon" style="width: 10px; height: 10px; border-radius: 8px;">
                 <svg class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg>
               </div>
               <p class="stat-card-label" style="font-size: 10px; line-height: 14px; margin-bottom: 0;">绩效</p>
@@ -44,7 +44,7 @@
           </div>
           <div class="fluent-card stat-card" style="padding: 4px; min-height: auto; flex-direction: column; gap: 0;">
             <div style="display: flex; align-items: center; gap: 2px;">
-              <div class="stat-icon" style="width: 10px; height: 10px; border-radius: 2px;">
+              <div class="stat-icon" style="width: 10px; height: 10px; border-radius: 8px;">
                 <svg class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg>
               </div>
               <p class="stat-card-label" style="font-size: 10px; line-height: 14px; margin-bottom: 0;">复联</p>
@@ -53,7 +53,7 @@
           </div>
           <div class="fluent-card stat-card" style="padding: 4px; min-height: auto; flex-direction: column; gap: 0;">
             <div style="display: flex; align-items: center; gap: 2px;">
-              <div class="stat-icon" style="width: 10px; height: 10px; border-radius: 2px;">
+              <div class="stat-icon" style="width: 10px; height: 10px; border-radius: 8px;">
                 <svg class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6L9 12.75l4.286-4.286a11.948 11.948 0 014.306 6.43l.776 2.898m0 0l3.182-5.511m-3.182 5.51l-5.511-3.181" /></svg>
               </div>
               <p class="stat-card-label" style="font-size: 10px; line-height: 14px; margin-bottom: 0;">流失</p>
@@ -61,13 +61,13 @@
             <p class="stat-card-value" id="popupLostCount" style="font-size: 11px; line-height: 14px; text-align: center;">0</p>
           </div>
         </div>
-        <button id="openCreatorManageBtn" class="px-4 py-1.5 bg-fluent-button hover:bg-fluent-buttonHover border border-fluent-border rounded-md text-sm transition-colors duration-200 whitespace-nowrap" style="padding: 4px 13px; line-height: 1.2; text-align: center; min-height: 34px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 11px;">
-          达人<br>管理
-        </button>
       </div>
       <!-- Search Input -->
-      <div class="mb-5 relative">
-        <input id="creatorSearchInput" type="text" class="w-full bg-fluent-input border-t-0 border-l-0 border-r-0 border-b border-fluent-inputBorder rounded-md px-3 py-2 text-sm text-fluent-text placeholder-fluent-textMuted fluent-input transition-colors duration-200" placeholder="通过达人ID，CID，地区搜索..."/>
+      <div class="mb-3 flex gap-2">
+        <input id="creatorSearchInput" type="text" class="flex-1 bg-fluent-input border-t-0 border-l-0 border-r-0 border-b border-fluent-inputBorder rounded-md px-3 py-2 text-sm text-fluent-text placeholder-fluent-textMuted fluent-input transition-all duration-200" placeholder="通过达人ID，CID，地区搜索..."/>
+        <button id="openCreatorManageBtn" class="px-4 py-1.5 bg-fluent-button hover:bg-fluent-buttonHover border border-fluent-border rounded-md text-sm transition-all duration-200 whitespace-nowrap">
+          达人管理
+        </button>
       </div>
       <div id="creatorPreview"></div>
       <div id="creatorSearchResults" class="search-results">
@@ -78,43 +78,36 @@
     <!-- END: Creator Management Section -->
 
     <!-- BEGIN: Function Selection Section -->
-    <section id="toolsCard" class="bg-fluent-panel border border-fluent-border rounded-xl p-4 backdrop-blur-md shadow-lg flex flex-col items-center">
-      <h3 class="text-sm text-fluent-textMuted mb-4">选择要使用的功能</h3>
-      <!-- Buttons Grid -->
-      <div class="grid grid-cols-2 gap-3 w-full">
-        <button id="btnSampleCrawl" class="flex items-center justify-center gap-2 px-4 py-2 bg-fluent-button hover:bg-fluent-buttonHover border border-fluent-border rounded-md text-sm transition-colors duration-200">
+    <section id="toolsCard" class="bg-fluent-panel border border-fluent-border rounded-xl p-3 backdrop-blur-md shadow-lg">
+      <div class="flex items-baseline gap-2 mb-2">
+        <h3 class="text-sm font-semibold">功能工具</h3>
+      </div>
+      <div class="grid grid-cols-2 gap-2 w-full">
+        <button id="btnSampleCrawl" class="flex items-center justify-center gap-2 px-3 py-1.5 bg-fluent-button hover:bg-fluent-buttonHover border border-fluent-border rounded-md text-sm transition-all duration-200">
           样品申请采集
         </button>
-        <button id="btnOrder" class="flex items-center justify-center gap-2 px-4 py-2 bg-fluent-button hover:bg-fluent-buttonHover border border-fluent-border rounded-md text-sm transition-colors duration-200">
+        <button id="btnOrder" class="flex items-center justify-center gap-2 px-3 py-1.5 bg-fluent-button hover:bg-fluent-buttonHover border border-fluent-border rounded-md text-sm transition-all duration-200">
           订单履约情况
         </button>
-        <button id="btnBitableCover" class="flex items-center justify-center gap-2 px-4 py-2 bg-fluent-button hover:bg-fluent-buttonHover border border-fluent-border rounded-md text-sm transition-colors duration-200">
+        <button id="btnBitableCover" class="flex items-center justify-center gap-2 px-3 py-1.5 bg-fluent-button hover:bg-fluent-buttonHover border border-fluent-border rounded-md text-sm transition-all duration-200">
           封面获取(多维)
-        </button>
-        <button id="btnCover" class="flex items-center justify-center gap-2 px-4 py-2 bg-fluent-button hover:bg-fluent-buttonHover border border-fluent-border rounded-md text-sm transition-colors duration-200">
-          获取视频封面
-        </button>
-        <button id="btnCid" class="flex items-center justify-center gap-2 px-4 py-2 bg-fluent-button hover:bg-fluent-buttonHover border border-fluent-border rounded-md text-sm transition-colors duration-200">
-          获取头像/CID
-        </button>
-        <button id="btnCidToName" class="flex items-center justify-center gap-2 px-4 py-2 bg-fluent-button hover:bg-fluent-buttonHover border border-fluent-border rounded-md text-sm transition-colors duration-200">
-          CID获取达人
         </button>
       </div>
     </section>
     <!-- END: Function Selection Section -->
 
     <!-- BEGIN: AI Translation Section -->
-    <section id="translateCard" class="bg-fluent-panel border border-fluent-border rounded-xl p-4 backdrop-blur-md shadow-lg">
-      <div class="flex items-baseline gap-2 mb-3">
+    <section id="translateCard" class="bg-fluent-panel border border-fluent-border rounded-xl p-3 backdrop-blur-md shadow-lg">
+      <div class="flex items-baseline gap-2 mb-2">
         <h3 class="text-sm font-semibold">AI翻译</h3>
+        <span id="translateShortcutHint" class="text-xs text-fluent-textMuted">Alt+Q 触发</span>
         <span id="translateModelInfo" class="text-xs text-fluent-textMuted">未配置</span>
       </div>
-      <div class="flex gap-3 w-full">
-        <button id="btnTranslateNow" class="flex-1 flex items-center justify-center gap-2 px-4 py-1.5 bg-fluent-button hover:bg-fluent-buttonHover border border-fluent-border rounded-md text-sm transition-colors duration-200">
+      <div class="flex gap-2 w-full">
+        <button id="btnTranslateNow" class="flex-1 flex items-center justify-center gap-2 px-3 py-1.5 bg-fluent-button hover:bg-fluent-buttonHover border border-fluent-border rounded-md text-sm transition-all duration-200">
           即时翻译
         </button>
-        <button id="btnTranslate" class="flex-1 flex items-center justify-center gap-2 px-4 py-1.5 bg-fluent-button hover:bg-fluent-buttonHover border border-fluent-border rounded-md text-sm transition-colors duration-200">
+        <button id="btnTranslate" class="flex-1 flex items-center justify-center gap-2 px-3 py-1.5 bg-fluent-button hover:bg-fluent-buttonHover border border-fluent-border rounded-md text-sm transition-all duration-200">
           翻译配置
         </button>
       </div>
@@ -122,41 +115,27 @@
     <!-- END: AI Translation Section -->
 
     <!-- BEGIN: Phrase Management Section -->
-    <section id="phraseCard" class="bg-fluent-panel border border-fluent-border rounded-xl p-4 backdrop-blur-md shadow-lg">
+    <section id="phraseCard" class="bg-fluent-panel border border-fluent-border rounded-xl p-3 backdrop-blur-md shadow-lg">
       <div id="phraseCardStatus" class="status info" style="display:none;"></div>
-      <div class="flex items-baseline gap-2 mb-4">
+      <div class="flex items-baseline gap-2 mb-2">
         <h3 class="text-sm font-semibold">短语管理</h3>
         <span id="phraseShortcutHint" class="text-xs text-fluent-textMuted">快捷短语输入"/"触发</span>
       </div>
-      <div id="tagBar" class="tagbar mt-3"></div>
+      <div id="tagBar" class="tagbar mt-1"></div>
       <div id="phraseList" style="display:none;"></div>
     </section>
     <!-- END: Phrase Management Section -->
 
-    <!-- BEGIN: Quick Image Section -->
-    <section id="quickImageCard" class="bg-fluent-panel border border-fluent-border rounded-xl p-4 backdrop-blur-md shadow-lg">
-      <div id="quickImageCardStatus" class="status info" style="display:none;"></div>
-      <div class="flex items-baseline gap-2 mb-4">
-        <h3 class="text-sm font-semibold">快捷图片</h3>
-        <span id="imageShortcutHint" class="text-xs text-fluent-textMuted">快捷键 Alt+W 触发</span>
-      </div>
-      <div class="flex gap-3 w-full">
-        <button id="btnQuickImageManage" class="flex-1 flex items-center justify-center gap-2 px-4 py-1.5 bg-fluent-button hover:bg-fluent-buttonHover border border-fluent-border rounded-md text-sm transition-colors duration-200">
-          <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.41a2.25 2.25 0 013.182 0l2.909 2.91m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" /></svg>
-          图片管理
-        </button>
-      </div>
-    </section>
-    <!-- END: Quick Image Section -->
+
 
     <!-- BEGIN: Data Management Section -->
-    <section id="dataCard" class="bg-fluent-panel border border-fluent-border rounded-xl p-4 backdrop-blur-md shadow-lg">
+    <section id="dataCard" class="bg-fluent-panel border border-fluent-border rounded-xl p-3 backdrop-blur-md shadow-lg">
       <div id="dataCardStatus" class="status info" style="display:none;"></div>
-      <div class="flex items-baseline gap-2 mb-4">
+      <div class="flex items-baseline gap-2 mb-2">
         <h3 class="text-sm font-semibold">数据管理</h3>
         <span class="text-xs text-fluent-textMuted">备份与恢复数据</span>
       </div>
-      <button id="btnBackup" class="px-4 py-1.5 bg-fluent-button hover:bg-fluent-buttonHover border border-fluent-border rounded-md text-sm transition-colors duration-200">
+      <button id="btnBackup" class="px-3 py-1.5 bg-fluent-button hover:bg-fluent-buttonHover border border-fluent-border rounded-md text-sm transition-all duration-200">
         数据备份
       </button>
     </section>
@@ -195,7 +174,7 @@
       <div class="footer">
         <button id="cancelCreatorEditBtn" class="btn-sm">取消</button>
         <button id="saveCreatorEditBtn" class="btn-sm btn-primary">保存</button>
-        <button id="deleteCreatorBtn" class="btn-sm" style="color: var(--fluent-statPerfText); border-color: rgba(255,100,100,0.3);">删除</button>
+        <button id="deleteCreatorBtn" class="btn-sm btn-danger">删除</button>
       </div>
     </div>
   </div>

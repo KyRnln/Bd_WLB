@@ -1,5 +1,46 @@
 // 备份模块 - 数据备份、恢复、WebDAV同步
 
+document.addEventListener('click', (e) => {
+  const summary = e.target.closest('details.panel > summary, details.panel .custom-summary');
+  if (!summary) return;
+  const details = summary.closest('details.panel');
+  if (!details) return;
+  const content = details.querySelector('.panel-content');
+  if (!content) return;
+  const wrap = content.querySelector('.panel-content-wrap');
+  e.preventDefault();
+  e.stopPropagation();
+  if (details.open) {
+    if (wrap) wrap.style.overflow = 'hidden';
+    content.style.transition = 'grid-template-rows 0.3s ease-in';
+    requestAnimationFrame(() => {
+      content.style.gridTemplateRows = '0fr';
+    });
+    const onEnd = () => {
+      content.removeEventListener('transitionend', onEnd);
+      details.open = false;
+      details.classList.remove('is-open');
+      content.style.transition = '';
+      content.style.gridTemplateRows = '';
+    };
+    content.addEventListener('transitionend', onEnd);
+  } else {
+    details.open = true;
+    details.classList.add('is-open');
+    content.style.gridTemplateRows = '0fr';
+    requestAnimationFrame(() => {
+      content.style.transition = 'grid-template-rows 0.3s ease-out';
+      content.style.gridTemplateRows = '1fr';
+    });
+    const onEnd = () => {
+      content.removeEventListener('transitionend', onEnd);
+      if (wrap) wrap.style.overflow = 'visible';
+      content.style.transition = '';
+    };
+    content.addEventListener('transitionend', onEnd);
+  }
+});
+
 (function() {
   'use strict';
 
@@ -319,6 +360,24 @@
     }
     if (importDataBtn) {
       importDataBtn.addEventListener('click', handleImport);
+    }
+
+    const selectFileBtn = document.getElementById('selectFileBtn');
+    const importDataFile = document.getElementById('importDataFile');
+    const fileNameDisplay = document.getElementById('fileNameDisplay');
+    if (selectFileBtn && importDataFile) {
+      selectFileBtn.addEventListener('click', () => {
+        importDataFile.click();
+      });
+      importDataFile.addEventListener('change', () => {
+        if (importDataFile.files.length > 0) {
+          fileNameDisplay.textContent = importDataFile.files[0].name;
+          fileNameDisplay.style.color = '#1a1a1a';
+        } else {
+          fileNameDisplay.textContent = '未选择文件';
+          fileNameDisplay.style.color = '#6b7280';
+        }
+      });
     }
     if (backupToWebdavBtn) {
       backupToWebdavBtn.addEventListener('click', handleBackupToWebDAV);

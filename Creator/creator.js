@@ -1,5 +1,49 @@
 // 达人管理模块
 
+document.addEventListener('click', (e) => {
+  const summary = e.target.closest('details.panel > summary, details.panel .custom-summary');
+  if (!summary) return;
+  const details = summary.closest('details.panel');
+  if (!details) return;
+  if (e.target.closest('.custom-summary') && !e.target.closest('.chevron-icon')) {
+    e.preventDefault(); return;
+  }
+  const content = details.querySelector('.panel-content');
+  if (!content) return;
+  const wrap = content.querySelector('.panel-content-wrap');
+  e.preventDefault();
+  e.stopPropagation();
+  if (details.open) {
+    if (wrap) wrap.style.overflow = 'hidden';
+    content.style.transition = 'grid-template-rows 0.3s ease-in';
+    requestAnimationFrame(() => {
+      content.style.gridTemplateRows = '0fr';
+    });
+    const onEnd = () => {
+      content.removeEventListener('transitionend', onEnd);
+      details.open = false;
+      details.classList.remove('is-open');
+      content.style.transition = '';
+      content.style.gridTemplateRows = '';
+    };
+    content.addEventListener('transitionend', onEnd);
+  } else {
+    details.open = true;
+    details.classList.add('is-open');
+    content.style.gridTemplateRows = '0fr';
+    requestAnimationFrame(() => {
+      content.style.transition = 'grid-template-rows 0.3s ease-out';
+      content.style.gridTemplateRows = '1fr';
+    });
+    const onEnd = () => {
+      content.removeEventListener('transitionend', onEnd);
+      if (wrap) wrap.style.overflow = 'visible';
+      content.style.transition = '';
+    };
+    content.addEventListener('transitionend', onEnd);
+  }
+});
+
 (function() {
   'use strict';
 
@@ -615,39 +659,39 @@
             <span style="flex: 1;" class="panel-remark">${escapeHtml(remark)}</span>
             <svg class="chevron-icon h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
           </summary>
-          <div class="panel-content" style="padding: 12px 0; overflow: hidden;">
+          <div class="panel-content" style="padding: 12px 0;">
+            <div class="panel-content-wrap">
             <p style="font-size: 13px; color: var(--text-muted, #888); margin-bottom: 16px; line-height: 1.5;">
               配置飞书多维表格信息，通过字段名匹配导入达人数据：<br>
               <strong>达人名称字段</strong>：用于匹配达人ID<br>
               <strong>达人CID字段</strong>：用于匹配达人CID<br>
               其他字段（地区、标签、备注）将自动导入
             </p>
-            <label>备注名称</label>
-            <input type="text" class="ds-field ds-remark" value="${escapeHtml(config.remark || '')}" placeholder="输入数据源备注名称" />
             <label>App ID</label>
             <input type="text" class="ds-field ds-appId" value="${escapeHtml(config.appId || '')}" placeholder="cli_xxxxxxxxxxxxx" />
             <label>App Secret</label>
             <input type="password" class="ds-field ds-appSecret" value="${escapeHtml(config.appSecret || '')}" placeholder="输入飞书应用的 App Secret" />
-            <label>飞书多维表格 URL</label>
+            <div style="display: flex; align-items: baseline; gap: 8px; margin-top: 12px; margin-bottom: 8px;">
+              <label style="margin-bottom: 0;">飞书多维表格 URL</label>
+              <span style="font-size: 12px; color: var(--text-muted, #888);">支持直链（/base/）和 Wiki（/wiki/），自动解析 Token 和 Table ID</span>
+            </div>
             <input type="text" class="ds-field ds-feishuUrl" value="${escapeHtml(config.feishuUrl || '')}" placeholder="https://xxx.feishu.cn/base/BASCxxxxx?table=tblxxx" />
-            <p style="font-size: 12px; color: var(--text-muted, #888); margin: 8px 0 8px 0;">
-              支持多维表格直链（/base/）和 Wiki 链接（/wiki/），系统将自动解析 Base Token 和 Table ID
-            </p>
             <label>达人名称字段名</label>
             <input type="text" class="ds-field ds-nameField" value="${escapeHtml(config.creatorNameField || '达人名称')}" placeholder="达人名称" />
             <label>达人CID字段名</label>
             <input type="text" class="ds-field ds-cidField" value="${escapeHtml(config.creatorCidField || '达人CID')}" placeholder="达人CID" />
             <label>达人状态字段名（作为标签）</label>
             <input type="text" class="ds-field ds-statusField" value="${escapeHtml(config.creatorStatusField || '达人状态')}" placeholder="达人状态" />
-            <label>达人地区字段名</label>
+            <div style="display: flex; align-items: baseline; gap: 8px; margin-top: 8px; margin-bottom: 4px;">
+              <label style="margin-bottom: 0;">达人地区字段名</label>
+              <span style="font-size: 12px; color: var(--text-muted, #888);">导入时读取该字段值作为达人地区代码</span>
+            </div>
             <input type="text" class="ds-field ds-regionField" value="${escapeHtml(config.creatorRegionField || '地区')}" placeholder="达人地区" />
-            <p style="font-size: 12px; color: var(--text-muted, #888); margin: -8px 0 8px 0;">
-              导入时从飞书记录中读取该字段的值作为达人的地区代码
-            </p>
             <div class="flex gap-3 mt-3 w-full" style="min-width: 0; gap: 8px;">
               <button class="btn-sm btn-primary ds-import-btn" style="flex:1;">导入数据</button>
               <button class="btn-sm ds-save-btn">保存配置</button>
-              <button class="btn-sm ds-delete-btn" style="color: var(--stat-perf-text); border-color: rgba(255, 100, 100, 0.3);">删除</button>
+              <button class="btn-sm btn-danger ds-delete-btn">删除</button>
+            </div>
             </div>
           </div>
         </details>
@@ -685,14 +729,17 @@
 
   function getPanelConfig(detailsEl) {
     const id = detailsEl.dataset.id;
-    const inputs = detailsEl.querySelectorAll('.ds-field');
     const getVal = (className) => {
       const input = detailsEl.querySelector('.' + className);
       return input ? input.value.trim() : '';
     };
+    const remarkEl = detailsEl.querySelector('.panel-remark');
+    const remarkValue = remarkEl
+      ? (remarkEl.tagName === 'INPUT' ? remarkEl.value.trim() : remarkEl.textContent.trim())
+      : '';
     return {
       id: id,
-      remark: getVal('ds-remark') || '未命名数据源',
+      remark: remarkValue || '未命名数据源',
       appId: getVal('ds-appId'),
       appSecret: getVal('ds-appSecret'),
       feishuUrl: getVal('ds-feishuUrl'),
@@ -1236,6 +1283,22 @@
       closeFeishuConfigBtn.addEventListener('click', closeFeishuConfigDialog);
     }
 
+    document.querySelectorAll('.dialog-mask').forEach(mask => {
+      mask.addEventListener('click', (e) => {
+        if (e.target === mask) {
+          mask.classList.remove('show');
+        }
+      });
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        document.querySelectorAll('.dialog-mask.show').forEach(mask => {
+          mask.classList.remove('show');
+        });
+      }
+    });
+
     const dialogAddDataSourceBtn = document.getElementById('dialogAddDataSourceBtn');
     if (dialogAddDataSourceBtn) {
       dialogAddDataSourceBtn.addEventListener('click', addNewDataSource);
@@ -1257,6 +1320,97 @@
           e.preventDefault();
           await handleImportFromDataSource(detailsEl);
         }
+      });
+
+      dialogPanelContainer.addEventListener('click', (e) => {
+        const summary = e.target.closest('.custom-summary');
+        if (!summary) return;
+        const detailsEl = summary.closest('details');
+        if (!detailsEl) return;
+        if (!e.target.closest('.chevron-icon')) {
+          e.preventDefault();
+          return;
+        }
+        e.preventDefault();
+        e.stopPropagation();
+        const content = detailsEl.querySelector('.panel-content');
+        if (!content) { detailsEl.open = !detailsEl.open; return; }
+        const wrap = content.querySelector('.panel-content-wrap');
+        if (detailsEl.open) {
+          if (wrap) wrap.style.overflow = 'hidden';
+          content.style.transition = 'grid-template-rows 0.3s ease-in';
+          requestAnimationFrame(() => {
+            content.style.gridTemplateRows = '0fr';
+          });
+          const onEnd = () => {
+            content.removeEventListener('transitionend', onEnd);
+            detailsEl.open = false;
+            detailsEl.classList.remove('is-open');
+            content.style.transition = '';
+            content.style.gridTemplateRows = '';
+          };
+          content.addEventListener('transitionend', onEnd);
+        } else {
+          detailsEl.open = true;
+          detailsEl.classList.add('is-open');
+          content.style.gridTemplateRows = '0fr';
+          requestAnimationFrame(() => {
+            content.style.transition = 'grid-template-rows 0.3s ease-out';
+            content.style.gridTemplateRows = '1fr';
+          });
+          const onEnd = () => {
+            content.removeEventListener('transitionend', onEnd);
+            if (wrap) wrap.style.overflow = 'visible';
+            content.style.transition = '';
+          };
+          content.addEventListener('transitionend', onEnd);
+        }
+      }, true);
+
+      dialogPanelContainer.addEventListener('dblclick', async (e) => {
+        const remarkSpan = e.target.closest('.panel-remark');
+        if (!remarkSpan || remarkSpan.tagName === 'INPUT') return;
+
+        const detailsEl = remarkSpan.closest('details.panel');
+        if (!detailsEl) return;
+
+        const originalText = remarkSpan.textContent.trim();
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = originalText;
+        input.className = 'panel-remark';
+        input.style.cssText = 'flex: 1; font-size: inherit; font-weight: inherit; color: inherit; border: 1px solid #3b82f6; border-radius: 8px; padding: 0 4px; outline: none; background: #fff;';
+
+        remarkSpan.replaceWith(input);
+        input.focus();
+        input.select();
+
+        const saveRemark = async () => {
+          const newValue = input.value.trim() || '未命名数据源';
+          const newSpan = document.createElement('span');
+          newSpan.style.cssText = 'flex: 1;';
+          newSpan.className = 'panel-remark';
+          newSpan.textContent = newValue;
+          input.replaceWith(newSpan);
+
+          const id = detailsEl.dataset.id;
+          const config = feishuConfigs.find(c => c.id === id);
+          if (config && config.remark !== newValue) {
+            config.remark = newValue;
+            await saveFeishuConfigsToStorage();
+          }
+        };
+
+        input.addEventListener('blur', saveRemark);
+        input.addEventListener('keydown', (ev) => {
+          if (ev.key === 'Enter') {
+            ev.preventDefault();
+            input.blur();
+          } else if (ev.key === 'Escape') {
+            input.value = originalText;
+            input.blur();
+          }
+        });
       });
     }
 
