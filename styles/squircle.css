@@ -1,0 +1,44 @@
+:root {
+  --squircle-modifier: 1.8;
+}
+
+/* Squircle corners - Edge style */
+section,
+.card,
+.fluent-card,
+.dialog,
+.stat-card,
+button,
+input,
+textarea,
+select,
+summary,
+.panel,
+.action-card,
+.creator-header,
+.search-results,
+.tag-item {
+  corner-shape: squircle;
+  border-radius: calc(var(--radius-sm, 8px) * var(--squircle-modifier));
+}
+
+.rounded-md,
+.rounded {
+  corner-shape: squircle;
+  border-radius: calc(var(--radius, 8px) * var(--squircle-modifier));
+}
+
+.rounded-lg {
+  corner-shape: squircle;
+  border-radius: calc(var(--radius-lg, 8px) * var(--squircle-modifier));
+}
+
+.rounded-xl {
+  corner-shape: squircle;
+  border-radius: calc(var(--radius-xl, 8px) * var(--squircle-modifier));
+}
+
+.rounded-full {
+  corner-shape: squircle;
+  border-radius: var(--radius-full, 9999px);
+}
