@@ -43,7 +43,11 @@ details,
 .phrase-content,
 .phrase-actions,
 .phrase-list,
-[style*="border-radius"] {
+[style*="border-radius"],
+.wlb-translate-box,
+.wlb-translate-box .translate-target,
+.wlb-translate-box .translate-input,
+.wlb-translate-box .translate-close {
   border-radius: calc(var(--radius-sm, 8px) * var(--squircle-modifier)) !important;
 }
 

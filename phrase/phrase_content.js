@@ -36,18 +36,18 @@
     searchBar.className = 'wlb-phrase-search-bar';
     searchBar.style.display = 'none';
     searchBar.innerHTML = `
-      <input type="text" id="wlb-phrase-search" class="phrase-search-input" placeholder="搜索短语..." />
-      <button id="wlb-phrase-close" class="phrase-close">×</button>
+      <div class="phrase-search-row">
+        <input type="text" id="wlb-phrase-search" class="phrase-search-input" placeholder="搜索短语..." />
+        <button id="wlb-phrase-close" class="phrase-close">×</button>
+      </div>
+      <div class="wlb-phrase-selector" id="wlb-phrase-selector" tabindex="-1">
+        <div id="wlb-phrase-list"></div>
+      </div>
     `;
 
-    selector = document.createElement('div');
-    selector.className = 'wlb-phrase-selector';
-    selector.tabIndex = -1;
-    selector.style.display = 'none';
-    selector.innerHTML = `<div id="wlb-phrase-list"></div>`;
+    selector = searchBar.querySelector('.wlb-phrase-selector');
 
     document.body.appendChild(searchBar);
-    document.body.appendChild(selector);
 
     document.getElementById('wlb-phrase-close').addEventListener('click', hideSelector);
 
@@ -131,9 +131,8 @@
     renderList();
 
     const rect = focusedInput.getBoundingClientRect();
-    const searchBarHeight = 44;
     let posX = rect.left + 10;
-    let posY = rect.top - searchBarHeight - 10;
+    let posY = rect.top - 44 - 10;
 
     if (posX < 10) posX = 10;
     if (posY < 10) {
@@ -147,28 +146,17 @@
 
     savedCursorPos = focusedInput.selectionStart || 0;
 
-    const selectorTop = posY + searchBarHeight;
-    selector.style.left = posX + 'px';
-    selector.style.top = selectorTop + 'px';
-    selector.style.display = 'block';
-
     requestAnimationFrame(() => {
-      const barBox = searchBar.getBoundingClientRect();
-      const listBox = selector.getBoundingClientRect();
+      const totalBox = searchBar.getBoundingClientRect();
       const margin = 8;
       let left = parseFloat(searchBar.style.left);
-      if (barBox.right > window.innerWidth - margin) {
-        left = Math.max(margin, window.innerWidth - margin - barBox.width);
+      if (totalBox.right > window.innerWidth - margin) {
+        left = Math.max(margin, window.innerWidth - margin - totalBox.width);
         searchBar.style.left = left + 'px';
-        selector.style.left = left + 'px';
       }
-      if (listBox.bottom > window.innerHeight - margin) {
-        const totalHeight = listBox.height + searchBarHeight;
-        searchBar.style.top = (window.innerHeight - margin - totalHeight) + 'px';
-        selector.style.top = (window.innerHeight - margin - totalHeight + searchBarHeight) + 'px';
+      if (totalBox.bottom > window.innerHeight - margin) {
+        searchBar.style.top = (window.innerHeight - margin - totalBox.height) + 'px';
       }
-      // 同步选择器宽度与搜索栏一致
-      selector.style.width = barBox.width + 'px';
     });
 
     document.getElementById('wlb-phrase-search').value = '';
@@ -176,10 +164,10 @@
   }
 
   function hideSelector(keepFocus = false) {
-    if (searchBar) searchBar.style.display = 'none';
-    if (selector) {
-      selector.style.display = 'none';
-      document.getElementById('wlb-phrase-search').value = '';
+    if (searchBar) {
+      searchBar.style.display = 'none';
+      const searchInput = document.getElementById('wlb-phrase-search');
+      if (searchInput) searchInput.value = '';
     }
     selectedIndex = 0;
     if (keepFocus && focusedInput) {
@@ -313,7 +301,7 @@
   }
 
   function handleClick(e) {
-    if (selector && selector.style.display !== 'none' && !selector.contains(e.target) && !searchBar.contains(e.target)) {
+    if (searchBar && searchBar.style.display !== 'none' && !searchBar.contains(e.target)) {
       hideSelector();
     }
   }
@@ -340,7 +328,7 @@
       activeTagId = typeof changes.activeTagId.newValue === 'string' ? changes.activeTagId.newValue : '__ALL__';
       needRerender = true;
     }
-    if (selector && selector.style.display !== 'none' && needRerender) {
+    if (searchBar && searchBar.style.display !== 'none' && needRerender) {
       selectedIndex = 0;
       filteredPhrases = getVisiblePhrases().slice();
       applyFilter(document.getElementById('wlb-phrase-search').value);
