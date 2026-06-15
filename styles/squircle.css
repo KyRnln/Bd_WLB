@@ -2,43 +2,64 @@
   --squircle-modifier: 1.8;
 }
 
-/* Squircle corners - Edge style */
+/* Squircle corners - apply to all elements */
+* {
+  corner-shape: squircle !important;
+}
+
+/* Override all border-radius with squircle modifier */
 section,
 .card,
 .fluent-card,
 .dialog,
 .stat-card,
 button,
+.btn-sm,
+.btn-primary,
+.btn-danger,
+.toolbar-btn,
+.toolbar-btn-primary,
+.toolbar-btn-secondary,
+.toolbar-btn-danger,
 input,
 textarea,
 select,
 summary,
 .panel,
+.panel-content-wrap,
 .action-card,
 .creator-header,
+.creator-toolbar,
 .search-results,
-.tag-item {
-  corner-shape: squircle;
-  border-radius: calc(var(--radius-sm, 8px) * var(--squircle-modifier));
+.search-box,
+.tag-item,
+.filter-tab,
+.creator-filters,
+#tagBar,
+details,
+.phrase-item,
+.phrase-tag,
+.phrase-title,
+.phrase-content,
+.phrase-actions,
+.phrase-list,
+[style*="border-radius"] {
+  border-radius: calc(var(--radius-sm, 8px) * var(--squircle-modifier)) !important;
 }
 
 .rounded-md,
 .rounded {
-  corner-shape: squircle;
-  border-radius: calc(var(--radius, 8px) * var(--squircle-modifier));
+  border-radius: calc(var(--radius, 8px) * var(--squircle-modifier)) !important;
 }
 
 .rounded-lg {
-  corner-shape: squircle;
-  border-radius: calc(var(--radius-lg, 8px) * var(--squircle-modifier));
+  border-radius: calc(var(--radius-lg, 8px) * var(--squircle-modifier)) !important;
 }
 
 .rounded-xl {
-  corner-shape: squircle;
-  border-radius: calc(var(--radius-xl, 8px) * var(--squircle-modifier));
+  border-radius: calc(var(--radius-xl, 8px) * var(--squircle-modifier)) !important;
 }
 
 .rounded-full {
-  corner-shape: squircle;
-  border-radius: var(--radius-full, 9999px);
+  border-radius: var(--radius-full, 9999px) !important;
 }
