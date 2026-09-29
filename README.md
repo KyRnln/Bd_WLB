@@ -1,5 +1,7 @@
 # 商务WLB插件（Bd_WLB）
 
+[![CI](https://github.com/KyRnln/Bd_WLB/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/KyRnln/Bd_WLB/actions/workflows/ci.yml)
+
 > 面向 TikTok Shop / Tokopedia 联盟（Affiliate）达人运营的浏览器扩展。一个插件完成：达人库自动高亮、订单履约批量查询、CID 与达人互查、视频封面抓取、AI 翻译、快捷短语与数据备份。
 
 > 工作是为了更好的生活。
