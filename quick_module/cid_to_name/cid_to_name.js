@@ -380,10 +380,15 @@
       stopBtn.style.display = 'inline-block';
 
       try {
+        const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        const origin = (activeTab && activeTab.url && activeTab.url.includes('affiliate-id.tokopedia.com'))
+          ? 'https://affiliate-id.tokopedia.com'
+          : 'https://affiliate.tiktokshopglobalselling.com';
         const response = await chrome.runtime.sendMessage({
           action: 'startBatchQuery_cidToName',
           cids: cids,
-          region: region
+          region: region,
+          origin: origin
         });
 
         if (response && response.success) {

@@ -161,12 +161,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     switchToProgressMode();
     updateProgressDisplay(`准备查询 ${orderIds.length} 个订单...\n请稍候...`);
 
-    const ORDER_QUERY_URL = 'affiliate.tiktokshopglobalselling.com/product/sample-request';
-
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
       const currentUrl = tab.url || '';
+      const ORDER_QUERY_URL = currentUrl.includes('affiliate-id.tokopedia.com')
+        ? 'affiliate-id.tokopedia.com/affiliate/sample/sample-request'
+        : 'affiliate.tiktokshopglobalselling.com/product/sample-request';
       const isTargetPage = currentUrl.includes(ORDER_QUERY_URL);
 
       let contentScriptReady = await checkContentScript(tab.id);

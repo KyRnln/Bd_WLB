@@ -584,7 +584,9 @@ class OrderAutomation {
         await this.sleep(2000);
         return { success: true, message: '已点击样品申请菜单', url: window.location.href };
       } else {
-        const targetUrl = 'https://affiliate.tiktokshopglobalselling.com/product/sample-request';
+        const targetUrl = location.hostname.includes('tokopedia')
+          ? 'https://affiliate-id.tokopedia.com/affiliate/sample/sample-request'
+          : 'https://affiliate.tiktokshopglobalselling.com/product/sample-request';
         window.location.href = targetUrl;
         await this.sleep(3000);
         return { success: true, message: '已导航到样品申请页面', url: window.location.href };
@@ -638,7 +640,9 @@ class OrderAutomation {
         await this.sleep(2000);
         return { success: true, message: '已点击达人管理菜单', url: window.location.href };
       } else {
-        const targetUrl = 'https://affiliate.tiktokshopglobalselling.com/connection/creator-management';
+        const targetUrl = location.hostname.includes('tokopedia')
+          ? 'https://affiliate-id.tokopedia.com/connection/creator-management'
+          : 'https://affiliate.tiktokshopglobalselling.com/connection/creator-management';
         window.location.href = targetUrl;
         await this.sleep(3000);
         return { success: true, message: '已导航到达人管理页面', url: window.location.href };

@@ -164,7 +164,10 @@ class TikTokShopCidExtractor {
   buildDetailUrl(cid) {
     const params = new URLSearchParams(window.location.search);
     const shopRegion = params.get('shop_region') || 'MY';
-    const base = 'https://affiliate.tiktokshopglobalselling.com/connection/creator/detail';
+    const origin = window.location.hostname.includes('tokopedia')
+      ? 'https://affiliate-id.tokopedia.com'
+      : 'https://affiliate.tiktokshopglobalselling.com';
+    const base = `${origin}/connection/creator/detail`;
     const enterFrom = params.get('enter_from') || 'affiliate_crm';
     return `${base}?cid=${encodeURIComponent(cid)}&enter_from=${encodeURIComponent(enterFrom)}&shop_region=${encodeURIComponent(shopRegion)}`;
   }

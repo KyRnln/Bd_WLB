@@ -339,7 +339,7 @@ async function handleUsernameAvatarCidMessage(request, sender, downloadExcel) {
     }
     case 'openTab': {
       const url = String(request.url || '');
-      if (!url.startsWith('https://affiliate.tiktokshopglobalselling.com/')) {
+      if (!url.startsWith('https://affiliate.tiktokshopglobalselling.com/') && !url.startsWith('https://affiliate-id.tokopedia.com/')) {
         return { success: false, error: '非法URL' };
       }
       const tab = await chrome.tabs.create({ url, active: true });

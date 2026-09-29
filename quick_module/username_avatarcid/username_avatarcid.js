@@ -214,7 +214,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (!tab || !tab.url || !tab.url.includes('affiliate.tiktokshopglobalselling.com')) {
+      const isAffiliatePage = !!tab && !!tab.url && (tab.url.includes('affiliate.tiktokshopglobalselling.com') || tab.url.includes('affiliate-id.tokopedia.com'));
+      if (!isAffiliatePage) {
         showStatus('⚠️ 请先打开 TikTok Shop 达人管理页面，再使用此功能', 'error');
         return;
       }

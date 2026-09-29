@@ -19,7 +19,7 @@ async function initBatchQueryState_cidToName() {
 }
 initBatchQueryState_cidToName();
 
-async function executeBatchQuery_cidToName(cids, region) {
+async function executeBatchQuery_cidToName(cids, region, origin = 'https://affiliate.tiktokshopglobalselling.com') {
   for (let i = 0; i < cids.length; i++) {
     if (!batchQueryState_cidToName.isRunning) break;
     const cid = String(cids[i] || '').trim();
@@ -30,7 +30,7 @@ async function executeBatchQuery_cidToName(cids, region) {
     await chrome.storage.local.set({ batchQueryState_cidToName });
 
     try {
-      const url = `https://affiliate.tiktokshopglobalselling.com/connection/creator/detail?cid=${encodeURIComponent(cid)}&enter_from=affiliate_crm&shop_region=${region}`;
+      const url = `${origin}/connection/creator/detail?cid=${encodeURIComponent(cid)}&enter_from=affiliate_crm&shop_region=${region}`;
       const tab = await chrome.tabs.create({ url, active: false });
 
       const result = await new Promise((resolve, reject) => {
@@ -91,7 +91,7 @@ async function handleCidToNameMessage(request) {
       };
       chrome.storage.local.set({ batchQueryState_cidToName });
 
-      executeBatchQuery_cidToName(cids, request.region).catch(err => {
+      executeBatchQuery_cidToName(cids, request.region, request.origin).catch(err => {
         console.error('批量查询执行失败:', err);
         batchQueryState_cidToName.isRunning = false;
         batchQueryState_cidToName.error = err?.message || String(err);

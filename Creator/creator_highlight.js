@@ -129,10 +129,10 @@
       const normId = btn.dataset.normId;
       const isCurrentlyHidden = creatorSets.hidden.has(normId);
 
-      const allIdElements = document.querySelectorAll('[data-e2e="8a94f9b6-1a48-fe57"]');
+      const allIdElements = document.querySelectorAll('[data-wlb-cid], [data-e2e="8a94f9b6-1a48-fe57"]');
       const matchingElements = [];
       allIdElements.forEach(el => {
-        const elNorm = normalizeCreatorId(el.textContent || '');
+        const elNorm = el.dataset.wlbCid || normalizeCreatorId(el.textContent || '');
         if (elNorm === normId) {
           matchingElements.push(el);
         }
@@ -192,6 +192,8 @@
 
     const normId = normalizeCreatorId(rawCreatorId);
     if (!normId || !rawCreatorId.startsWith('@') && !/[a-zA-Z]/.test(rawCreatorId)) return;
+
+    idElement.dataset.wlbCid = normId;
 
     const parentContainer = idElement.parentNode;
     if (!parentContainer) return;
@@ -288,6 +290,7 @@
     flexContainersLoop(container);
     imNameDivsLoop(container);
     imUnameDivsLoop(container);
+    tokopediaLoop();
   }
 
   function flexContainersLoop(container) {
@@ -386,6 +389,117 @@
         unameDiv.style.textOverflow = 'ellipsis';
         parentDiv.insertBefore(tagSpan, unameDiv);
       }
+    });
+  }
+
+  function tokopediaCreatorCells() {
+    const cells = [];
+    document.querySelectorAll('tr.core-table-tr').forEach(row => {
+      const anchor = row.querySelector('[data-id="free-sample-creator-info"]');
+      const cell = anchor ? anchor.closest('td') : null;
+      if (cell) cells.push(cell);
+    });
+    return cells;
+  }
+
+  function findTokopediaNameEl(cell) {
+    const selectors = [
+      '.text-body-m-medium.text-neutral-text1.text-overflow-single',
+      '[data-e2e="afc4471a-9b2c-8882"]'
+    ];
+    for (const selector of selectors) {
+      const el = cell.querySelector(selector);
+      if (el && (el.textContent || '').trim()) return el;
+    }
+    return null;
+  }
+
+  function tokopediaLoop() {
+    if (!allCreatorMap.size) return;
+
+    tokopediaCreatorCells().forEach(cell => {
+      const nameEl = findTokopediaNameEl(cell);
+      if (!nameEl) return;
+
+      const norm = normalizeCreatorId(nameEl.textContent || '');
+      if (!norm) return;
+
+      nameEl.dataset.wlbCid = norm;
+
+      const parent = nameEl.parentElement;
+      if (!parent) return;
+
+      if (!parent.querySelector('.creator-blacklist-btn')) {
+        parent.appendChild(createBlacklistButton(nameEl, (nameEl.textContent || '').trim()));
+      }
+      const btn = parent.querySelector('.creator-blacklist-btn');
+
+      let tagSpan = parent.querySelector('.wlb-tokopedia-tag');
+
+      nameEl.classList.remove(HIGHLIGHT_CLASSES.performance, HIGHLIGHT_CLASSES.lost, HIGHLIGHT_CLASSES.hidden);
+
+      const creator = getCreatorById(norm);
+
+      if (!creator || !creator.tag) {
+        nameEl.style.color = '';
+        nameEl.style.fontWeight = '';
+        nameEl.style.textDecoration = '';
+        nameEl.style.opacity = '';
+        if (btn) {
+          btn.classList.remove('blacklisted');
+          btn.textContent = '隐藏';
+          btn.title = '点击隐藏此达人';
+        }
+        if (tagSpan) tagSpan.remove();
+        return;
+      }
+
+      const tagStyle = TAG_COLORS[creator.tag] || { bg: '#f0f0f0', color: '#333' };
+
+      if (creator.tag === '隐藏达人') {
+        nameEl.classList.add(HIGHLIGHT_CLASSES.hidden);
+        nameEl.style.textDecoration = 'line-through';
+        nameEl.style.opacity = '0.5';
+        nameEl.style.color = '#999';
+        nameEl.style.fontWeight = '';
+        if (btn) {
+          btn.classList.add('blacklisted');
+          btn.textContent = '解除';
+          btn.title = '点击取消隐藏';
+        }
+      } else if (creator.tag === '绩效达人') {
+        nameEl.classList.add(HIGHLIGHT_CLASSES.performance);
+        nameEl.style.color = '#ff0050';
+        nameEl.style.fontWeight = '700';
+        nameEl.style.textDecoration = '';
+        nameEl.style.opacity = '';
+        if (btn) {
+          btn.classList.remove('blacklisted');
+          btn.textContent = '隐藏';
+          btn.title = '点击隐藏此达人';
+        }
+      } else if (creator.tag === '流失达人') {
+        nameEl.classList.add(HIGHLIGHT_CLASSES.lost);
+        nameEl.style.color = '#117a42';
+        nameEl.style.fontWeight = '700';
+        nameEl.style.opacity = '0.5';
+        nameEl.style.textDecoration = 'line-through';
+        if (btn) {
+          btn.classList.remove('blacklisted');
+          btn.textContent = '隐藏';
+          btn.title = '点击隐藏此达人';
+        }
+      }
+
+      if (!tagSpan) {
+        tagSpan = document.createElement('span');
+        tagSpan.className = 'wlb-tokopedia-tag';
+        tagSpan.style.cssText = 'display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 4px; font-size: 11px; font-weight: 500; flex-shrink: 0; white-space: nowrap;';
+        parent.insertBefore(tagSpan, nameEl.nextSibling);
+      }
+      tagSpan.style.background = tagStyle.bg;
+      tagSpan.style.color = tagStyle.color;
+      tagSpan.textContent = creator.tag.replace('达人', '');
     });
   }
 
